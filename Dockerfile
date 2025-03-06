@@ -23,4 +23,4 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser
 USER appuser
 
 # Command to start the server
-CMD ["gunicorn", "--bind", "0.0.0.0:5600", "Backend.app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5600", "app:app"]
