@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trivia Game</title>
+    <title>Trivia Collection</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         async function loadQuestion() {
@@ -19,7 +19,7 @@
                 mediaContainer.innerHTML = "";
                 
                 if (data.media) {
-                    if (data.media.endsWith(".jpg") || data.media.endsWith(".png") || data.media.endsWith(".gif")) {
+                    if (data.media.endsWith(".jpg") || data.media.endsWith(".jpeg") || data.media.endsWith(".png") || data.media.endsWith(".gif")) {
                         mediaContainer.innerHTML = `<img src="/static/${data.media}" class="max-w-full rounded-lg shadow-md" />`;
                     } else if (data.media.endsWith(".mp4")) {
                         mediaContainer.innerHTML = `<video controls class="max-w-full rounded-lg shadow-md"><source src="/static/${data.media}" type="video/mp4"></video>`;
@@ -47,60 +47,5 @@
         <button onclick="loadQuestion()" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Next Question</button>
     </div>
     <a href="/database" class="mt-6 text-gray-400 hover:text-gray-200 underline">Manage Database</a>
-
-    <!-- Database Management Section -->
-    <div class="mt-10 max-w-2xl w-full bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h2 class="text-2xl font-bold mb-4">Manage Database</h2>
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr>
-                    <th class="border-b p-2">Question</th>
-                    <th class="border-b p-2">Answer</th>
-                    <th class="border-b p-2">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="question-list"></tbody>
-        </table>
-        <h3 class="text-xl mt-6">Add New Question</h3>
-        <input id="new-question" type="text" placeholder="Question" class="w-full p-2 mt-2 rounded">
-        <input id="new-answer" type="text" placeholder="Answer" class="w-full p-2 mt-2 rounded">
-        <input id="new-media" type="text" placeholder="Media Path (Optional)" class="w-full p-2 mt-2 rounded">
-        <button onclick="addQuestion()" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add</button>
-    </div>
-
-    <script>
-        async function loadDatabase() {
-            let response = await fetch("/get-questions");
-            let questions = await response.json();
-            let questionList = document.getElementById("question-list");
-            questionList.innerHTML = "";
-            questions.forEach(q => {
-                let row = `<tr>
-                    <td class='border-b p-2'>${q.question}</td>
-                    <td class='border-b p-2'>${q.answer}</td>
-                    <td class='border-b p-2'><button onclick='deleteQuestion(${q.id})' class='text-red-500'>Delete</button></td>
-                </tr>`;
-                questionList.innerHTML += row;
-            });
-        }
-
-        async function addQuestion() {
-            let question = document.getElementById("new-question").value;
-            let answer = document.getElementById("new-answer").value;
-            let media = document.getElementById("new-media").value;
-            await fetch("/add-question", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question, answer, media })
-            });
-            loadDatabase();
-        }
-
-        async function deleteQuestion(id) {
-            await fetch(`/delete-question/${id}`, { method: "DELETE" });
-            loadDatabase();
-        }
-        loadDatabase();
-    </script>
 </body>
 </html>
