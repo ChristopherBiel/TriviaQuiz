@@ -1,0 +1,57 @@
+INSERT INTO trivia (
+    question, answer, media_path, added_by, added_at, question_topic, 
+    question_source, answer_source, expiration_date, incorrect_answer, 
+    times_asked, times_correctly_answered, times_incorrectly_answered, 
+    last_updated_at, language, review_status, tags
+) VALUES 
+(
+    "What is the capital of France?", 
+    "Paris", 
+    NULL, 
+    "Admin", 
+    CURRENT_TIMESTAMP, 
+    "Geography", 
+    "Pubquiz Towers, 04.02.25", 
+    "https://en.wikipedia.org/wiki/Paris", 
+    NULL, 
+    "Berlin,London,Madrid", 
+    0, 0, 0, 
+    CURRENT_TIMESTAMP, 
+    "English", 
+    1, 
+    "capital,country,Europe"
+),
+(
+    "Who wrote Hamlet?", 
+    "William Shakespeare", 
+    NULL, 
+    "Admin", 
+    CURRENT_TIMESTAMP, 
+    "Literature", 
+    NULL, 
+    "https://en.wikipedia.org/wiki/Hamlet", 
+    NULL, 
+    "Charles Dickens,Mark Twain,Jane Austen", 
+    0, 0, 0, 
+    CURRENT_TIMESTAMP, 
+    "English", 
+    1, 
+    "Shakespeare,play,classic"
+),
+(
+    "What is the square root of 64?", 
+    "8", 
+    NULL, 
+    "Admin", 
+    CURRENT_TIMESTAMP, 
+    "Math", 
+    NULL, 
+    "https://en.wikipedia.org/wiki/Square_root", 
+    NULL, 
+    "6,7,9", 
+    0, 0, 0, 
+    CURRENT_TIMESTAMP, 
+    "English", 
+    1, 
+    "math,numbers,education"
+);

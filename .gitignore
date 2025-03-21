@@ -1,5 +1,12 @@
 # Ignore the database
 *.db
-.vscode
 static/uploads/*
+
+# Ignore the login data
 backend/logindata.env
+
+# Ignore the virtual environment
+venv
+.venv
+
+.vscode
