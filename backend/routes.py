@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
 from backend.db import get_db
+from backend.auth import auth_bp  # Import auth_bp from auth.py
 
 routes_bp = Blueprint("routes", __name__)
 
@@ -21,5 +22,5 @@ def manage_database():
     return render_template("database.html")
 
 def init_routes(app):
-    app.register_blueprint(routes_bp)
-    app.register_blueprint(auth_bp)
+    app.register_blueprint(routes_bp)  # Register main routes
+    app.register_blueprint(auth_bp)    # Register authentication routes
