@@ -10,3 +10,7 @@ venv
 .venv
 
 .vscode
+
+# Ignore the cache
+__pycache__
+backend/__pycache__/*
