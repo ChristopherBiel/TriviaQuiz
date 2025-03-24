@@ -11,22 +11,25 @@
                 let response = await fetch("/random-question");
                 let data = await response.json();
                 
-                document.getElementById("question").innerText = data.question;
+                document.getElementById("question").innerText = data.question || "No question found";
                 document.getElementById("answer").innerText = "???";
-                document.getElementById("answer").dataset.answer = data.answer;
-                
+                document.getElementById("answer").dataset.answer = data.answer || "Unknown";
+
                 let mediaContainer = document.getElementById("media");
                 mediaContainer.innerHTML = "";
                 
-                if (data.media) {
-                    if (data.media.endsWith(".jpg") || data.media.endsWith(".jpeg") || data.media.endsWith(".png") || data.media.endsWith(".gif")) {
-                        mediaContainer.innerHTML = `<img src="/static/${data.media}" class="max-w-full rounded-lg shadow-md" />`;
-                    } else if (data.media.endsWith(".mp4")) {
-                        mediaContainer.innerHTML = `<video controls class="max-w-full rounded-lg shadow-md"><source src="/static/${data.media}" type="video/mp4"></video>`;
-                    } else if (data.media.endsWith(".mp3")) {
-                        mediaContainer.innerHTML = `<audio controls class="w-full"><source src="/static/${data.media}" type="audio/mp3"></audio>`;
+                if (data.media_path) {
+                    let fileType = data.media_path.split(".").pop().toLowerCase();
+    
+                    if (["jpg", "jpeg", "png", "gif"].includes(fileType)) {
+                        mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full rounded-lg shadow-md" />`;
+                    } else if (fileType === "mp4") {
+                        mediaContainer.innerHTML = `<video controls class="max-w-full rounded-lg shadow-md"><source src="${data.media_path}" type="video/mp4"></video>`;
+                    } else if (fileType === "mp3") {
+                        mediaContainer.innerHTML = `<audio controls class="w-full"><source src="${data.media_path}" type="audio/mp3"></audio>`;
                     }
                 }
+
             } catch (error) {
                 document.getElementById("question").innerText = "Error loading question!";
                 console.error("Error fetching question:", error);
