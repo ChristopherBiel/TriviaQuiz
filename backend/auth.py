@@ -1,10 +1,20 @@
-from flask import Blueprint, request, session, redirect, url_for, render_template
+import boto3
 import os
+from flask import Blueprint, request, session, redirect, url_for, render_template
 
 auth_bp = Blueprint("auth", __name__)
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+# Initialize AWS Systems Manager Client
+ssm = boto3.client("ssm", region_name="eu-central-1")
+
+def get_parameter(name):
+    """Retrieve parameter from AWS Systems Manager Parameter Store."""
+    response = ssm.get_parameter(Name=name, WithDecryption=True)
+    return response["Parameter"]["Value"]
+
+# Load credentials from AWS Systems Manager
+ADMIN_USERNAME = get_parameter("/TriviaQuiz/ADMIN_USERNAME")
+ADMIN_PASSWORD = get_parameter("/TriviaQuiz/ADMIN_PASSWORD")
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
