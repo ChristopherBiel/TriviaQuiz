@@ -23,7 +23,7 @@ def login():
         password = request.form["password"]
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session["logged_in"] = True
-            return redirect(url_for("manage_database"))
+            return redirect(url_for("routes.manage_database"))
         return "Invalid credentials", 403
     return render_template("login.html")
 
