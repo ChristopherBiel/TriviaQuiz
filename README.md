@@ -1,5 +1,8 @@
+![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
+
 # TriviaQuiz
-Hosts a webpage and backend to store and search trivia questions
+Hosts a webpage which serves trivia questions from a database.
+The webservice is aimed at being deployed on an AWS EC2 instance with a dynamoDB and S3 backend.
 
 ## Getting started
 Create a sqlite3 database called `trivia.db` of the form:
