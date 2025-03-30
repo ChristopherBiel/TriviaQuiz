@@ -24,6 +24,10 @@ jobs:
         echo "$SSH_KEY" | tr -d '\r' > private_key.pem
         chmod 600 private_key.pem
 
+    - name: Debug SSH Key
+      run: |
+        echo "$SSH_KEY" | wc -l  # Check if the key is properly loaded
+
     - name: Deploy to EC2
       env:
         EC2_USER: ubuntu
