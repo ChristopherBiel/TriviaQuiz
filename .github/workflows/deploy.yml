@@ -23,7 +23,7 @@ jobs:
       env:
         SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         EC2_USER: ubuntu
-        EC2_HOST: your-ec2-public-ip
+        EC2_HOST: trivia.biels.net
       run: |
         echo "$SSH_KEY" > private_key.pem
         chmod 600 private_key.pem
