@@ -24,9 +24,13 @@ jobs:
         echo "$SSH_KEY" | tr -d '\r' > private_key.pem
         chmod 600 private_key.pem
 
-    - name: Debug SSH Key
+    - name: Debug SSH Connection
+      env:
+        EC2_USER: ubuntu
+        EC2_HOST: trivia.biels.net
       run: |
-        echo "$SSH_KEY" | wc -l  # Check if the key is properly loaded
+        ssh -vvv -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST echo "Connected successfully!"
+
 
     - name: Deploy to EC2
       env:
