@@ -8,56 +8,98 @@
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
     <h1 class="text-4xl font-bold mb-6">Manage Trivia Questions</h1>
-    
+
+    <!-- Trivia Questions Table -->
     <table class="w-full max-w-2xl text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
         <thead>
             <tr>
                 <th class="border-b p-2">Question</th>
                 <th class="border-b p-2">Answer</th>
+                <th class="border-b p-2">Topic</th>
                 <th class="border-b p-2">Actions</th>
             </tr>
         </thead>
         <tbody id="question-list"></tbody>
     </table>
-    
+
+    <!-- Add New Question Form -->
     <h2 class="text-2xl font-bold mt-6">Add New Question</h2>
     <form id="question-form" class="max-w-2xl w-full bg-gray-800 p-6 rounded-lg shadow-lg mt-4" enctype="multipart/form-data">
-        <input name="question" type="text" placeholder="Question" class="w-full p-2 mt-2 rounded text-black">
-        <input name="answer" type="text" placeholder="Answer" class="w-full p-2 mt-2 rounded text-black">
+        <input name="question" type="text" placeholder="Question" class="w-full p-2 mt-2 rounded text-black" required>
+        <input name="answer" type="text" placeholder="Answer" class="w-full p-2 mt-2 rounded text-black" required>
+        <input name="question_topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 mt-2 rounded text-black">
+        <input name="question_source" type="text" placeholder="Question Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
+        <input name="answer_source" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
+        <input name="incorrect_answers" type="text" placeholder="Incorrect Answers (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
+        <input name="tags" type="text" placeholder="Tags (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
+        <select name="language" class="w-full p-2 mt-2 rounded text-black">
+            <option value="English">English</option>
+            <option value="German">German</option>
+            <option value="French">French</option>
+        </select>
+        <label class="text-gray-400">Upload Media (Optional):</label>
         <input name="media" type="file" class="w-full p-2 mt-2 bg-gray-700 text-white">
-        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add</button>
+        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Question</button>
     </form>
-    
+
     <script>
         async function loadDatabase() {
             let response = await fetch("/get-questions");
+            if (!response.ok) {
+                console.error("Error fetching questions.");
+                return;
+            }
+    
             let questions = await response.json();
             let questionList = document.getElementById("question-list");
             questionList.innerHTML = "";
+
             questions.forEach(q => {
                 let row = `<tr>
                     <td class='border-b p-2'>${q.question}</td>
                     <td class='border-b p-2'>${q.answer}</td>
-                    <td class='border-b p-2'><button onclick='deleteQuestion(${q.id})' class='text-red-500'>Delete</button></td>
+                    <td class='border-b p-2'>${q.question_topic || "General"}</td>  <!-- Show Topic -->
+                    <td class='border-b p-2'>
+                        <button onclick='deleteQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                class='text-red-500'>Delete</button>
+                    </td>
                 </tr>`;
                 questionList.innerHTML += row;
             });
         }
 
-        async function deleteQuestion(id) {
-            await fetch(`/delete-question/${id}`, { method: "DELETE" });
-            loadDatabase();
+
+        async function deleteQuestion(id, topic) {
+            let response = await fetch(`/delete-question/${id}/${encodeURIComponent(topic)}`, { method: "DELETE" });
+            if (response.ok) {
+                loadDatabase(); 
+            } else {
+                alert("Error deleting question.");
+            }
         }
+
 
         document.getElementById("question-form").onsubmit = async function(event) {
             event.preventDefault();
             let formData = new FormData(this);
-            await fetch("/add-question", {
+            
+            for (let pair of formData.entries()) {
+                console.log(`DEBUG: ${pair[0]} =`, pair[1]);
+            }
+
+            let response = await fetch("/add-question", {
                 method: "POST",
                 body: formData
             });
-            loadDatabase();
+
+            if (response.ok) {
+                loadDatabase();
+                this.reset();
+            } else {
+                alert("Error adding question. Please try again.");
+            }       
         };
+
 
         loadDatabase();
     </script>
