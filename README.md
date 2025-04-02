@@ -5,30 +5,49 @@ Hosts a webpage which serves trivia questions from a database.
 The webservice is aimed at being deployed on an AWS EC2 instance with a dynamoDB and S3 backend.
 
 ## Getting started
-Create a sqlite3 database called `trivia.db` of the form:
+Setup a dynamoDB table, S3 bucket and EC2 instance.
 
-> Good question, how is it actually defined? Can I also change thhe definition latern?
 
 Running `app.py`
 
-## Definition of the database structure (sqlite3)
-| Column Name | Data Type | Column Constraint | Description |
-| ----------- | ----------- | ----------- | ----------- |
-| id | integer | primary key autoincrement | unique question id, does not have to be provided when adding an entry to the database |
-| question | text | not null | required question text, usually ending in a question mark |
-| answer | text | not null | required question answer |
-| media_path | text | null | optional path of the stored media file, path is defined as relative to the static/uploads/ folder |
-| added_by | text | not null | name of the user who added the question to the database (automatically added by the backend) |
-| added_at | date? | not null | date of addition to the database (automatically added by the backend) |
-| question_topic | text | null | optional topic for the question, if not null it will only show up when the topic is selected in the main page. To be used for speciality questions which would not be part of a standard trivia round e.g. 'League' for in depth questions about the game |
-| question_source | text | null | optional source for the question, e.g. 'Pubquiz Towers, 04.02.25' |
-| answer_source | text | null | optional source for the answer, e.g. a wikipedia article which provides more information |
-| expiration_date | date? | null | optional date of expiration, for questions which have changing answers, e.g. current F1 champion |
-| incorrect_answer | set of? text | null | optional incorrect answers for multiple choice questions |
-| times_asked | integer | not null | number of times the question was presented to users |
-| times_correctly_answered | integer | not null | number of times the question was correctly answered in a special quiz mode |
-| times_incorrectly_answered | integer | not null | number of times the question was incorrectly answered in a special quiz mode |
-| last_updated_at | date? | not null | timestamp of the most recent modification to the question |
-| language | text | null | specifies the language of the question | 
-| review status | boolean | not null | indicates if the question has been peer-reviewed or verified |
-| tags | set of? text | null | keyword associated with the question for improved searchability |
+# Functionality
+
+## Database Handling
+
+The project utilizes AWS DynamoDB and Amazon S3 to store and manage trivia questions efficiently. Below is an overview of how the database operations are handled.
+
+### DynamoDB (TriviaQuestions Table)
+The trivia questions are stored in a DynamoDB table named `TriviaQuestions`. Each question is stored as an item with the following attributes:
+
+- **id** (String, Primary Key): A unique identifier generated using `uuid.uuid4()`.
+- **question** (String): The trivia question.
+- **answer** (String): The correct answer to the question.
+- **added_by** (String): The user who added the question.
+- **question_topic** (String, Optional): The category or topic of the question.
+- **question_source** (String, Optional): The source from which the question was obtained.
+- **answer_source** (String, Optional): The source of the answer.
+- **media_path** (String, Optional): A reference to an associated media file stored in S3.
+- **language** (String, Optional): The language of the question.
+- **incorrect_answers** (List, Optional): A list of incorrect answers for multiple-choice questions.
+- **tags** (List, Optional): Tags related to the question.
+- **timestamp** (String): The timestamp when the question was added.
+
+### Amazon S3 (Media Storage)
+If a question includes an associated media file (image, audio, or video), it is uploaded to an S3 bucket. The following process is followed:
+
+1. The media file is uploaded to the S3 bucket specified in the `AWS_S3_BUCKET` environment variable.
+2. The function `upload_file_to_s3(media_file)` handles the file upload and generates a public or private URL.
+3. The generated S3 URL is stored in the `media_path` attribute in DynamoDB.
+
+### Adding a Question
+To add a new trivia question, the `add_question()` function is used. It follows these steps:
+1. Generates a unique `id`.
+2. Uploads the media file to S3 (if provided) and retrieves its URL.
+3. Constructs an item with all attributes.
+4. Saves the item in the `TriviaQuestions` table using DynamoDB.
+
+### Retrieving Questions
+Questions can be retrieved using their `id` via DynamoDB queries. Additionally, filters can be applied based on topics, tags, or languages.
+
+This structure ensures scalable and efficient management of trivia questions while allowing the integration of multimedia content stored securely in S3.
+

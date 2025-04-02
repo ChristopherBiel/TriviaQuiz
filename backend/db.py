@@ -3,6 +3,7 @@ import uuid
 import os
 from datetime import datetime
 import random
+import mimetypes
 
 # Load AWS region from environment variable
 AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
@@ -89,23 +90,43 @@ def list_s3_files():
     files = [file["Key"] for file in response.get("Contents", [])]
     return files
 
-# Generate a signed URL for a file in the S3 bucket
 def upload_file_to_s3(file):
     """Uploads a file to S3 and returns the public URL."""
     if not file:
         print("DEBUG: No file received for upload.")
         return None
     
+    # Extract file extension
     file_extension = file.filename.rsplit(".", 1)[-1].lower()
+    
+    # Only allow specific file types
+    allowed_extensions = {"jpg", "jpeg", "png", "gif", "mp4", "mp3"}
+    if file_extension not in allowed_extensions:
+        print(f"DEBUG: File type {file_extension} not allowed.")
+        return None  # Reject unsupported file types
+    
+    # Generate unique filename
     unique_filename = f"{uuid.uuid4()}.{file_extension}"
 
     print(f"DEBUG: Uploading file {file.filename} as {unique_filename} to S3...")
+
+    # Determine MIME type
+    content_type = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+
+    try:
+        # Upload to S3 with the correct Content-Type
+        s3.upload_fileobj(
+            file,
+            AWS_S3_BUCKET,
+            unique_filename,
+            ExtraArgs={"ContentType": content_type}
+        )
+        
+        file_url = f"https://{AWS_S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
+        print(f"DEBUG: File uploaded successfully: {file_url}")
+
+        return file_url
     
-    # Secure filename and upload to S3
-    s3.upload_fileobj(file, AWS_S3_BUCKET, unique_filename)
-    file_url = f"https://{AWS_S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
-
-    print(f"DEBUG: File uploaded successfully: {file_url}")
-
-    return file_url
-
+    except Exception as e:
+        print(f"ERROR: Failed to upload {file.filename} - {e}")
+        return None
