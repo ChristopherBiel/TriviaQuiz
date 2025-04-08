@@ -1,12 +1,28 @@
 import boto3
 import os
-from flask import Blueprint, request, session, redirect, url_for, render_template
+import bcrypt
+from datetime import datetime
+from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template
 
 auth_bp = Blueprint("auth", __name__)
 
-# Initialize AWS Systems Manager Client
-ssm = boto3.client("ssm", region_name="eu-central-1")
+# Initialize AWS Clients
+AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
+ssm = boto3.client("ssm", region_name=AWS_REGION)
+users_table = dynamodb.Table("TriviaUsers")
 
+# Fetch referral code from AWS Systems Manager Parameter Store
+REFERRAL_CODE_PARAM = "/TriviaQuiz/REFERRAL_CODE"
+def get_referral_code():
+    try:
+        response = ssm.get_parameter(Name=REFERRAL_CODE_PARAM, WithDecryption=True)
+        return response["Parameter"]["Value"]
+    except Exception as e:
+        print("Error fetching referral code:", str(e))
+        return None
+
+# ----- CAN BE REMOVED IF NEW USER LOGGING VIA DATABASE WORKS -----
 def get_parameter(name):
     """Retrieve parameter from AWS Systems Manager Parameter Store."""
     response = ssm.get_parameter(Name=name, WithDecryption=True)
@@ -15,19 +31,171 @@ def get_parameter(name):
 # Load credentials from AWS Systems Manager
 ADMIN_USERNAME = get_parameter("/TriviaQuiz/ADMIN_USERNAME")
 ADMIN_PASSWORD = get_parameter("/TriviaQuiz/ADMIN_PASSWORD")
+# ----- END OF CAN BE REMOVED -----
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password, hashed):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    
+@auth_bp.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "GET":
+        return render_template("signup.html")
+
+    # Accept data from HTML form
+    username = request.form.get("username")
+    email = request.form.get("email")
+    password = request.form.get("password")
+    referral_code = request.form.get("referral_code")
+
+    if not username or not email or not password or not referral_code:
+        return "Missing required fields", 400
+
+    stored_referral_code = get_referral_code()
+    if stored_referral_code is None:
+        return "Referral system not configured", 500
+    if referral_code != stored_referral_code:
+        return "Invalid referral code", 403
+
+    existing_user = users_table.get_item(Key={"username": username}).get("Item")
+    if existing_user:
+        return "Username already exists", 400
+
+    password_hash = hash_password(password)
+
+    users_table.put_item(
+        Item={
+            "username": username,
+            "email": email,
+            "password_hash": password_hash,
+            "is_verified": False,
+            "is_approved": False,
+            "role": "user",
+            "signup_date": str(datetime.utcnow().isoformat()),
+            "verification_code": None,
+            "verification_code_expiry": None,
+            "approval_date": None,
+            "last_login_date": None,
+            "last_login_ip": None,
+            "referral_code_used": referral_code,
+        }
+    )
+    return "Signup successful. Please wait for admin approval.", 201
+
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session["logged_in"] = True
-            return redirect(url_for("routes.manage_database"))
-        return "Invalid credentials", 403
-    return render_template("login.html")
+    if request.method == "GET":
+        return render_template("login.html")
+
+    # Try form data first
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    # Fallback to JSON if form data is empty
+    if not username or not password:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Missing login data"}), 400
+        username = data.get("username")
+        password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+
+    user = users_table.get_item(Key={"username": username}).get("Item")
+    if not user or not verify_password(password, user["password_hash"]):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    if not user["is_approved"]:
+        return jsonify({"error": "Admin approval required"}), 403
+
+    # Update last login date and IP
+    users_table.update_item(
+        Key={"username": username},
+        UpdateExpression="SET last_login_date = :date, last_login_ip = :ip",
+        ExpressionAttributeValues={
+            ":date": str(datetime.utcnow()),
+            ":ip": request.remote_addr
+        }
+    )
+
+    # Set session variables
+    session["logged_in"] = True
+    session["username"] = user["username"]
+    session["email"] = user["email"]
+    session["role"] = user["role"]
+    session["is_admin"] = user["role"] == "admin"
+    return redirect(url_for("routes.manage_database"))
+
+
+@auth_bp.route("/approve_user", methods=["GET", "POST"])
+def approve_user():
+    if request.method == "GET":
+        return render_template("approve_user.html")
+    
+    if "role" not in session or session["role"] != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    username = request.form.get("username")
+    if not username:
+        return jsonify({"error": "Missing username"}), 400
+
+    # Fetch user
+    user = users_table.get_item(Key={"username": username}).get("Item")
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Update approval status
+    users_table.update_item(
+        Key={"username": username},
+        UpdateExpression="SET is_approved = :val",
+        ExpressionAttributeValues={":val": True}
+    )
+    return jsonify({"message": f"User {username} approved successfully"}), 200
 
 @auth_bp.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("auth.login"))
+    return redirect(url_for("routes.serve_frontend"))
+
+def get_all_users():
+    """Fetch all users from DynamoDB."""
+    try:
+        response = users_table.scan()
+        return response.get("Items", [])
+    except Exception as e:
+        print(f"Error fetching users: {e}")
+        return []
+
+def edit_user(user_id, action):
+    """Edit user details in DynamoDB."""
+    try:
+        if action == "approve":
+            users_table.update_item(
+                Key={"username": user_id},
+                UpdateExpression="SET is_approved = :val",
+                ExpressionAttributeValues={":val": True}
+            )
+        elif action == "disapprove":
+            users_table.update_item(
+                Key={"username": user_id},
+                UpdateExpression="SET is_approved = :val",
+                ExpressionAttributeValues={":val": False}
+            )
+        elif action == "make_admin":
+            users_table.update_item(
+                Key={"username": user_id},
+                UpdateExpression="SET role = :val",
+                ExpressionAttributeValues={":val": "admin"}
+            )
+        elif action == "delete":
+            users_table.delete_item(Key={"username": user_id})
+        else:
+            return False
+        return True
+    except Exception as e:
+        print(f"Error editing user: {e}")
+        return False

@@ -41,7 +41,29 @@
         }
     </script>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">  
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
+    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
+        <script>
+            async function checkLoginStatus() {
+                try {
+                    let response = await fetch("/login-status");
+                    let data = await response.json();
+                    let loginContainer = document.getElementById("login-container");
+
+                    if (data.logged_in) {
+                        loginContainer.innerHTML = `<a href="/logout" class="text-white hover:underline text-lg sm:text-sm">Logout</a>`;
+                    } else {
+                        loginContainer.innerHTML = `<a href="/login" class="text-white hover:underline text-lg sm:text-sm">Login</a>`;
+                    }
+                } catch (error) {
+                    console.error("Error checking login status:", error);
+                }
+            }
+
+            document.addEventListener("DOMContentLoaded", checkLoginStatus);
+        </script>
+        <div id="login-container"></div>
+    </div>
     <h1 class="text-4xl font-bold mb-6">Trivia Game</h1>
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xl">
         <p id="question" class="text-xl mb-4">Loading...</p>

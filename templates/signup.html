@@ -3,20 +3,20 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Login</title>
+        <title>Sign Up</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
 <body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
     <div class="w-full flex justify-between p-4 absolute top-0 left-0">
         <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
     </div>
-    <h1 class="text-3xl font-bold mb-6">Login</h1>
+    <h1 class="text-3xl font-bold mb-6">Create Your Account</h1>
     <form method="post" class="bg-gray-800 p-6 rounded-lg shadow-lg">
         <input name="username" type="text" placeholder="Username" class="w-full p-2 mt-2 rounded text-black">
+        <input name="email" type="text" placeholder="E Mail" class="w-full p-2 mt-2 rounded text-black">
         <input name="password" type="password" placeholder="Password" class="w-full p-2 mt-2 rounded text-black">
-        <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Login</button>
+        <input name="referral_code" type="text" placeholder="Referral Code" class="w-full p-2 mt-2 rounded text-black">
+        <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Sign Up</button>
     </form>
-    <p>Don't have an account? <a href="/signup" class="text-blue-400 hover:underline">Sign up here</a>.</p>
-
 </body>
 </html>

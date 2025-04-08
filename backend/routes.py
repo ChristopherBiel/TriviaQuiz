@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
 from backend.db import get_random_question, get_all_questions, add_question, delete_question
-from backend.auth import auth_bp  # Import authentication blueprint
+from backend.auth import auth_bp, edit_user, get_all_users  # Import authentication blueprint
 
 routes_bp = Blueprint("routes", __name__)
 
@@ -9,11 +9,13 @@ routes_bp = Blueprint("routes", __name__)
 def serve_frontend():
     return render_template("index.html")
 
-# Serve the database management page (only for logged-in users)
+# Serve the database management page (only for admins)
 @routes_bp.route("/database")
 def manage_database():
     if not session.get("logged_in"):
         return redirect(url_for("auth.login"))
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
     return render_template("database.html")
 
 # Fetch a random question for the trivia game
@@ -29,6 +31,19 @@ def random_question():
 def get_questions():
     questions = get_all_questions()
     return jsonify(questions)
+
+# Fetch all the users (for the user management page)
+@routes_bp.route("/get-users", methods=["GET"])
+def get_users():
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    # Assuming you have a function to fetch all users
+    users = get_all_users()
+    return jsonify(users)
 
 # Add a new trivia question
 @routes_bp.route("/add-question", methods=["POST"])
@@ -74,6 +89,60 @@ def delete_question_route(id, topic):
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Failed to delete question"}), 500
+
+# Check the login status
+@routes_bp.route("/login-status", methods=["GET"])
+def check_login():
+    if session.get("logged_in"):
+        return jsonify({"logged_in": True, "username": session.get("username")})
+    else:
+        return jsonify({"logged_in": False})    
+
+# Approve a user (only for admins)
+@routes_bp.route("/users/<string:username>/approve", methods=["POST"])
+def approve_user(username):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    success = edit_user(username, "approve")
+
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to approve user"}), 500
+
+# Disapprove a user (only for admins)
+@routes_bp.route("/users/<string:username>/reject", methods=["POST"])
+def reject_user(username):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    success = edit_user(username, "disapprove")
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to disapprove user"}), 500
+
+# Delete a user (only for admins)
+@routes_bp.route("/users/<string:username>", methods=["DELETE"])
+def delete_user(username):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    success = edit_user(username, "delete")
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to delete user"}), 500
 
 
 # Register all routes when initializing Flask

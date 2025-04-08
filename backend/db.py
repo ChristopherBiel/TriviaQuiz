@@ -12,7 +12,6 @@ AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 table = dynamodb.Table("TriviaQuestions")
 
-AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
 AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "chris-trivia-media-bucket")
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
