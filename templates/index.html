@@ -8,19 +8,38 @@
     <script>
         async function loadQuestion() {
             try {
-                let response = await fetch("/random-question");
+                let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
+
+                let response = await fetch("/random-question", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ seen })
+                });
+
+                if (response.status === 404) {
+                    // All questions seen, reset and retry
+                    sessionStorage.setItem("seenQuestions", JSON.stringify([]));
+                    console.log("All questions seen. Starting over.");
+
+                    return loadQuestion(); // Recursive retry with empty cache
+                }
+
                 let data = await response.json();
-                
+
+                // Update seen list
+                seen.push(data.id);
+                sessionStorage.setItem("seenQuestions", JSON.stringify(seen));
+
+                // Update UI
                 document.getElementById("question").innerText = data.question || "No question found";
                 document.getElementById("answer").innerText = "???";
                 document.getElementById("answer").dataset.answer = data.answer || "Unknown";
 
                 let mediaContainer = document.getElementById("media");
                 mediaContainer.innerHTML = "";
-                
+
                 if (data.media_path) {
                     let fileType = data.media_path.split(".").pop().toLowerCase();
-    
                     if (["jpg", "jpeg", "png", "gif"].includes(fileType)) {
                         mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full rounded-lg shadow-md" />`;
                     } else if (fileType === "mp4") {
@@ -75,7 +94,8 @@
                         const html = `
                             <a href="/new_question" class="block py-1 hover:underline">New Question</a>
                             <a href="/approve_question" class="block py-1 hover:underline">Approve Questions</a>
-                            <a href="/database" class="block py-1 hover:underline">Manage Database</a>
+                            <a href="/database" class="block py-1 hover:underline">Manage Questions</a>
+                            <a href="/approve_user" class="block py-1 hover:underline">Manage Users</a>
                         `;
                         desktopSection.innerHTML = html;
                         mobileSection.innerHTML = html;

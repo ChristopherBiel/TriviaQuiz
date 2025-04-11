@@ -45,6 +45,17 @@
             questionList.innerHTML = "";
 
             questions.forEach(q => {
+                const isApproved = q.review_status;
+                const actionButton = isApproved
+                    ? `<button onclick='rejectQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>
+                            Reject
+                       </button>`
+                    : `<button onclick='approveQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>
+                            Approve
+                       </button>`;
+
                 let row = `<tr>
                     <td class='border-b p-2'>${q.question}</td>
                     <td class='border-b p-2'>${q.answer}</td>
@@ -55,10 +66,7 @@
                     <td class='border-b p-2'>${q.review_status ? "✔️" : ""}</td>
                     <td class='border-b p-2'>
                         <div class="flex gap-2">
-                            <button onclick='approveQuestion("${q.id}", "${q.question_topic || "General"}")' 
-                                    class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>
-                                Approve
-                            </button>
+                            ${actionButton}
                             <a href='/edit_question/${q.id}' 
                                class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded inline-block'>
                                 Edit
@@ -89,6 +97,15 @@
                 loadDatabase(); 
             } else {
                 alert("Error approving question.");
+            }
+        }
+
+        async function rejectQuestion(id, topic) {
+            let response = await fetch(`/reject-question/${id}/${encodeURIComponent(topic)}`, { method: "POST" });
+            if (response.ok) {
+                loadDatabase(); 
+            } else {
+                alert("Error rejecting question.");
             }
         }
         loadDatabase();
