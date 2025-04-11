@@ -8,27 +8,47 @@
     <script>
         async function loadQuestion() {
             try {
-                let response = await fetch("/random-question");
+                let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
+
+                let response = await fetch("/random-question", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ seen })
+                });
+
+                if (response.status === 404) {
+                    // All questions seen, reset and retry
+                    sessionStorage.setItem("seenQuestions", JSON.stringify([]));
+                    console.log("All questions seen. Starting over.");
+
+                    return loadQuestion(); // Recursive retry with empty cache
+                }
+
                 let data = await response.json();
-                
+
+                // Update seen list
+                seen.push(data.id);
+                sessionStorage.setItem("seenQuestions", JSON.stringify(seen));
+
+                // Update UI
                 document.getElementById("question").innerText = data.question || "No question found";
                 document.getElementById("answer").innerText = "???";
                 document.getElementById("answer").dataset.answer = data.answer || "Unknown";
 
                 let mediaContainer = document.getElementById("media");
                 mediaContainer.innerHTML = "";
-                
+
                 if (data.media_path) {
                     let fileType = data.media_path.split(".").pop().toLowerCase();
-    
                     if (["jpg", "jpeg", "png", "gif"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full rounded-lg shadow-md" />`;
+                        mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full max-h-full object-contain rounded-lg shadow-md" />`;
                     } else if (fileType === "mp4") {
-                        mediaContainer.innerHTML = `<video controls class="max-w-full rounded-lg shadow-md"><source src="${data.media_path}" type="video/mp4"></video>`;
+                        mediaContainer.innerHTML = `<video controls class="max-w-full max-h-full object-contain rounded-lg shadow-md"><source src="${data.media_path}" type="video/mp4"></video>`;
                     } else if (fileType === "mp3") {
                         mediaContainer.innerHTML = `<audio controls class="w-full"><source src="${data.media_path}" type="audio/mp3"></audio>`;
-                    }
+                    } 
                 }
+
 
             } catch (error) {
                 document.getElementById("question").innerText = "Error loading question!";
@@ -42,7 +62,7 @@
     </script>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
-    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
+    <div class="w-full flex justify-between items-center p-4 absolute top-0 left-0">
         <script>
             async function checkLoginStatus() {
                 try {
@@ -50,27 +70,101 @@
                     let data = await response.json();
                     let loginContainer = document.getElementById("login-container");
 
+                    // Update login/logout button
                     if (data.logged_in) {
                         loginContainer.innerHTML = `<a href="/logout" class="text-white hover:underline text-lg sm:text-sm">Logout</a>`;
                     } else {
                         loginContainer.innerHTML = `<a href="/login" class="text-white hover:underline text-lg sm:text-sm">Login</a>`;
+                    }
+
+                    // Update Manage Questions section
+                    const desktopSection = document.getElementById("manage-section-desktop");
+                    const mobileSection = document.getElementById("manage-section-mobile");
+
+                    if (!data.logged_in) {
+                        desktopSection.innerHTML = `<p class="text-sm text-gray-400">Login to manage</p>`;
+                        mobileSection.innerHTML = `<p class="text-sm text-gray-400">Login to manage</p>`;
+                    } else if (data.role === "user") {
+                        const html = `
+                            <a href="/new_question" class="block py-1 hover:underline">New Question</a>
+                            <a href="/edit_question" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Manage Own Questions</a>
+                        `;
+                        desktopSection.innerHTML = html;
+                        mobileSection.innerHTML = html;
+                    } else if (data.role === "admin") {
+                        const html = `
+                            <a href="/new_question" class="block py-1 hover:underline">New Question</a>
+                            <a href="/approve_question" class="block py-1 hover:underline">Approve Questions</a>
+                            <a href="/database" class="block py-1 hover:underline">Manage Questions</a>
+                            <a href="/approve_user" class="block py-1 hover:underline">Manage Users</a>
+                        `;
+                        desktopSection.innerHTML = html;
+                        mobileSection.innerHTML = html;
                     }
                 } catch (error) {
                     console.error("Error checking login status:", error);
                 }
             }
 
-            document.addEventListener("DOMContentLoaded", checkLoginStatus);
+            document.addEventListener("DOMContentLoaded", () => {
+                checkLoginStatus();
+                loadQuestion();
+            });
+
         </script>
-        <div id="login-container"></div>
+        <div id="login-container" class="ml-auto"></div>
+
+        <!-- Sidebar Menu (Desktop) -->
+        <div class="hidden md:flex flex-col w-64 h-screen bg-gray-800 text-white fixed top-0 left-0 pt-16 px-4 space-y-6">
+            <div>
+                <h2 class="text-lg font-semibold mb-2">Game Mode</h2>
+                <a href="/" class="block py-1 hover:underline">Normal</a>
+                <a href="/replay_event" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Replay Event</a>
+                <a href="/subject" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Subject Specific</a>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold mb-2">Manage Questions</h2>
+                <div id="manage-section-desktop">Loading...</div>
+            </div>
+        </div>
+
+
+        <!-- Mobile Menu -->
+        <div class="md:hidden">
+            <button id="hamburger" class="fixed top-4 left-4 z-50 text-white text-3xl">☰</button>
+
+            <div id="mobile-menu" class="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-95 text-white flex-col items-center justify-center hidden z-40">
+                <div class="text-center">
+                    <h2 class="text-xl font-bold my-4">Game Mode</h2>
+                    <a href="/" class="block my-2">Normal</a>
+                    <a href="/replay_event" class="block my-2">Replay Event</a>
+                    <a href="/subject" class="block my-2">Subject Specific</a>
+                
+                    <h2 class="text-xl font-bold mt-6 mb-4">Manage Questions</h2>
+                    <div id="manage-section-mobile">Loading...</div>
+                </div>
+            </div>
+        </div>
+
     </div>
     <h1 class="text-4xl font-bold mb-6">Trivia Game</h1>
-    <div class="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xl">
-        <p id="question" class="text-xl mb-4">Loading...</p>
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md h-[600px] flex flex-col justify-between overflow-hidden">
+        <p id="question" class="text-xl mb-4 overflow-y-auto max-h-[150px]">Loading...</p>
         <p id="answer" class="text-lg cursor-pointer text-blue-400 hover:underline" onclick="showAnswer()">???</p>
-        <div id="media" class="mt-4"></div>
+        <div id="media" class="mt-4 flex-grow overflow-hidden flex justify-center items-center max-h-[300px]"></div>
         <button onclick="loadQuestion()" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Next Question</button>
     </div>
-    <a href="/database" class="mt-6 text-gray-400 hover:text-gray-200 underline">Manage Database</a>
+    
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById("mobile-menu");
+            menu.classList.toggle("hidden");
+            menu.classList.toggle("flex");
+        }
+    
+        document.getElementById("hamburger").addEventListener("click", toggleMobileMenu);
+    </script>
+    
 </body>
 </html>

@@ -14,7 +14,7 @@
     <h1 class="text-4xl font-bold mb-6">Manage User Rights</h1>
 
     <!-- User Rights Table -->
-    <table class="w-full max-w-2xl text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
+    <table class="w-full max-w-4xl text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
         <thead>
             <tr>
                 <th class="border-b p-2">Username</th>
@@ -67,7 +67,7 @@
 
         async function approveUser(username) {
             try {
-                const response = await fetch(`/users/${username}/approve`, { method: 'POST' });
+                const response = await fetch(`/users/${encodeURIComponent(username)}/approve`, { method: 'POST' });
                 if (!response.ok) {
                     throw new Error('Failed to approve user');
                 }
@@ -80,7 +80,7 @@
 
         async function rejectUser(username) {
             try {
-                const response = await fetch(`/users/${username}/reject`, { method: 'POST' });
+                const response = await fetch(`/users/${encodeURIComponent(username)}/reject`, { method: 'POST' });
                 if (!response.ok) {
                     throw new Error('Failed to reject user');
                 }
@@ -93,7 +93,7 @@
 
         async function deleteUser(username) {
             try {
-                const response = await fetch(`/users/${username}`, { method: 'DELETE' });
+                const response = await fetch(`/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
                 if (!response.ok) {
                     throw new Error('Failed to delete user');
                 }

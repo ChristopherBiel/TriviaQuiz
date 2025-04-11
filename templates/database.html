@@ -14,37 +14,23 @@
     <h1 class="text-4xl font-bold mb-6">Manage Trivia Questions</h1>
 
     <!-- Trivia Questions Table -->
-    <table class="w-full max-w-2xl text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
+    <div class="overflow-x-auto w-full">
+    <table class="w-full text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
         <thead>
             <tr>
                 <th class="border-b p-2">Question</th>
                 <th class="border-b p-2">Answer</th>
+                <th class="border-b p-2">Source</th>
                 <th class="border-b p-2">Topic</th>
+                <th class="border-b p-2">Added by</th>
+                <th class="border-b p-2">Date Added</th>
+                <th class="border-b p-2">Appr</th>
                 <th class="border-b p-2">Actions</th>
             </tr>
         </thead>
         <tbody id="question-list"></tbody>
     </table>
-
-    <!-- Add New Question Form -->
-    <h2 class="text-2xl font-bold mt-6">Add New Question</h2>
-    <form id="question-form" class="max-w-2xl w-full bg-gray-800 p-6 rounded-lg shadow-lg mt-4" enctype="multipart/form-data">
-        <input name="question" type="text" placeholder="Question" class="w-full p-2 mt-2 rounded text-black" required>
-        <input name="answer" type="text" placeholder="Answer" class="w-full p-2 mt-2 rounded text-black" required>
-        <input name="question_topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="question_source" type="text" placeholder="Question Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="answer_source" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="incorrect_answers" type="text" placeholder="Incorrect Answers (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="tags" type="text" placeholder="Tags (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
-        <select name="language" class="w-full p-2 mt-2 rounded text-black">
-            <option value="English">English</option>
-            <option value="German">German</option>
-            <option value="French">French</option>
-        </select>
-        <label class="text-gray-400">Upload Media (Optional):</label>
-        <input name="media" type="file" class="w-full p-2 mt-2 bg-gray-700 text-white">
-        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Question</button>
-    </form>
+    </div>
 
     <script>
         async function loadDatabase() {
@@ -59,19 +45,42 @@
             questionList.innerHTML = "";
 
             questions.forEach(q => {
+                const isApproved = q.review_status;
+                const actionButton = isApproved
+                    ? `<button onclick='rejectQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>
+                            Reject
+                       </button>`
+                    : `<button onclick='approveQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>
+                            Approve
+                       </button>`;
+
                 let row = `<tr>
                     <td class='border-b p-2'>${q.question}</td>
                     <td class='border-b p-2'>${q.answer}</td>
+                    <td class='border-b p-2'>${q.question_source || "Unknown"}</td>
                     <td class='border-b p-2'>${q.question_topic || "General"}</td>  <!-- Show Topic -->
+                    <td class='border-b p-2'>${q.added_by}</td>
+                    <td class='border-b p-2'>${new Date(q.added_at).toLocaleDateString()}</td>
+                    <td class='border-b p-2'>${q.review_status ? "✔️" : ""}</td>
                     <td class='border-b p-2'>
-                        <button onclick='deleteQuestion("${q.id}", "${q.question_topic || "General"}")' 
-                                class='text-red-500'>Delete</button>
+                        <div class="flex gap-2">
+                            ${actionButton}
+                            <a href='/edit_question/${q.id}' 
+                               class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded inline-block'>
+                                Edit
+                            </a>
+                            <button onclick='deleteQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                                    class='bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded'>
+                                Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
                 questionList.innerHTML += row;
             });
         }
-
 
         async function deleteQuestion(id, topic) {
             let response = await fetch(`/delete-question/${id}/${encodeURIComponent(topic)}`, { method: "DELETE" });
@@ -82,29 +91,23 @@
             }
         }
 
-
-        document.getElementById("question-form").onsubmit = async function(event) {
-            event.preventDefault();
-            let formData = new FormData(this);
-            
-            for (let pair of formData.entries()) {
-                console.log(`DEBUG: ${pair[0]} =`, pair[1]);
-            }
-
-            let response = await fetch("/add-question", {
-                method: "POST",
-                body: formData
-            });
-
+        async function approveQuestion(id, topic) {
+            let response = await fetch(`/approve-question/${id}/${encodeURIComponent(topic)}`, { method: "POST" });
             if (response.ok) {
-                loadDatabase();
-                this.reset();
+                loadDatabase(); 
             } else {
-                alert("Error adding question. Please try again.");
-            }       
-        };
+                alert("Error approving question.");
+            }
+        }
 
-
+        async function rejectQuestion(id, topic) {
+            let response = await fetch(`/reject-question/${id}/${encodeURIComponent(topic)}`, { method: "POST" });
+            if (response.ok) {
+                loadDatabase(); 
+            } else {
+                alert("Error rejecting question.");
+            }
+        }
         loadDatabase();
     </script>
 </body>

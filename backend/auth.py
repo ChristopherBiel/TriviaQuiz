@@ -2,7 +2,9 @@ import boto3
 import os
 import bcrypt
 from datetime import datetime
-from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template
+from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template, flash
+from markupsafe import escape
+import re
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -44,24 +46,31 @@ def signup():
     if request.method == "GET":
         return render_template("signup.html")
 
-    # Accept data from HTML form
-    username = request.form.get("username")
-    email = request.form.get("email")
-    password = request.form.get("password")
-    referral_code = request.form.get("referral_code")
+    # Accept data from HTML form and sanitize it
+    username = escape(request.form.get("username", "").strip())
+    email = escape(request.form.get("email", "").strip())
+    password = request.form.get("password", "")
+    referral_code = escape(request.form.get("referral_code", "").strip())
 
     if not username or not email or not password or not referral_code:
-        return "Missing required fields", 400
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+    if not re.match(r"^[\w.@+-]+$", username):
+        return jsonify({"status": "error", "message": "Username contains invalid characters"}), 400
+
+    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+        return jsonify({"status": "error", "message": "Invalid email format"}), 400
 
     stored_referral_code = get_referral_code()
     if stored_referral_code is None:
-        return "Referral system not configured", 500
+        return jsonify({"status": "error", "message": "Referral system not configured"}), 500
+
     if referral_code != stored_referral_code:
-        return "Invalid referral code", 403
+        return jsonify({"status": "error", "message": "Invalid referral code"}), 403
 
     existing_user = users_table.get_item(Key={"username": username}).get("Item")
     if existing_user:
-        return "Username already exists", 400
+        return jsonify({"status": "error", "message": "Username already exists"}), 400
 
     password_hash = hash_password(password)
 
@@ -82,7 +91,9 @@ def signup():
             "referral_code_used": referral_code,
         }
     )
-    return "Signup successful. Please wait for admin approval.", 201
+    return jsonify({"status": "success", "message": "Signup successful, please wait for admin approval."}), 201
+
+
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -128,33 +139,12 @@ def login():
     session["email"] = user["email"]
     session["role"] = user["role"]
     session["is_admin"] = user["role"] == "admin"
-    return redirect(url_for("routes.manage_database"))
+    return redirect("/")
 
 
-@auth_bp.route("/approve_user", methods=["GET", "POST"])
+@auth_bp.route("/approve_user", methods=["GET"])
 def approve_user():
-    if request.method == "GET":
-        return render_template("approve_user.html")
-    
-    if "role" not in session or session["role"] != "admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    username = request.form.get("username")
-    if not username:
-        return jsonify({"error": "Missing username"}), 400
-
-    # Fetch user
-    user = users_table.get_item(Key={"username": username}).get("Item")
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    # Update approval status
-    users_table.update_item(
-        Key={"username": username},
-        UpdateExpression="SET is_approved = :val",
-        ExpressionAttributeValues={":val": True}
-    )
-    return jsonify({"message": f"User {username} approved successfully"}), 200
+    return render_template("approve_user.html")
 
 @auth_bp.route("/logout")
 def logout():
@@ -176,14 +166,22 @@ def edit_user(user_id, action):
         if action == "approve":
             users_table.update_item(
                 Key={"username": user_id},
-                UpdateExpression="SET is_approved = :val",
-                ExpressionAttributeValues={":val": True}
+                UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
+                ExpressionAttributeValues={
+                    ":val": True,
+                    ":date": datetime.utcnow().isoformat(),
+                    ":admin": session["username"]
+                }
             )
         elif action == "disapprove":
             users_table.update_item(
                 Key={"username": user_id},
-                UpdateExpression="SET is_approved = :val",
-                ExpressionAttributeValues={":val": False}
+                UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
+                ExpressionAttributeValues={
+                    ":val": False,
+                    ":date": datetime.utcnow().isoformat(),
+                    ":admin": session["username"]
+                }
             )
         elif action == "make_admin":
             users_table.update_item(
