@@ -139,37 +139,12 @@ def login():
     session["email"] = user["email"]
     session["role"] = user["role"]
     session["is_admin"] = user["role"] == "admin"
-    return redirect(url_for("routes.manage_database"))
+    return redirect("/")
 
 
 @auth_bp.route("/approve_user", methods=["GET"])
 def approve_user():
     return render_template("approve_user.html")
-    
-    if "role" not in session or session["role"] != "admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    username = request.form.get("username")
-    if not username:
-        return jsonify({"error": "Missing username"}), 400
-
-    # Fetch user
-    user = users_table.get_item(Key={"username": username}).get("Item")
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    # Update approval status
-    users_table.update_item(
-        Key={"username": username},
-        UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
-        ExpressionAttributeValues={
-            ":val": True,
-            ":date": str(datetime.now(datetime.timezone.utc)),
-            ":admin": session["username"]
-        }
-    )
-    return jsonify({"message": f"User {username} approved successfully"}), 200
-
 
 @auth_bp.route("/logout")
 def logout():
