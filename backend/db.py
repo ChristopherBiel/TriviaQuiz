@@ -114,6 +114,25 @@ def approve_question(question_id, question_topic):
     except Exception as e:
         print(f"Error approving question: {e}")
         return False
+    
+# Reject a question by ID
+def reject_question(question_id, question_topic):
+    """Rejects a question in DynamoDB by ID and question_topic."""
+    try:
+        table.update_item(
+            Key={
+                "id": question_id,
+                "question_topic": question_topic  # ✅ Required Sort Key
+            },
+            UpdateExpression="SET review_status = :val",
+            ExpressionAttributeValues={
+                ":val": False
+            }
+        )
+        return True
+    except Exception as e:
+        print(f"Error rejecting question: {e}")
+        return False
 
 # List all files in the S3 bucket
 def list_s3_files():

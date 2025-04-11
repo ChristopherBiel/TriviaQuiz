@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
-from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question
+from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question, reject_question
 from backend.auth import auth_bp, edit_user, get_all_users  # Import authentication blueprint
 
 routes_bp = Blueprint("routes", __name__)
@@ -100,6 +100,22 @@ def approve_question_route(id, topic):
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Failed to approve question"}), 500
+    
+# Reject a trivia question
+@routes_bp.route("/reject-question/<string:id>/<string:topic>", methods=["POST"])
+def reject_question_route(id, topic):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    success = reject_question(id, topic)
+    
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to reject question"}), 500
 
 # Delete a trivia question
 @routes_bp.route("/delete-question/<string:id>/<string:topic>", methods=["DELETE"])
