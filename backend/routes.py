@@ -26,11 +26,14 @@ def new_question():
     return render_template("new_question.html")
 
 # Fetch a random question for the trivia game
-@routes_bp.route("/random-question", methods=["GET"])
+@routes_bp.route("/random-question", methods=["POST"])
 def random_question():
-    question = get_random_question()
+    seen_ids = request.json.get("seen", [])
+    question = get_random_question(seen_ids)
+
     if not question:
-        return jsonify({"error": "No questions found"}), 404
+        return jsonify({"error": "No more unseen questions available."}), 404
+
     return jsonify(question)
 
 # Fetch all questions (for the database page)

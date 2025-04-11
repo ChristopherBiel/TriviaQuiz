@@ -55,15 +55,18 @@ def get_all_questions():
     return response.get("Items", [])
 
 # Fetch a random question
-def get_random_question():
-    """Fetches a random question from DynamoDB."""
-    response = table.scan()  # Get all questions
+def get_random_question(seen_ids=None):
+    """Fetches a random question not in seen_ids from DynamoDB."""
+    response = table.scan()
     items = response.get("Items", [])
+    print("DEBUG: Number of seen IDs:", len(seen_ids) if seen_ids else 0)
+    if seen_ids:
+        items = [item for item in items if item.get("id") not in seen_ids]
 
     if not items:
-        return None  # No questions available
+        return None  # No unseen questions left
 
-    random_question = random.choice(items)  # Pick a random item
+    random_question = random.choice(items)
     return random_question
 
 # Fetch a question by ID
