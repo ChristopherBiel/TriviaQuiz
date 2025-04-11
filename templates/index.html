@@ -87,7 +87,7 @@
                     } else if (data.role === "user") {
                         const html = `
                             <a href="/new_question" class="block py-1 hover:underline">New Question</a>
-                            <a href="/edit_question" class="block py-1 hover:underline">Manage Own Questions</a>
+                            <a href="/edit_question" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Manage Own Questions</a>
                         `;
                         desktopSection.innerHTML = html;
                         mobileSection.innerHTML = html;
@@ -119,8 +119,8 @@
             <div>
                 <h2 class="text-lg font-semibold mb-2">Game Mode</h2>
                 <a href="/" class="block py-1 hover:underline">Normal</a>
-                <a href="/replay_event" class="block py-1 hover:underline">Replay Event</a>
-                <a href="/subject" class="block py-1 hover:underline">Subject Specific</a>
+                <a href="/replay_event" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Replay Event</a>
+                <a href="/subject" class="block py-1 hover:underline" style="pointer-events: none; color: gray;">Subject Specific</a>
             </div>
             <div>
                 <h2 class="text-lg font-semibold mb-2">Manage Questions</h2>
