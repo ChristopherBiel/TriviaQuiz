@@ -41,13 +41,14 @@
                 if (data.media_path) {
                     let fileType = data.media_path.split(".").pop().toLowerCase();
                     if (["jpg", "jpeg", "png", "gif"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full rounded-lg shadow-md" />`;
+                        mediaContainer.innerHTML = `<img src="${data.media_path}" class="max-w-full max-h-full object-contain rounded-lg shadow-md" />`;
                     } else if (fileType === "mp4") {
-                        mediaContainer.innerHTML = `<video controls class="max-w-full rounded-lg shadow-md"><source src="${data.media_path}" type="video/mp4"></video>`;
+                        mediaContainer.innerHTML = `<video controls class="max-w-full max-h-full object-contain rounded-lg shadow-md"><source src="${data.media_path}" type="video/mp4"></video>`;
                     } else if (fileType === "mp3") {
                         mediaContainer.innerHTML = `<audio controls class="w-full"><source src="${data.media_path}" type="audio/mp3"></audio>`;
-                    }
+                    } 
                 }
+
 
             } catch (error) {
                 document.getElementById("question").innerText = "Error loading question!";
@@ -147,12 +148,13 @@
 
     </div>
     <h1 class="text-4xl font-bold mb-6">Trivia Game</h1>
-    <div class="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xl">
-        <p id="question" class="text-xl mb-4">Loading...</p>
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md h-[600px] flex flex-col justify-between overflow-hidden">
+        <p id="question" class="text-xl mb-4 overflow-y-auto max-h-[150px]">Loading...</p>
         <p id="answer" class="text-lg cursor-pointer text-blue-400 hover:underline" onclick="showAnswer()">???</p>
-        <div id="media" class="mt-4"></div>
+        <div id="media" class="mt-4 flex-grow overflow-hidden flex justify-center items-center max-h-[300px]"></div>
         <button onclick="loadQuestion()" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Next Question</button>
     </div>
+    
 
     <script>
         function toggleMobileMenu() {
