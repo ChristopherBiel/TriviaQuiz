@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
-from backend.db import get_random_question, get_all_questions, add_question, delete_question
+from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question
 from backend.auth import auth_bp, edit_user, get_all_users  # Import authentication blueprint
 
 routes_bp = Blueprint("routes", __name__)
@@ -17,6 +17,13 @@ def manage_database():
     if not session.get("is_admin"):
         return jsonify({"error": "Forbidden: Admin privileges required"}), 403
     return render_template("database.html")
+
+# Serve the new_question page (only for logged_in users)
+@routes_bp.route("/new_question")
+def new_question():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    return render_template("new_question.html")
 
 # Fetch a random question for the trivia game
 @routes_bp.route("/random-question", methods=["GET"])
@@ -53,13 +60,14 @@ def add_question_route():
 
     question = request.form.get("question")
     answer = request.form.get("answer")
-    added_by = session.get("username", "Admin")  # Default to 'Admin' if no session
+    added_by = session.get("username", "guest")  # Default to 'Admin' if no session
     question_topic = request.form.get("question_topic")
     question_source = request.form.get("question_source", "Unknown")
     answer_source = request.form.get("answer_source", "Unknown")
     language = request.form.get("language")
     incorrect_answers = request.form.get("incorrect_answers")
     tags = request.form.get("tags")
+    review_status = True if session.get("is_admin") else False      # Admin questions are automatically reviewed
     
     media_file = request.files.get("media")
 
@@ -73,9 +81,25 @@ def add_question_route():
 
     question_id = add_question(
         question, answer, added_by, question_topic, question_source, answer_source,
-        media_file, language, incorrect_answers, tags
+        media_file, language, incorrect_answers, tags, review_status
     )
     return jsonify({"success": True, "question_id": question_id})
+
+# Approve a trivia question
+@routes_bp.route("/approve-question/<string:id>/<string:topic>", methods=["POST"])
+def approve_question_route(id, topic):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+
+    success = approve_question(id, topic)
+    
+    if success:
+        return jsonify({"success": True}), 200
+    else:
+        return jsonify({"error": "Failed to approve question"}), 500
 
 # Delete a trivia question
 @routes_bp.route("/delete-question/<string:id>/<string:topic>", methods=["DELETE"])
@@ -93,8 +117,13 @@ def delete_question_route(id, topic):
 # Check the login status
 @routes_bp.route("/login-status", methods=["GET"])
 def check_login():
+    """Check if the user is logged in and return their status.
+    Returns:
+        - logged_in (bool): True if the user is logged in, False otherwise.
+        - username (str): The username of the logged-in user.
+        - role (str): The role of the logged-in user (admin, user, etc.)."""
     if session.get("logged_in"):
-        return jsonify({"logged_in": True, "username": session.get("username")})
+        return jsonify({"logged_in": True, "username": session.get("username"), "role": session.get("role")})
     else:
         return jsonify({"logged_in": False})    
 
