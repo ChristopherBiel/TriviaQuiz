@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Database</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
+    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
+        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
+        <a href="/logout" class="text-white hover:underline text-lg sm:text-sm">Logout</a>
+    </div>
+    <h1 class="text-4xl font-bold mb-6">Manage User Rights</h1>
+
+    <!-- User Rights Table -->
+    <table class="w-full max-w-2xl text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
+        <thead>
+            <tr>
+                <th class="border-b p-2">Username</th>
+                <th class="border-b p-2">Email</th>
+                <th class="border-b p-2">Verified</th>
+                <th class="border-b p-2">Approved</th>
+                <th class="border-b p-2">Date Created</th>
+                <th class="border-b p-2">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="user-list"></tbody>
+    </table>
+    <script>
+        async function loadUserbase() {
+            try {
+                const response = await fetch('/get-users');
+                if (!response.ok) {
+                    console.error('Error fetching userbase.');
+                    return;
+                }
+
+                const users = await response.json();
+                const userList = document.getElementById('user-list');
+                userList.innerHTML = '';
+
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="border-b p-2">${user.username}</td>
+                        <td class="border-b p-2">${user.email}</td>
+                        <!-- Status is verified and approved -->
+                        <td class="border-b p-2">${user.is_verified ? '✔️' : ''}</td>
+                        <td class="border-b p-2">${user.is_approved ? '✔️' : ''}</td>
+                        <td class="border-b p-2">${user.signup_date ? new Date(user.signup_date).toLocaleDateString() : 'None'}</td>
+                        <td class="border-b p-2">
+                            <div class="flex gap-2">
+                                <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded" onclick="approveUser('${user.username}')">Approve</button>
+                                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded" onclick="rejectUser('${user.username}')">Reject</button>
+                                <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded" onclick="deleteUser('${user.username}')">Delete</button>
+                            </div>
+                        </td>
+
+                    `;
+                    userList.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading userbase:', error);
+            }
+        }
+
+        async function approveUser(username) {
+            try {
+                const response = await fetch(`/users/${username}/approve`, { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('Failed to approve user');
+                }
+                loadUserbase();
+            } catch (error) {
+                alert('Error approving user:', error);
+                console.error('Error approving user:', error);
+            }
+        }
+
+        async function rejectUser(username) {
+            try {
+                const response = await fetch(`/users/${username}/reject`, { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('Failed to reject user');
+                }
+                loadUserbase();
+            } catch (error) {
+                alert('Error rejecting user:', error);
+                console.error('Error rejecting user:', error);
+            }
+        }
+
+        async function deleteUser(username) {
+            try {
+                const response = await fetch(`/users/${username}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error('Failed to delete user');
+                }
+                loadUserbase();
+            } catch (error) {
+                alert('Error deleting user:', error);
+                console.error('Error deleting user:', error);
+            }
+        }
+
+        // Load the userbase when the page loads
+        document.addEventListener('DOMContentLoaded', loadUserbase);
+    </script>
+</body>
+</html>

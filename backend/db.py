@@ -12,14 +12,13 @@ AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 table = dynamodb.Table("TriviaQuestions")
 
-AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
 AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "chris-trivia-media-bucket")
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
 # Add a new question to DynamoDB
 def add_question(question, answer, added_by, question_topic=None, question_source=None, answer_source=None,
-                 media_file=None, language=None, incorrect_answers=None, tags=None):
+                 media_file=None, language=None, incorrect_answers=None, tags=None, review_status=None):
     """Adds a new question to DynamoDB."""
     question_id = str(uuid.uuid4())  # Generate unique ID
 
@@ -43,7 +42,7 @@ def add_question(question, answer, added_by, question_topic=None, question_sourc
         "times_incorrectly_answered": 0,
         "last_updated_at": datetime.utcnow().isoformat(),
         "language": language,
-        "review_status": False,
+        "review_status": review_status or False,
         "tags": tags or []
     }
     table.put_item(Item=item)
@@ -67,6 +66,21 @@ def get_random_question():
     random_question = random.choice(items)  # Pick a random item
     return random_question
 
+# Fetch a question by ID
+def get_question_by_id(question_id, question_topic):
+    """Fetches a question from DynamoDB by ID and question_topic."""
+    try:
+        response = table.get_item(
+            Key={
+                "id": question_id,
+                "question_topic": question_topic  # ✅ Required Sort Key
+            }
+        )
+        return response.get("Item")
+    except Exception as e:
+        print(f"Error fetching question: {e}")
+        return None
+
 # Delete a question by ID
 def delete_question(question_id, question_topic):
     """Deletes a question from DynamoDB by ID and question_topic."""
@@ -82,6 +96,24 @@ def delete_question(question_id, question_topic):
         print(f"Error deleting question: {e}")
         return False
 
+# Approve a question by ID
+def approve_question(question_id, question_topic):
+    """Approves a question in DynamoDB by ID and question_topic."""
+    try:
+        table.update_item(
+            Key={
+                "id": question_id,
+                "question_topic": question_topic  # ✅ Required Sort Key
+            },
+            UpdateExpression="SET review_status = :val",
+            ExpressionAttributeValues={
+                ":val": True
+            }
+        )
+        return True
+    except Exception as e:
+        print(f"Error approving question: {e}")
+        return False
 
 # List all files in the S3 bucket
 def list_s3_files():
