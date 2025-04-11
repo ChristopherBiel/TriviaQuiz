@@ -26,6 +26,34 @@ def add_question(question, answer, added_by, question_topic=None, question_sourc
     if media_file:
         media_path = upload_file_to_s3(media_file)
 
+    # Sanitize inputs
+    question = question.strip()
+    answer = answer.strip()
+    added_by = added_by.strip()
+    question_topic = question_topic.strip() if question_topic else None
+    question_source = question_source.strip() if question_source else None
+    answer_source = answer_source.strip() if answer_source else None
+    language = language.strip() if language else None
+    incorrect_answers = [ans.strip() for ans in incorrect_answers] if incorrect_answers else []
+    tags = [tag.strip() for tag in tags] if tags else []
+    review_status = review_status if review_status is not None else False
+    
+    # Check the file size
+    if media_file:
+        file_size = media_file.content_length
+        if file_size > 5 * 1024 * 1024:
+            print("ERROR: File size exceeds 5MB limit.")
+            return None
+    
+    # Check the file type
+    if media_file:
+        file_extension = media_file.filename.rsplit(".", 1)[-1].lower()
+        allowed_extensions = {"jpg", "jpeg", "png", "gif", "mp4", "mp3"}
+        if file_extension not in allowed_extensions:
+            print(f"ERROR: File type {file_extension} not allowed.")
+            return None
+
+
     item = {
         "id": question_id,
         "question": question,
@@ -59,14 +87,20 @@ def get_random_question(seen_ids=None):
     """Fetches a random question not in seen_ids from DynamoDB."""
     response = table.scan()
     items = response.get("Items", [])
-    print("DEBUG: Number of seen IDs:", len(seen_ids) if seen_ids else 0)
-    if seen_ids:
-        items = [item for item in items if item.get("id") not in seen_ids]
+    
+    # Filter for reviewed questions
+    reviewed_items = [
+        item for item in items
+        if item.get("review_status") is True
+    ]
 
-    if not items:
+    if seen_ids:
+        reviewed_items = [item for item in reviewed_items if item.get("id") not in seen_ids]
+
+    if not reviewed_items:
         return None  # No unseen questions left
 
-    random_question = random.choice(items)
+    random_question = random.choice(reviewed_items)
     return random_question
 
 # Fetch a question by ID
@@ -88,6 +122,12 @@ def get_question_by_id(question_id, question_topic):
 def delete_question(question_id, question_topic):
     """Deletes a question from DynamoDB by ID and question_topic."""
     try:
+        # Delete the bucket object if it exists
+        question = get_question_by_id(question_id, question_topic)
+        if question and question.get("media_path"):
+            s3.delete_object(Bucket=AWS_S3_BUCKET, Key=question["media_path"].split("/")[-1])
+
+        # Delete the item from DynamoDB
         table.delete_item(
             Key={
                 "id": question_id,
