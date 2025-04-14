@@ -173,7 +173,7 @@ def edit_user(user_id, action):
                     ":admin": session["username"]
                 }
             )
-        elif action == "disapprove":
+        elif action == "reject":
             users_table.update_item(
                 Key={"username": user_id},
                 UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
