@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
-from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question, reject_question
+from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question, reject_question, get_question_metadata
 from backend.auth import auth_bp, edit_user, get_all_users  # Import authentication blueprint
 
 routes_bp = Blueprint("routes", __name__)
@@ -41,6 +41,12 @@ def random_question():
 def get_questions():
     questions = get_all_questions()
     return jsonify(questions)
+
+# Fetch all metadata (to sort questions by language, topic, etc.)
+@routes_bp.route("/question-metadata", methods=["GET"])
+def question_metadata():
+    metadata = get_question_metadata()
+    return jsonify(metadata)
 
 # Fetch all the users (for the user management page)
 @routes_bp.route("/get-users", methods=["GET"])
