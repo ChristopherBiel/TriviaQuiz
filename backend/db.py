@@ -95,9 +95,13 @@ def get_random_question(seen_ids=None, filters=None):
     if filters is not None:
         for key, value in filters.items():
             if key == "tags" and isinstance(value, list):
-                items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
+                # Filter by tags, or allow all if empty
+                if value:
+                    items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
             else:
                 items = [q for q in items if q.get(key) == value]
+
+    print(f"DEBUG: Filtered questions count: {len(items)}")
 
     if seen_ids:
         items = [q for q in items if q.get("id") not in seen_ids]
@@ -132,6 +136,8 @@ def get_question_metadata():
     tags = set()
 
     for item in items:
+        if item.get("review_status") is False:
+            continue
         if item.get("language"):
             languages.add(item["language"])
         if item.get("question_topic"):
