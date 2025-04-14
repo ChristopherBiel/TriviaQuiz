@@ -29,7 +29,8 @@ def new_question():
 @routes_bp.route("/random-question", methods=["POST"])
 def random_question():
     seen_ids = request.json.get("seen", [])
-    question = get_random_question(seen_ids)
+    filters = request.json.get("filters", {})
+    question = get_random_question(seen_ids, filters)
 
     if not question:
         return jsonify({"error": "No more unseen questions available."}), 404

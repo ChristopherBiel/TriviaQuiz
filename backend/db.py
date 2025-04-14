@@ -92,11 +92,12 @@ def get_random_question(seen_ids=None, filters=None):
     items = [q for q in items if q.get("review_status") is True]
 
     # Apply filters
-    for key, value in filters.items():
-        if key == "tags" and isinstance(value, list):
-            items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
-        else:
-            items = [q for q in items if q.get(key) == value]
+    if filters is not None:
+        for key, value in filters.items():
+            if key == "tags" and isinstance(value, list):
+                items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
+            else:
+                items = [q for q in items if q.get(key) == value]
 
     if seen_ids:
         items = [q for q in items if q.get("id") not in seen_ids]
