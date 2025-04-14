@@ -153,35 +153,20 @@ def check_login():
         return jsonify({"logged_in": False})    
 
 # Approve a user (only for admins)
-@routes_bp.route("/users/<string:username>/approve", methods=["POST"])
-def approve_user(username):
+@routes_bp.route("/users/<string:username>/<string:action>", methods=["POST"])
+def edit_user_permissions(username, action):
     if not session.get("logged_in"):
         return jsonify({"error": "Unauthorized"}), 403
 
     if not session.get("is_admin"):
         return jsonify({"error": "Forbidden: Admin privileges required"}), 403
 
-    success = edit_user(username, "approve")
+    success = edit_user(username, action)
 
     if success:
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Failed to approve user"}), 500
-
-# Disapprove a user (only for admins)
-@routes_bp.route("/users/<string:username>/reject", methods=["POST"])
-def reject_user(username):
-    if not session.get("logged_in"):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    if not session.get("is_admin"):
-        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
-
-    success = edit_user(username, "disapprove")
-    if success:
-        return jsonify({"success": True}), 200
-    else:
-        return jsonify({"error": "Failed to disapprove user"}), 500
 
 # Delete a user (only for admins)
 @routes_bp.route("/users/<string:username>", methods=["DELETE"])
