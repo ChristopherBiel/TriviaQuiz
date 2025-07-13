@@ -18,7 +18,7 @@ def sample_questions(n=3):
     all_questions = [q for q in all_questions if not q.get("media_path")]
     return random.sample(all_questions, min(n, len(all_questions)))
 
-def build_prompt(sampled_questions):
+def build_prompt(sampled_questions, n=3):
     """Constructs a prompt for ChatGPT from sampled questions."""
     prompt = """
 You are an AI trivia question generator. Below are some examples of trivia questions.
@@ -39,8 +39,8 @@ Examples:
 - tags: {q.get('tags', [])}
 - answer source: {q.get('answer_source', '')}
 """
-    prompt += """
-Now generate 3 new trivia questions in the same format:
+    prompt += f"""
+Now generate {n} new trivia questions in the same format:
 """
     return prompt
 
@@ -95,7 +95,7 @@ def save_generated_questions(parsed_questions):
 def generate_and_save_ai_questions(n=3):
     sampled = sample_questions(n)
     print(f"Sampled {len(sampled)} questions for AI generation.")
-    prompt = build_prompt(sampled)
+    prompt = build_prompt(sampled, n)
     print("Prompt for AI generation:")
     print(prompt)
     try:
