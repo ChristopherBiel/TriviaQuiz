@@ -49,17 +49,14 @@ def add_question_to_db(
     table.put_item(Item=item)
     return item
 
-
 def get_question_by_id_db(question_id):
     response = table.get_item(Key={"id": question_id})
     return response.get("Item")
-
 
 def get_all_questions_db(filters=None):
     # Full scan for now; optionally apply filters later
     response = table.scan()
     return response.get("Items", [])
-
 
 def update_question_in_db(question_id, updates):
     # Only allow updating defined fields
@@ -82,14 +79,12 @@ def update_question_in_db(question_id, updates):
     )
     return response.get("Attributes")
 
-
 def delete_question_from_db(question_id):
     try:
         table.delete_item(Key={"id": question_id})
         return True
     except Exception:
         return False
-
 
 def upload_file_to_s3(file):
     # Add your actual upload logic here (placeholder for now)
