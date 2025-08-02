@@ -4,7 +4,8 @@ from backend.services.question_service import (
     get_all_questions,
     create_question,
     update_question,
-    delete_question
+    delete_question,
+    get_random_question_filtered
 )
 
 questions_bp = Blueprint("questions", __name__, url_prefix="/questions")
@@ -58,3 +59,14 @@ def delete_existing_question(question_id):
     if success:
         return '', 204
     return jsonify({"error": "Question not found"}), 404
+
+@questions_bp.route("/random", methods=["POST"])
+def random_question():
+    seen_ids = request.json.get("seen", [])
+    filters = request.json.get("filters", {})
+    question = get_random_question_filtered(seen_ids, filters)
+
+    if not question:
+        return jsonify({"error": "No more unseen questions available."}), 404
+
+    return jsonify(question)
