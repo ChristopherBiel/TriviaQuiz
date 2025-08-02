@@ -1,5 +1,90 @@
 ![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
 
+
+
+
+New File structure:
+
+TriviaQuiz/
+│
+├── backend/
+│   ├── api/                    # FastAPI/Flask route definitions (organized by domain)
+│   │   ├── __init__.py
+│   │   ├── questions.py
+│   │   ├── events.py
+│   │   ├── multiplayer.py
+│   │   └── media.py
+│   │
+│   ├── services/              # Business logic layer
+│   │   ├── __init__.py
+│   │   ├── question_service.py
+│   │   ├── event_service.py
+│   │   ├── user_service.py
+│   │   └── multiplayer_service.py
+│   │
+│   ├── models/                # Data models & schemas (Pydantic / Marshmallow)
+│   │   ├── __init__.py
+│   │   ├── question.py
+│   │   ├── event.py
+│   │   ├── user.py
+│   │   └── media.py
+│   │
+│   ├── db/                    # Database interface (DynamoDB/S3 utils)
+│   │   ├── __init__.py
+│   │   ├── dynamodb.py
+│   │   ├── s3.py
+│   │   └── utils.py
+│   │
+│   ├── core/                  # Configuration, constants, logging
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   └── settings.py
+│   │
+│   └── main.py                # Entry point for backend (e.g., FastAPI app)
+│
+├── frontend/                  # Web frontend (e.g., React, Vue)
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── api/               # Calls to backend API
+│   │   ├── styles/
+│   │   └── App.js
+│   └── package.json
+│
+├── tests/                     # Unit and integration tests
+│   ├── api/
+│   ├── services/
+│   ├── db/
+│   └── conftest.py
+│
+├── scripts/                   # One-off scripts, seeders, migrations, etc.
+│   ├── seed_data.py
+│   └── setup_dynamodb.py
+│
+├── docker/                    # Docker-related config
+│   ├── Dockerfile
+│   └── docker-compose.yml
+│
+├── .github/                   # GitHub Actions, workflows
+│   └── workflows/
+│
+├── requirements.txt
+├── README.md
+└── .env                       # Environment variables
+
+
+
+
+
+
+
+
+
+
+
+
+
 # TriviaQuiz
 Hosts a webpage which serves trivia questions from a database.
 The webservice is aimed at being deployed on an AWS EC2 instance with a dynamoDB and S3 backend.
