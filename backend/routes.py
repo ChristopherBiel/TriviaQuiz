@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
-from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question, reject_question
+from backend.db import get_random_question, get_all_questions, add_question, delete_question, approve_question, reject_question, get_question_metadata
 from backend.auth import auth_bp, edit_user, get_all_users  # Import authentication blueprint
 
 routes_bp = Blueprint("routes", __name__)
@@ -29,7 +29,8 @@ def new_question():
 @routes_bp.route("/random-question", methods=["POST"])
 def random_question():
     seen_ids = request.json.get("seen", [])
-    question = get_random_question(seen_ids)
+    filters = request.json.get("filters", {})
+    question = get_random_question(seen_ids, filters)
 
     if not question:
         return jsonify({"error": "No more unseen questions available."}), 404
@@ -41,6 +42,12 @@ def random_question():
 def get_questions():
     questions = get_all_questions()
     return jsonify(questions)
+
+# Fetch all metadata (to sort questions by language, topic, etc.)
+@routes_bp.route("/question-metadata", methods=["GET"])
+def question_metadata():
+    metadata = get_question_metadata()
+    return jsonify(metadata)
 
 # Fetch all the users (for the user management page)
 @routes_bp.route("/get-users", methods=["GET"])
@@ -147,35 +154,20 @@ def check_login():
         return jsonify({"logged_in": False})    
 
 # Approve a user (only for admins)
-@routes_bp.route("/users/<string:username>/approve", methods=["POST"])
-def approve_user(username):
+@routes_bp.route("/users/<string:username>/<string:action>", methods=["POST"])
+def edit_user_permissions(username, action):
     if not session.get("logged_in"):
         return jsonify({"error": "Unauthorized"}), 403
 
     if not session.get("is_admin"):
         return jsonify({"error": "Forbidden: Admin privileges required"}), 403
 
-    success = edit_user(username, "approve")
+    success = edit_user(username, action)
 
     if success:
         return jsonify({"success": True}), 200
     else:
         return jsonify({"error": "Failed to approve user"}), 500
-
-# Disapprove a user (only for admins)
-@routes_bp.route("/users/<string:username>/reject", methods=["POST"])
-def reject_user(username):
-    if not session.get("logged_in"):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    if not session.get("is_admin"):
-        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
-
-    success = edit_user(username, "disapprove")
-    if success:
-        return jsonify({"success": True}), 200
-    else:
-        return jsonify({"error": "Failed to disapprove user"}), 500
 
 # Delete a user (only for admins)
 @routes_bp.route("/users/<string:username>", methods=["DELETE"])

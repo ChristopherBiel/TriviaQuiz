@@ -24,17 +24,6 @@ def get_referral_code():
         print("Error fetching referral code:", str(e))
         return None
 
-# ----- CAN BE REMOVED IF NEW USER LOGGING VIA DATABASE WORKS -----
-def get_parameter(name):
-    """Retrieve parameter from AWS Systems Manager Parameter Store."""
-    response = ssm.get_parameter(Name=name, WithDecryption=True)
-    return response["Parameter"]["Value"]
-
-# Load credentials from AWS Systems Manager
-ADMIN_USERNAME = get_parameter("/TriviaQuiz/ADMIN_USERNAME")
-ADMIN_PASSWORD = get_parameter("/TriviaQuiz/ADMIN_PASSWORD")
-# ----- END OF CAN BE REMOVED -----
-
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -173,7 +162,7 @@ def edit_user(user_id, action):
                     ":admin": session["username"]
                 }
             )
-        elif action == "disapprove":
+        elif action == "reject":
             users_table.update_item(
                 Key={"username": user_id},
                 UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",

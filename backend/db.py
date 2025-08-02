@@ -83,25 +83,33 @@ def get_all_questions():
     return response.get("Items", [])
 
 # Fetch a random question
-def get_random_question(seen_ids=None):
-    """Fetches a random question not in seen_ids from DynamoDB."""
+def get_random_question(seen_ids=None, filters=None):
+    """Fetches a random question not in seen_ids from DynamoDB with optional filters."""
     response = table.scan()
     items = response.get("Items", [])
     
     # Filter for reviewed questions
-    reviewed_items = [
-        item for item in items
-        if item.get("review_status") is True
-    ]
+    items = [q for q in items if q.get("review_status") is True]
+
+    # Apply filters
+    if filters is not None:
+        for key, value in filters.items():
+            if key == "tags" and isinstance(value, list):
+                # Filter by tags, or allow all if empty
+                if value:
+                    items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
+            else:
+                items = [q for q in items if q.get(key) == value]
+
+    print(f"DEBUG: Filtered questions count: {len(items)}")
 
     if seen_ids:
-        reviewed_items = [item for item in reviewed_items if item.get("id") not in seen_ids]
+        items = [q for q in items if q.get("id") not in seen_ids]
 
-    if not reviewed_items:
+    if not items:
         return None  # No unseen questions left
 
-    random_question = random.choice(reviewed_items)
-    return random_question
+    return random.choice(items)
 
 # Fetch a question by ID
 def get_question_by_id(question_id, question_topic):
@@ -117,6 +125,31 @@ def get_question_by_id(question_id, question_topic):
     except Exception as e:
         print(f"Error fetching question: {e}")
         return None
+
+def get_question_metadata():
+    """Scans the DB and returns all unique values for language, question_topic, and tags."""
+    response = table.scan()
+    items = response.get("Items", [])
+
+    languages = set()
+    topics = set()
+    tags = set()
+
+    for item in items:
+        if item.get("review_status") is False:
+            continue
+        if item.get("language"):
+            languages.add(item["language"])
+        if item.get("question_topic"):
+            topics.add(item["question_topic"])
+        for tag in item.get("tags", []):
+            tags.add(tag)
+
+    return {
+        "languages": sorted(languages),
+        "topics": sorted(topics),
+        "tags": sorted(tags)
+    }
 
 # Delete a question by ID
 def delete_question(question_id, question_topic):

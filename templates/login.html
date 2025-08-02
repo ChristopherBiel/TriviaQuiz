@@ -11,12 +11,30 @@
         <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
     </div>
     <h1 class="text-3xl font-bold mb-6">Login</h1>
-    <form method="post" class="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <form method="post" onsubmit="return validateForm()" class="bg-gray-800 p-6 rounded-lg shadow-lg">
         <input name="username" type="text" placeholder="Username" class="w-full p-2 mt-2 rounded text-black">
         <input name="password" type="password" placeholder="Password" class="w-full p-2 mt-2 rounded text-black">
         <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Login</button>
     </form>
     <p>Don't have an account? <a href="/signup" class="text-blue-400 hover:underline">Sign up here</a>.</p>
 
+    <script>
+        function validateForm() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+        
+            if (!username || !password) {
+                alert("Username and password cannot be empty.");
+                return false;
+            }
+        
+            if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+                alert("Username must be 3–30 characters and use only letters, numbers, and underscores.");
+                return false;
+            }
+        
+            return true;
+        }
+    </script>
 </body>
 </html>
