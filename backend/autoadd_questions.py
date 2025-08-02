@@ -110,5 +110,18 @@ def generate_and_save_ai_questions(n=3):
     save_generated_questions(parsed)
     print(f"Successfully added {len(parsed)} AI-generated questions.")
 
+def generate_prompt_for_ai(n=3):
+    """Generates a prompt for AI question generation."""
+    sampled = sample_questions(n)
+    print(f"Sampled {len(sampled)} questions for AI generation.")
+    prompt = build_prompt(sampled, n)
+    # Copy the prompt to clipboard
+    try:
+        import pyperclip
+        pyperclip.copy(prompt)
+        print("Prompt copied to clipboard.")
+    except ImportError:
+        print("pyperclip not installed, prompt not copied to clipboard.")
+
 if __name__ == "__main__":
-    generate_and_save_ai_questions(n=3)
+    generate_prompt_for_ai(n=10)
