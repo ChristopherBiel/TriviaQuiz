@@ -5,6 +5,9 @@ from backend.db.userdb import (
     update_user_in_db,
     delete_user_from_db
 )
+from backend.utils.input_validation import is_email_valid, is_username_valid, is_password_valid, is_referral_code_valid
+from backend.utils.password_utils import hash_password, verify_password
+
 
 def get_user_by_username(username):
     """Fetch a user by username."""
@@ -13,6 +16,13 @@ def get_user_by_username(username):
 def get_all_users(filters=None):
     """Fetch all users, optionally filtered by provided criteria."""
     return get_all_users_db(filters)
+
+def get_user_by_email(email):
+    """Fetch a user by email, using the get_all_users function."""
+    users = get_all_users({"email": email})
+    if users:
+        return users[0]  # Return the first user found with the given email
+    return None
 
 def create_user(data):
     """Create a new user."""
@@ -23,20 +33,51 @@ def create_user(data):
 
     if not all([username, email, password]):
         raise ValueError("Missing required fields: username, email, password")
-    
-    # Check if the username is valid (alphanumeric and underscores only)
-    if not username.isalnum() and "_" not in username:
-        raise ValueError("Username must be alphanumeric or contain underscores only")
-    if len(username) < 3 or len(username) > 20:
-        raise ValueError("Username must be between 3 and 20 characters long")
-    if not email or "@" not in email or "." not in email.split("@")[-1]:
-        raise ValueError("Invalid email format")
-    if len(password) < 8:
-        raise ValueError("Password must be at least 8 characters long")
-    if referral_code and len(referral_code) != 6:
-        raise ValueError("Referral code must be exactly 6 characters long")
-    if not referral_code:
-        referral_code = None
-    
+    if referral_code is None:
+        referral_code = ""
 
+    # Check if input formats are valid
+    if not is_username_valid(username):
+        raise ValueError("Invalid username format")
+    if not is_email_valid(email):
+        raise ValueError("Invalid email format")
+    if not is_password_valid(password):
+        raise ValueError("Invalid password format")
+    if not is_referral_code_valid(referral_code):
+        raise ValueError("Invalid referral code format")
+    
     # Check if the user or email already exists
+    existing_user = get_user_by_username(username)
+    if existing_user:
+        raise ValueError("Username already exists")
+    existing_email = get_user_by_email(email)
+    if existing_email:
+        raise ValueError("Email already exists")
+    
+    # Add the user to the database
+    return add_user_to_db(
+        username=username,
+        email=email,
+        password_hash=hash_password(password),
+        referral_code=referral_code
+    )
+
+def update_user(username, updates):
+    """Update an existing user."""
+    # Check if the user exists
+    user = get_user_by_username(username)
+    if not user:
+        raise ValueError("User not found")
+    # Validate the updates
+    if not isinstance(updates, dict):
+        raise ValueError("Updates must be a dictionary")
+    allowed_updates = {"password", "role", "is_verified", "is_approved"}
+    if "password" in updates and not is_password_valid(updates["password"]):
+        raise ValueError("Invalid password format")
+    
+    if "password" in updates:
+        # Hash the new password if it is being updated
+        updates["password_hash"] = hash_password(updates.pop("password"))
+        updates.pop("password", None)  # Remove the plain password from updates
+    
+    return update_user_in_db(username, updates)
