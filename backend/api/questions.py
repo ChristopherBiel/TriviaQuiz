@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from backend.models.question import QuestionModel
 from backend.services.question_service import (
     get_question_by_id,
     get_all_questions,
@@ -16,7 +17,7 @@ def list_questions():
     """List all questions, optionally filtered by query params."""
     filters = request.args.to_dict()
     questions = get_all_questions(filters)
-    return jsonify(questions), 200
+    return questions.model_dump_json(), 200
 
 
 @questions_bp.route("/<question_id>", methods=["GET"])
@@ -24,7 +25,7 @@ def get_question(question_id):
     """Get a specific question by ID."""
     question = get_question_by_id(question_id)
     if question:
-        return jsonify(question), 200
+        return question.model_dump_json(), 200
     return jsonify({"error": "Question not found"}), 404
 
 
@@ -36,7 +37,7 @@ def create_new_question():
         return jsonify({"error": "Missing request body"}), 400
 
     new_question = create_question(data)
-    return jsonify(new_question), 201
+    return new_question., 201
 
 
 @questions_bp.route("/<question_id>", methods=["PUT"])

@@ -1,5 +1,5 @@
 import random
-from backend.db.questiondb import table
+from backend.models.question import QuestionModel
 from backend.db.questiondb import (
     get_question_by_id_db,
     get_all_questions_db,
@@ -7,60 +7,46 @@ from backend.db.questiondb import (
     update_question_in_db,
     delete_question_from_db
 )
+from backend.db.files3 import upload_file_to_s3
 
-def get_question_by_id(question_id):
+def get_question_by_id(question_id: str) -> QuestionModel | None:
     """Fetch a question by ID from the database."""
     return get_question_by_id_db(question_id)
 
-def get_all_questions(filters=None):
+def get_all_questions(filters: dict = None) -> list[QuestionModel] | None:
     """Fetch all questions from the database, optionally filtered by provided criteria."""
     return get_all_questions_db(filters)
 
-def create_question(data):
-    # Required fields
-    question = data.get("question")
-    answer = data.get("answer")
-    added_by = data.get("added_by")
+def create_question(data: dict) -> bool:
+    """Create a new question in the database."""
+    question = QuestionModel(**data)
+    # If the question has a media file, upload it to S3 and get the URL
+    media_file = data.get("media_file")
+    if media_file:
+        question.media_url = upload_file_to_s3(media_file)  # Assuming this function exists
+    else:
+        question.media_url = None
+    return add_question_to_db(question)
 
-    if not all([question, answer, added_by]):
-        raise ValueError("Missing required fields")
-
-    return add_question_to_db(
-        question=question,
-        answer=answer,
-        added_by=added_by,
-        question_topic=data.get("question_topic"),
-        question_source=data.get("question_source"),
-        answer_source=data.get("answer_source"),
-        media_file=data.get("media_file"),
-        language=data.get("language"),
-        incorrect_answers=data.get("incorrect_answers"),
-        tags=data.get("tags"),
-        review_status=data.get("review_status")
-    )
-
-def update_question(question_id, updates):
+def update_question(question_id: str, updates: dict, user: str) -> QuestionModel | None:
+    """Update an existing question in the database."""
+    updates["updated_by"] = user  # Add the user who made the update
     return update_question_in_db(question_id, updates)
 
-def delete_question(question_id):
+def delete_question(question_id: str) -> bool:
     return delete_question_from_db(question_id)
 
-def get_random_question_filtered(seen_ids=None, filters=None):
+def get_random_question_filtered(seen_ids: list = None, filters: dict = None):
     """Fetch a random reviewed question not in seen_ids with optional filters."""
-    response = table.scan()
-    items = response.get("Items", [])
 
-    # Only include reviewed questions
-    items = [q for q in items if q.get("review_status") is True]
+    if seen_ids is None:
+        seen_ids = []
+    
+    if filters is None:
+        filters = {}
+    filters["review_status"] = True
 
-    # Apply filters
-    if filters:
-        for key, value in filters.items():
-            if key == "tags" and isinstance(value, list):
-                if value:
-                    items = [q for q in items if any(tag in q.get("tags", []) for tag in value)]
-            else:
-                items = [q for q in items if q.get(key) == value]
+    items = get_all_questions_db(filters)
 
     if seen_ids:
         items = [q for q in items if q.get("id") not in seen_ids]
@@ -68,4 +54,4 @@ def get_random_question_filtered(seen_ids=None, filters=None):
     if not items:
         return None
 
-    return random.choice(items)
+    return QuestionModel(**random.choice(items))
