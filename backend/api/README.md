@@ -1,47 +1,36 @@
-### Questions API
+## TriviaQuiz API
+Session-backed JSON endpoints served by Flask blueprints. Use the `/login` route from `backend/auth.py` to obtain a session cookie, then call these APIs.
 
-This module exposes CRUD endpoints for questions plus filtered/paginated listing and random selection.
+### Conventions
+- JSON responses with `{error: string}` on failure. Content negotiation: `GET /questions/<id>` will render `templates/question_detail.html` when HTML is preferred.
+- Auth: POST/PUT/DELETE routes require a logged-in session; admin-only where noted.
+- Pagination: `limit` (>=1) and `offset` (>=0) plus an opaque `page_token`/`next_page_token` derived from DynamoDB `LastEvaluatedKey`.
+- Filters: `tags` (list or comma-separated), `language`, `question_topic`, `review_status` (`true/false`). Filtering happens before pagination.
+- Media: upload as multipart form-data with `media` file; allowed extensions `jpg,jpeg,png,gif,mp4,mp3`. Set `remove_media=true` or `media_path=null` to delete media.
 
-- **Base path:** `/questions`
+### Question endpoints (base `/questions`)
+- `GET /questions/` — list questions with filters + pagination. Response: `{"items":[...],"pagination":{"limit":n,"offset":n,"count":n,"total":n,"next_page_token":str|null}}`.
+- `GET /questions/<question_id>` — fetch a question; 404 if missing; renders HTML when Accept prefers text/html.
+- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `question_source`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required.
+- `PUT /questions/<question_id>` — partial update. Auth required; only owner or admin can update. Accepts JSON or multipart with `media`.
+- `DELETE /questions/<question_id>` — delete a question (and associated S3 media). Admin-only.
+- `POST /questions/random` — returns one unseen question matching filters; body: `{"seen":[...],"filters":{...}}`; 404 when none available.
 
-#### List questions
-- **GET** `/questions/`
-- **Query params:** `limit` (default 50, >=1), `offset` (default 0, >=0), `page_token` (from previous response), `tags` (comma separated), `language`, `question_topic`, `review_status` (`true/false`).
-- **Response:** `{"items":[...], "pagination":{"limit":n,"offset":n,"count":n,"total":n,"next_page_token":str|null}}`
-- **Notes:** Filtering is applied before slicing; `review_status` is parsed as a boolean; tags are normalized to a string list; invalid `limit/offset` or malformed filters return `400`. Pagination uses DynamoDB `LastEvaluatedKey` encoded as `next_page_token`; pass it back as `page_token` for the next page. `total` is best-effort via a capped scan.
+Example: list and create
+```bash
+curl -b cookiejar -c cookiejar http://localhost:5600/login -d 'username=me&password=pass'
+curl -b cookiejar "http://localhost:5600/questions/?limit=5&tags=history,science"
+curl -b cookiejar -H "Content-Type: application/json" \
+  -d '{"question":"Capital of France?","answer":"Paris","added_by":"me","tags":["geography"]}' \
+  http://localhost:5600/questions/
+```
 
-#### Get by id
-- **GET** `/questions/<question_id>`
-- **404** if not found.
+### User endpoints (admin-only)
+- `GET /users/` — list users.
+- `GET /users/<username>` — fetch user by username.
+- `POST /users/` — create user; body: `username`, `email`, `password`, optional `role`, `is_verified`, `is_approved`.
+- `PUT /users/<username>` — update fields (`email`, `password`, `role`, `is_verified`, `is_approved`, `username`).
+- `DELETE /users/<username>` — remove user.
 
-#### Create
-- **POST** `/questions/`
-- **Body (JSON):** required `question`, `answer`, `added_by`; optional `incorrect_answers` (list or comma-separated string), `question_topic`, `language`, `tags`, `review_status`, `media_url`.
-- **Auth:** requires logged-in user session.
-- **201** with created record; **400** on missing/invalid payload; **403** when not logged in.
-
-#### Update
-- **PUT** `/questions/<question_id>`
-- **Body (JSON):** partial updates accepted; same shape as create. Set `media_url` to `null` to remove media (S3 asset is deleted).
-- **Auth:** requires logged-in user session.
-- **Permissions:** only the original author (`added_by`) or an admin can update.
-- **200** with updated record, **404** if not found or not permitted, **400** on missing/invalid payload; **403** when not logged in.
-
-#### Delete
-- **DELETE** `/questions/<question_id>`
-- **Auth:** requires admin session.
-- **204** on success, **404** if not found, **403** when not authorized. Media is cleaned up from S3 when present.
-
-#### Random (filtered, unseen)
-- **POST** `/questions/random`
-- **Body (JSON):** `seen` (list of IDs), `filters` (same shape as list query).
-- **404** when no unseen question matches.
-
-### Users API (admin-only)
-
-- **GET** `/users/` — list all users.
-- **GET** `/users/<username>` — fetch a user by username.
-- **POST** `/users/` — create a user; body: `username`, `email`, `password`, optional `role` (admin only), `is_verified`, `is_approved`.
-- **PUT** `/users/<username>` — update user; body may include `email`, `password`, `role`, `is_verified`, `is_approved`.
-- **DELETE** `/users/<username>` — delete user.
-- All user endpoints require admin session; responses are JSON; errors use `{error: string}` with `400/403/404` as appropriate.
+### HTML helper routes
+- `GET /question/<question_id>` and `GET /questions/<question_id>/view` render `question_detail.html` without colliding with the JSON API paths.

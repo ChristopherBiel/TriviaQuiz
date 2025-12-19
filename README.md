@@ -1,138 +1,83 @@
 ![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
 
-
-
-
-New File structure:
-
-TriviaQuiz/
-│
-├── backend/
-│   ├── api/                    # FastAPI/Flask route definitions (organized by domain)
-│   │   ├── __init__.py
-│   │   ├── questions.py
-│   │   ├── events.py
-│   │   ├── multiplayer.py
-│   │   └── media.py
-│   │
-│   ├── services/              # Business logic layer
-│   │   ├── __init__.py
-│   │   ├── question_service.py
-│   │   ├── event_service.py
-│   │   ├── user_service.py
-│   │   └── multiplayer_service.py
-│   │
-│   ├── models/                # Data models & schemas (Pydantic / Marshmallow)
-│   │   ├── __init__.py
-│   │   ├── question.py
-│   │   ├── event.py
-│   │   ├── user.py
-│   │   └── media.py
-│   │
-│   ├── db/                    # Database interface (DynamoDB/S3 utils)
-│   │   ├── __init__.py
-│   │   ├── dynamodb.py
-│   │   ├── s3.py
-│   │   └── utils.py
-│   │
-│   ├── core/                  # Configuration, constants, logging
-│   │   ├── config.py
-│   │   ├── logging.py
-│   │   └── settings.py
-│   │
-│   └── main.py                # Entry point for backend (e.g., FastAPI app)
-│
-├── frontend/                  # Web frontend (e.g., React, Vue)
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── api/               # Calls to backend API
-│   │   ├── styles/
-│   │   └── App.js
-│   └── package.json
-│
-├── tests/                     # Unit and integration tests
-│   ├── api/
-│   ├── services/
-│   ├── db/
-│   └── conftest.py
-│
-├── scripts/                   # One-off scripts, seeders, migrations, etc.
-│   ├── seed_data.py
-│   └── setup_dynamodb.py
-│
-├── docker/                    # Docker-related config
-│   ├── Dockerfile
-│   └── docker-compose.yml
-│
-├── .github/                   # GitHub Actions, workflows
-│   └── workflows/
-│
-├── requirements.txt
-├── README.md
-└── .env                       # Environment variables
-
-
-
-
-
-
-
-
-
-
-
-
-
 # TriviaQuiz
-Hosts a webpage which serves trivia questions from a database.
-The webservice is aimed at being deployed on an AWS EC2 instance with a dynamoDB and S3 backend.
+Flask-powered trivia game with session-based authentication, DynamoDB for questions/users, and S3-backed media uploads. Serves a lightweight HTML UI plus JSON APIs that power moderation, gameplay, and admin workflows.
 
-## Getting started
-Setup a dynamoDB table, S3 bucket and EC2 instance.
+## Repository layout
+- `app.py` – Flask entrypoint binding everything together
+- `backend/` – application code (Flask blueprints, services, models, data access)
+- `templates/` – HTML pages for gameplay, auth, moderation, and question detail
+- `scripts/` – operational helpers (e.g., ensuring an admin account)
+- `docker/` – Dockerfile for containerized deployments
+- `tests/` – API/service integration tests (pytest)
+- `requirements.txt` – Python dependencies
 
+## Features
+- Auth + approval: signup/login with email verification flags and admin approval gates
+- Question workflow: CRUD APIs, random unseen selection with filters, review/approval toggles
+- Media support: upload images/audio/video to S3 and store URLs alongside questions
+- Admin tools: user management, question moderation, database view via HTML pages
+- Pagination: token + offset based listing for DynamoDB-backed questions
 
-Running `app.py`
+## Prerequisites
+- Python 3.12+
+- AWS credentials configured (DynamoDB + S3 access)
+- DynamoDB tables:
+  - Questions: partition key `id` (optionally a sort key `question_topic` if you need topic-level uniqueness)
+  - Users: partition key `user_id`
+- S3 bucket for media uploads (public-read or presigned access depending on your policy)
 
-# Functionality
+## Quickstart (local)
+```bash
+python -m venv .venv
+source .venv/bin/activate  # or .venv\\Scripts\\activate on Windows
+pip install -r requirements.txt
 
-## Database Handling
+export AWS_REGION=eu-central-1
+export DYNAMODB_TABLE=TriviaQuestions
+export USERS_TABLE=TriviaUsersDev
+export AWS_S3_BUCKET=your-media-bucket
+export SECRET_KEY=replace-me
 
-The project utilizes AWS DynamoDB and Amazon S3 to store and manage trivia questions efficiently. Below is an overview of how the database operations are handled.
+python app.py  # serves on http://127.0.0.1:5600
+```
 
-### DynamoDB (TriviaQuestions Table)
-The trivia questions are stored in a DynamoDB table named `TriviaQuestions`. Each question is stored as an item with the following attributes:
+Sessions are cookie-based; ensure `SECRET_KEY` is set in production. The app expects AWS credentials through the standard SDK sources (env vars, AWS profile, or instance roles).
 
-- **id** (String, Primary Key): A unique identifier generated using `uuid.uuid4()`.
-- **question** (String): The trivia question.
-- **answer** (String): The correct answer to the question.
-- **added_by** (String): The user who added the question.
-- **question_topic** (String, Optional): The category or topic of the question.
-- **question_source** (String, Optional): The source from which the question was obtained.
-- **answer_source** (String, Optional): The source of the answer.
-- **media_path** (String, Optional): A reference to an associated media file stored in S3.
-- **language** (String, Optional): The language of the question.
-- **incorrect_answers** (List, Optional): A list of incorrect answers for multiple-choice questions.
-- **tags** (List, Optional): Tags related to the question.
-- **timestamp** (String): The timestamp when the question was added.
+## Environment variables
+- `AWS_REGION` (default `eu-central-1`) – AWS region for DynamoDB/S3
+- `DYNAMODB_TABLE` – DynamoDB table for questions
+- `USERS_TABLE` – DynamoDB table for users
+- `AWS_S3_BUCKET` – bucket for media uploads
+- `SECRET_KEY` – Flask session key (required for auth)
+- Optional: standard AWS SDK vars (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, etc.)
 
-### Amazon S3 (Media Storage)
-If a question includes an associated media file (image, audio, or video), it is uploaded to an S3 bucket. The following process is followed:
+## Running with Docker
+```bash
+docker build -t triviaquiz -f docker/Dockerfile .
+docker run --rm -p 5600:5600 \
+  -e AWS_REGION=eu-central-1 \
+  -e DYNAMODB_TABLE=TriviaQuestions \
+  -e USERS_TABLE=TriviaUsersDev \
+  -e AWS_S3_BUCKET=your-media-bucket \
+  -e SECRET_KEY=replace-me \
+  triviaquiz
+```
+Grant the container IAM access via env vars or the host/role you run with.
 
-1. The media file is uploaded to the S3 bucket specified in the `AWS_S3_BUCKET` environment variable.
-2. The function `upload_file_to_s3(media_file)` handles the file upload and generates a public or private URL.
-3. The generated S3 URL is stored in the `media_path` attribute in DynamoDB.
+## Testing
+```bash
+pytest
+```
+Most tests mock AWS calls, but integration tests still expect AWS environment variables to be present. Provide disposable tables/bucket when running against real services.
 
-### Adding a Question
-To add a new trivia question, the `add_question()` function is used. It follows these steps:
-1. Generates a unique `id`.
-2. Uploads the media file to S3 (if provided) and retrieves its URL.
-3. Constructs an item with all attributes.
-4. Saves the item in the `TriviaQuestions` table using DynamoDB.
+## API and data model docs
+- Question/user API usage: `backend/api/README.md`
+- DynamoDB/S3 expectations and pagination details: `backend/db/README.md`
+- Backend architecture overview: `backend/README.md`
 
-### Retrieving Questions
-Questions can be retrieved using their `id` via DynamoDB queries. Additionally, filters can be applied based on topics, tags, or languages.
-
-This structure ensures scalable and efficient management of trivia questions while allowing the integration of multimedia content stored securely in S3.
-
+## Operational helpers
+- `scripts/ensure_admin.py` – create or promote an admin user with verified/approved flags. Example:
+  ```bash
+  python scripts/ensure_admin.py --username admin --email you@example.com --password "secret"
+  ```
