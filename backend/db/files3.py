@@ -2,6 +2,7 @@ import os
 import boto3
 import uuid
 import mimetypes
+from urllib.parse import urlparse
 
 AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
 AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "chris-trivia-media-bucket")
@@ -56,3 +57,21 @@ def upload_file_to_s3(file):
     except Exception as e:
         print(f"ERROR: Failed to upload {getattr(file, 'filename', 'unknown file')} - {e}")
         return None
+
+def delete_file_from_s3(file_url: str) -> bool:
+    """Deletes a file from S3 given its URL."""
+    if not file_url:
+        return False
+
+    parsed = urlparse(file_url)
+    key = parsed.path.lstrip("/") or file_url.rsplit("/", 1)[-1]
+
+    if not key:
+        return False
+
+    try:
+        s3.delete_object(Bucket=AWS_S3_BUCKET, Key=key)
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to delete {file_url} - {e}")
+        return False

@@ -32,26 +32,68 @@
     </table>
     </div>
 
+    <!-- Edit Panel -->
+    <div id="edit-panel" class="w-full max-w-3xl bg-gray-800 p-6 rounded-lg shadow-lg mt-6 hidden">
+        <h2 class="text-2xl font-semibold mb-4">Edit Question</h2>
+        <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input id="edit-question" type="text" placeholder="Question" class="w-full p-2 rounded text-black" required>
+            <input id="edit-answer" type="text" placeholder="Answer" class="w-full p-2 rounded text-black" required>
+            <input id="edit-added-by" type="text" placeholder="Added by" class="w-full p-2 rounded text-black" required>
+            <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 rounded text-black">
+            <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="w-full p-2 rounded text-black">
+            <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 rounded text-black">
+            <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="w-full p-2 rounded text-black">
+            <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="w-full p-2 rounded text-black">
+            <select id="edit-language" class="w-full p-2 rounded text-black">
+                <option value="">Language (optional)</option>
+                <option value="English">English</option>
+                <option value="German">German</option>
+                <option value="French">French</option>
+            </select>
+            <div class="flex items-center gap-2">
+                <label for="edit-reviewed" class="text-sm text-gray-300">Approved?</label>
+                <input id="edit-reviewed" type="checkbox" class="h-5 w-5">
+            </div>
+            <div class="col-span-full flex gap-2 justify-end mt-2">
+                <button type="button" onclick="hideEdit()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
+                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded">Save</button>
+            </div>
+        </form>
+    </div>
+
     <script>
-        async function loadDatabase() {
-            let response = await fetch("/get-questions");
+        let nextPageToken = null;
+        let questionCache = {};
+        let editingId = null;
+
+        async function loadDatabase(pageToken = null) {
+            const params = new URLSearchParams({ limit: 50, offset: 0 });
+            if (pageToken) params.set("page_token", pageToken);
+
+            const response = await fetch(`/questions/?${params.toString()}`);
             if (!response.ok) {
                 console.error("Error fetching questions.");
                 return;
             }
-    
-            let questions = await response.json();
+
+            const payload = await response.json();
+            const questions = payload.items || [];
+            nextPageToken = payload.pagination?.next_page_token || null;
+            questionCache = {};
+
             let questionList = document.getElementById("question-list");
             questionList.innerHTML = "";
 
             questions.forEach(q => {
+                const id = q.id || q.question_id;
+                questionCache[id] = q;
                 const isApproved = q.review_status;
                 const actionButton = isApproved
-                    ? `<button onclick='rejectQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                    ? `<button onclick='toggleApproval("${id}", false)' 
                                 class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>
                             Reject
                        </button>`
-                    : `<button onclick='approveQuestion("${q.id}", "${q.question_topic || "General"}")' 
+                    : `<button onclick='toggleApproval("${id}", true)' 
                                 class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>
                             Approve
                        </button>`;
@@ -60,30 +102,34 @@
                     <td class='border-b p-2'>${q.question}</td>
                     <td class='border-b p-2'>${q.answer}</td>
                     <td class='border-b p-2'>${q.question_source || "Unknown"}</td>
-                    <td class='border-b p-2'>${q.question_topic || "General"}</td>  <!-- Show Topic -->
+                    <td class='border-b p-2'>${q.question_topic || "General"}</td>
                     <td class='border-b p-2'>${q.added_by}</td>
-                    <td class='border-b p-2'>${new Date(q.added_at).toLocaleDateString()}</td>
+                    <td class='border-b p-2'>${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
                     <td class='border-b p-2'>${q.review_status ? "✔️" : ""}</td>
                     <td class='border-b p-2'>
                         <div class="flex gap-2">
                             ${actionButton}
-                            <a href='/edit_question/${q.id}' 
-                               class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded inline-block'>
-                                Edit
-                            </a>
-                            <button onclick='deleteQuestion("${q.id}", "${q.question_topic || "General"}")' 
-                                    class='bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded'>
-                                Delete
-                            </button>
+                            <button onclick='startEdit("${id}")' class='bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-2 rounded'>Edit</button>
+                            <button onclick='deleteQuestion("${id}")' class='bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded'>Delete</button>
                         </div>
                     </td>
                 </tr>`;
                 questionList.innerHTML += row;
             });
+
+            if (nextPageToken) {
+                const moreRow = document.createElement("tr");
+                moreRow.innerHTML = `<td colspan="8" class="p-3 text-center">
+                    <button onclick='loadDatabase("${nextPageToken}")' class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                        Load More
+                    </button>
+                </td>`;
+                questionList.appendChild(moreRow);
+            }
         }
 
-        async function deleteQuestion(id, topic) {
-            let response = await fetch(`/delete-question/${id}/${encodeURIComponent(topic)}`, { method: "DELETE" });
+        async function deleteQuestion(id) {
+            const response = await fetch(`/questions/${id}`, { method: "DELETE" });
             if (response.ok) {
                 loadDatabase(); 
             } else {
@@ -91,23 +137,71 @@
             }
         }
 
-        async function approveQuestion(id, topic) {
-            let response = await fetch(`/approve-question/${id}/${encodeURIComponent(topic)}`, { method: "POST" });
+        async function toggleApproval(id, approved) {
+            const response = await fetch(`/questions/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ review_status: approved })
+            });
             if (response.ok) {
                 loadDatabase(); 
             } else {
-                alert("Error approving question.");
+                alert("Error updating approval.");
             }
         }
 
-        async function rejectQuestion(id, topic) {
-            let response = await fetch(`/reject-question/${id}/${encodeURIComponent(topic)}`, { method: "POST" });
-            if (response.ok) {
-                loadDatabase(); 
-            } else {
-                alert("Error rejecting question.");
-            }
+        function startEdit(id) {
+            const q = questionCache[id];
+            if (!q) return;
+            editingId = id;
+            document.getElementById("edit-question").value = q.question || "";
+            document.getElementById("edit-answer").value = q.answer || "";
+            document.getElementById("edit-added-by").value = q.added_by || "";
+            document.getElementById("edit-topic").value = q.question_topic || "";
+            document.getElementById("edit-qsource").value = q.question_source || "";
+            document.getElementById("edit-asource").value = q.answer_source || "";
+            document.getElementById("edit-incorrect").value = (q.incorrect_answers || []).join(", ");
+            document.getElementById("edit-tags").value = (q.tags || []).join(", ");
+            document.getElementById("edit-language").value = q.language || "";
+            document.getElementById("edit-reviewed").checked = !!q.review_status;
+            document.getElementById("edit-panel").classList.remove("hidden");
         }
+
+        function hideEdit() {
+            editingId = null;
+            document.getElementById("edit-panel").classList.add("hidden");
+        }
+
+        document.getElementById("edit-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!editingId) return;
+            const payload = {
+                question: document.getElementById("edit-question").value,
+                answer: document.getElementById("edit-answer").value,
+                added_by: document.getElementById("edit-added-by").value,
+                question_topic: document.getElementById("edit-topic").value || null,
+                question_source: document.getElementById("edit-qsource").value || null,
+                answer_source: document.getElementById("edit-asource").value || null,
+                incorrect_answers: document.getElementById("edit-incorrect").value.split(",").map(s => s.trim()).filter(Boolean),
+                tags: document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+                language: document.getElementById("edit-language").value || null,
+                review_status: document.getElementById("edit-reviewed").checked,
+            };
+
+            const response = await fetch(`/questions/${editingId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                hideEdit();
+                loadDatabase();
+            } else {
+                const err = await response.json().catch(() => ({}));
+                alert(err.error || "Error updating question.");
+            }
+        });
         loadDatabase();
     </script>
 </body>

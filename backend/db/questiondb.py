@@ -1,8 +1,7 @@
 import boto3
 import os
 from datetime import datetime
-from boto3.dynamodb.conditions import Key
-from typing import Optional, List
+from typing import Optional, List, Tuple, Dict, Any
 
 from backend.models.question import QuestionModel
 
@@ -15,7 +14,9 @@ table = dynamodb.Table(DYNAMODB_TABLE)
 
 def add_question_to_db(question: QuestionModel) -> bool:
     """Adds a new question to DynamoDB."""
-    item = question.model_dump()
+    item = question.model_dump(mode="json")
+    # Store the canonical ID both under question_id and id for backwards compatibility.
+    item["id"] = question.question_id
     table.put_item(Item=item)
     return True
 
@@ -30,23 +31,28 @@ def get_question_by_id_db(question_id) -> Optional[QuestionModel]:
         return None
     return QuestionModel(**response["Item"])
 
-def get_all_questions_db(filters=None) -> List[QuestionModel]:
-    # Full scan for now; optionally apply filters later
-    response = table.scan()
-    # If filters are provided, apply them
+def get_all_questions_db(filters=None, limit: int = 50, last_key: Optional[Dict[str, Any]] = None) -> Tuple[List[QuestionModel], Optional[Dict[str, Any]]]:
+    """
+    Scan with optional filters and pagination.
+    Returns list of questions and a pagination token (LastEvaluatedKey).
+    """
+    scan_kwargs: Dict[str, Any] = {"Limit": limit}
+    if last_key:
+        scan_kwargs["ExclusiveStartKey"] = last_key
+
+    response = table.scan(**scan_kwargs)
+    items = response.get("Items", [])
+
     if filters:
-        items = response.get("Items", [])
-        # Apply each filter, tags are handled separately
         for key, value in filters.items():
             if key == "tags" and isinstance(value, list):
                 if value:
                     items = [item for item in items if any(tag in item.get("tags", []) for tag in value)]
             else:
                 items = [item for item in items if item.get(key) == value]
-        return [QuestionModel(**item) for item in items]
-    else:
-        # Return all items as QuestionModel instances
-        return [QuestionModel(**item) for item in response.get("Items", [])]
+
+    questions = [QuestionModel(**item) for item in items]
+    return questions, response.get("LastEvaluatedKey")
 
 def update_question_in_db(question_id: str, update: dict) -> QuestionModel | None:
     # Fetch the current item to get its update_history
