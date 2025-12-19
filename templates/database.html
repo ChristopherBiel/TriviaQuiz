@@ -13,17 +13,28 @@
     </div>
     <h1 class="text-4xl font-bold mb-6">Manage Trivia Questions</h1>
 
+    <div class="w-full max-w-6xl bg-gray-800 p-4 rounded-lg shadow mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input id="filter-text" type="text" placeholder="Search question text" class="p-2 rounded text-black">
+        <input id="filter-topic" type="text" placeholder="Topic" class="p-2 rounded text-black">
+        <input id="filter-language" type="text" placeholder="Language" class="p-2 rounded text-black">
+        <label class="flex items-center gap-2"><input id="filter-reviewed" type="checkbox" class="h-5 w-5"> Reviewed only</label>
+        <div class="md:col-span-4 flex gap-2">
+            <button onclick="loadDatabase()" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply Filters</button>
+            <button onclick="clearFilters()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">Clear</button>
+        </div>
+    </div>
+
     <!-- Trivia Questions Table -->
     <div class="overflow-x-auto w-full">
-    <table class="w-full text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg">
+    <table class="w-full text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg" id="questions-table">
         <thead>
             <tr>
-                <th class="border-b p-2">Question</th>
-                <th class="border-b p-2">Answer</th>
-                <th class="border-b p-2">Source</th>
-                <th class="border-b p-2">Topic</th>
-                <th class="border-b p-2">Added by</th>
-                <th class="border-b p-2">Date Added</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('question')">Question</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('answer')">Answer</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('question_topic')">Topic</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('added_by')">Added by</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('language')">Lang</th>
+                <th class="border-b p-2 cursor-pointer" onclick="sortBy('added_at')">Added</th>
                 <th class="border-b p-2">Appr</th>
                 <th class="border-b p-2">Actions</th>
             </tr>
@@ -62,48 +73,66 @@
     </div>
 
     <script>
-        let nextPageToken = null;
+        let allQuestions = [];
         let questionCache = {};
         let editingId = null;
+        let sortField = null;
+        let sortAsc = true;
+        let currentPage = 1;
+        let pageSize = 20;
 
-        async function loadDatabase(pageToken = null) {
-            const params = new URLSearchParams({ limit: 50, offset: 0 });
-            if (pageToken) params.set("page_token", pageToken);
+        async function loadDatabase() {
+            const txt = document.getElementById("filter-text").value.trim();
+            const topic = document.getElementById("filter-topic").value.trim();
+            const lang = document.getElementById("filter-language").value.trim();
+            const reviewed = document.getElementById("filter-reviewed").checked;
 
-            const response = await fetch(`/questions/?${params.toString()}`);
-            if (!response.ok) {
-                console.error("Error fetching questions.");
-                return;
+            allQuestions = [];
+            let pageToken = null;
+            do {
+                const params = new URLSearchParams({ limit: 100, offset: 0 });
+                if (pageToken) params.set("page_token", pageToken);
+                if (topic) params.set("question_topic", topic);
+                if (lang) params.set("language", lang);
+                if (reviewed) params.set("review_status", true);
+                const response = await fetch(`/questions/?${params.toString()}`);
+                if (!response.ok) break;
+                const payload = await response.json();
+                allQuestions.push(...(payload.items || []));
+                pageToken = payload.pagination?.next_page_token;
+            } while (pageToken && allQuestions.length < 2000);
+
+            if (txt) {
+                allQuestions = allQuestions.filter(q => (q.question || "").toLowerCase().includes(txt.toLowerCase()));
             }
+            applySort();
+            currentPage = 1;
+            renderPage();
+            updateSortIndicators();
+        }
 
-            const payload = await response.json();
-            const questions = payload.items || [];
-            nextPageToken = payload.pagination?.next_page_token || null;
+        function renderPage() {
+            const questionList = document.getElementById("question-list");
+            questionList.innerHTML = "";
             questionCache = {};
 
-            let questionList = document.getElementById("question-list");
-            questionList.innerHTML = "";
+            const start = (currentPage - 1) * pageSize;
+            const slice = allQuestions.slice(start, start + pageSize);
 
-            questions.forEach(q => {
+            slice.forEach(q => {
                 const id = q.id || q.question_id;
                 questionCache[id] = q;
                 const isApproved = q.review_status;
                 const actionButton = isApproved
-                    ? `<button onclick='toggleApproval("${id}", false)' 
-                                class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>
-                            Reject
-                       </button>`
-                    : `<button onclick='toggleApproval("${id}", true)' 
-                                class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>
-                            Approve
-                       </button>`;
+                    ? `<button onclick='toggleApproval("${id}", false)' class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>Reject</button>`
+                    : `<button onclick='toggleApproval("${id}", true)' class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>Approve</button>`;
 
                 let row = `<tr>
-                    <td class='border-b p-2'>${q.question}</td>
+                    <td class='border-b p-2'><a class="text-blue-400 hover:underline" href="/questions/${id}">${q.question}</a></td>
                     <td class='border-b p-2'>${q.answer}</td>
-                    <td class='border-b p-2'>${q.question_source || "Unknown"}</td>
                     <td class='border-b p-2'>${q.question_topic || "General"}</td>
                     <td class='border-b p-2'>${q.added_by}</td>
+                    <td class='border-b p-2'>${q.language || "-"}</td>
                     <td class='border-b p-2'>${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
                     <td class='border-b p-2'>${q.review_status ? "✔️" : ""}</td>
                     <td class='border-b p-2'>
@@ -117,15 +146,31 @@
                 questionList.innerHTML += row;
             });
 
-            if (nextPageToken) {
-                const moreRow = document.createElement("tr");
-                moreRow.innerHTML = `<td colspan="8" class="p-3 text-center">
-                    <button onclick='loadDatabase("${nextPageToken}")' class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">
-                        Load More
-                    </button>
-                </td>`;
-                questionList.appendChild(moreRow);
-            }
+            renderPagination();
+        }
+
+        function renderPagination() {
+            const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
+            const questionList = document.getElementById("question-list");
+            const pager = document.createElement("tr");
+            pager.innerHTML = `<td colspan="8" class="p-3 text-center space-x-2">
+                <button ${currentPage===1?"disabled":""} class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
+                <span>Page ${currentPage} / ${totalPages}</span>
+                <button ${currentPage===totalPages?"disabled":""} class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
+            </td>`;
+            questionList.appendChild(pager);
+        }
+
+        function gotoPage(page) {
+            const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
+            currentPage = Math.min(Math.max(1, page), totalPages);
+            renderPage();
+        }
+
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById("page-size").value, 10) || 20;
+            currentPage = 1;
+            renderPage();
         }
 
         async function deleteQuestion(id) {
@@ -146,7 +191,8 @@
             if (response.ok) {
                 loadDatabase(); 
             } else {
-                alert("Error updating approval.");
+                const err = await response.json().catch(() => ({}));
+                alert(err.error || "Error updating approval.");
             }
         }
 
@@ -202,6 +248,53 @@
                 alert(err.error || "Error updating question.");
             }
         });
+
+        function clearFilters() {
+            document.getElementById("filter-text").value = "";
+            document.getElementById("filter-topic").value = "";
+            document.getElementById("filter-language").value = "";
+            document.getElementById("filter-reviewed").checked = false;
+            sortField = null;
+            sortAsc = true;
+            loadDatabase();
+        }
+
+        function sortBy(field) {
+            if (sortField === field) {
+                sortAsc = !sortAsc;
+            } else {
+                sortField = field;
+                sortAsc = true;
+            }
+            applySort();
+            renderPage();
+            updateSortIndicators();
+        }
+
+        function applySort() {
+            if (!sortField) return;
+            allQuestions.sort((a, b) => {
+                const va = (a[sortField] || "").toString().toLowerCase();
+                const vb = (b[sortField] || "").toString().toLowerCase();
+                if (va < vb) return sortAsc ? -1 : 1;
+                if (va > vb) return sortAsc ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function updateSortIndicators() {
+            ["question","answer","question_topic","added_by","language","added_at"].forEach(f => {
+                const el = document.getElementById(`sort-${f}`);
+                if (!el) return;
+                if (f === sortField) {
+                    el.textContent = "▲";
+                    el.style.transform = sortAsc ? "rotate(0deg)" : "rotate(180deg)";
+                } else {
+                    el.textContent = "";
+                }
+            });
+        }
+
         loadDatabase();
     </script>
 </body>

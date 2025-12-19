@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
+        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
+    </div>
+    <h1 class="text-3xl font-bold mb-6">Verify Your Email</h1>
+    <form id="verifyForm" class="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <input id="token" type="text" placeholder="Verification token" class="w-full p-2 mt-2 rounded text-black" required>
+        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Verify</button>
+        <p id="msg" class="text-sm mt-2 text-red-400"></p>
+    </form>
+    <script>
+        document.getElementById("verifyForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const token = document.getElementById("token").value.trim();
+            if (!token) {
+                document.getElementById("msg").textContent = "Token required.";
+                return;
+            }
+            const resp = await fetch("/users/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+            });
+            const res = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+                document.getElementById("msg").textContent = "Verified! You can log in.";
+            } else {
+                document.getElementById("msg").textContent = res.error || "Verification failed.";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -36,3 +36,12 @@ This module exposes CRUD endpoints for questions plus filtered/paginated listing
 - **POST** `/questions/random`
 - **Body (JSON):** `seen` (list of IDs), `filters` (same shape as list query).
 - **404** when no unseen question matches.
+
+### Users API (admin-only)
+
+- **GET** `/users/` — list all users.
+- **GET** `/users/<username>` — fetch a user by username.
+- **POST** `/users/` — create a user; body: `username`, `email`, `password`, optional `role` (admin only), `is_verified`, `is_approved`.
+- **PUT** `/users/<username>` — update user; body may include `email`, `password`, `role`, `is_verified`, `is_approved`.
+- **DELETE** `/users/<username>` — delete user.
+- All user endpoints require admin session; responses are JSON; errors use `{error: string}` with `400/403/404` as appropriate.

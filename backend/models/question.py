@@ -30,7 +30,7 @@ class QuestionModel(BaseModel):
     language: Optional[str] = Field(None, description="Language of the question (e.g. English, Spanish)")
     tags: List[str] = Field(default_factory=list, description="Tags/categories for filtering")
     review_status: bool = Field(default=False, description="Whether the question is approved for display")
-    media_url: Optional[str] = Field(None, description="Optional media file URL", alias="media_path")
+    media_path: Optional[str] = Field(None, description="Optional media file URL")
 
     model_config = ConfigDict(
         populate_by_name=True,

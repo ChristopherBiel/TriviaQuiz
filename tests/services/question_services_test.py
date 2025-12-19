@@ -125,7 +125,7 @@ def test_update_question(mock_db, sample_question):
     mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"question": "Updated question?"})
     updates = {"question": "Updated question?"}
     mock_db.get_question_by_id_db.return_value = sample_question
-    updated_question = update_question(sample_question_value["question_id"], updates, "user123")
+    updated_question = update_question(sample_question_value["question_id"], updates, "user123", "admin")
     assert updated_question is not None
     assert updated_question.model_dump()["question"] == "Updated question?"
     assert updates["updated_by"] == "user123"
@@ -144,7 +144,7 @@ def test_update_question_not_owner(mock_db, sample_question):
     """Non-owner non-admin cannot update."""
     mock_db.get_question_by_id_db.return_value = sample_question
     updates = {"question": "Updated question?"}
-    updated_question = update_question(sample_question.question_id, updates, "other-user")
+    updated_question = update_question(sample_question.question_id, updates, "other-user", "user")
     assert updated_question is None
     mock_db.update_question_in_db.assert_not_called()
 
@@ -153,7 +153,7 @@ def test_update_question_admin_allowed(mock_db, sample_question):
     mock_db.get_question_by_id_db.return_value = sample_question
     mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"question": "Updated question?"})
     updates = {"question": "Updated question?"}
-    updated_question = update_question(sample_question.question_id, updates, "admin")
+    updated_question = update_question(sample_question.question_id, updates, "admin", "admin")
     assert updated_question is not None
     mock_db.update_question_in_db.assert_called_once()
 

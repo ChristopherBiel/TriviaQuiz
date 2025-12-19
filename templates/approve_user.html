@@ -30,7 +30,7 @@
     <script>
         async function loadUserbase() {
             try {
-                const response = await fetch('/get-users');
+                const response = await fetch('/users/');
                 if (!response.ok) {
                     console.error('Error fetching userbase.');
                     return;
@@ -48,11 +48,12 @@
                         <!-- Status is verified and approved -->
                         <td class="border-b p-2">${user.is_verified ? '✔️' : ''}</td>
                         <td class="border-b p-2">${user.is_approved ? '✔️' : ''}</td>
-                        <td class="border-b p-2">${user.signup_date ? new Date(user.signup_date).toLocaleDateString() : 'None'}</td>
+                        <td class="border-b p-2">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'None'}</td>
                         <td class="border-b p-2">
                             <div class="flex gap-2">
                                 <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded" onclick="approveUser('${user.username}')">Approve</button>
                                 <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded" onclick="rejectUser('${user.username}')">Reject</button>
+                                <button class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-2 rounded" onclick="makeAdmin('${user.username}')">Make Admin</button>
                                 <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded" onclick="deleteUser('${user.username}')">Delete</button>
                             </div>
                         </td>
@@ -66,42 +67,35 @@
         }
 
         async function approveUser(username) {
-            try {
-                const response = await fetch(`/users/${encodeURIComponent(username)}/approve`, { method: 'POST' });
-                if (!response.ok) {
-                    throw new Error('Failed to approve user');
-                }
-                loadUserbase();
-            } catch (error) {
-                alert('Error approving user:', error);
-                console.error('Error approving user:', error);
-            }
+            const response = await fetch(`/users/${encodeURIComponent(username)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_approved: true })
+            });
+            if (response.ok) loadUserbase(); else alert('Failed to approve user');
         }
 
         async function rejectUser(username) {
-            try {
-                const response = await fetch(`/users/${encodeURIComponent(username)}/reject`, { method: 'POST' });
-                if (!response.ok) {
-                    throw new Error('Failed to reject user');
-                }
-                loadUserbase();
-            } catch (error) {
-                alert('Error rejecting user:', error);
-                console.error('Error rejecting user:', error);
-            }
+            const response = await fetch(`/users/${encodeURIComponent(username)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_approved: false })
+            });
+            if (response.ok) loadUserbase(); else alert('Failed to reject user');
+        }
+
+        async function makeAdmin(username) {
+            const response = await fetch(`/users/${encodeURIComponent(username)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: 'admin' })
+            });
+            if (response.ok) loadUserbase(); else alert('Failed to promote user');
         }
 
         async function deleteUser(username) {
-            try {
-                const response = await fetch(`/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
-                if (!response.ok) {
-                    throw new Error('Failed to delete user');
-                }
-                loadUserbase();
-            } catch (error) {
-                alert('Error deleting user:', error);
-                console.error('Error deleting user:', error);
-            }
+            const response = await fetch(`/users/${encodeURIComponent(username)}`, { method: 'DELETE' });
+            if (response.ok) loadUserbase(); else alert('Failed to delete user');
         }
 
         // Load the userbase when the page loads

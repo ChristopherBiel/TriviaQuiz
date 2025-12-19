@@ -74,33 +74,33 @@ def create_question(data: dict) -> QuestionModel | None:
     question = QuestionModel(**question_payload)
     # If the question has a media file, upload it to S3 and get the URL
     if media_file:
-        question.media_url = upload_file_to_s3(media_file)
+        question.media_path = upload_file_to_s3(media_file)
     else:
-        question.media_url = None
+        question.media_path = None
     success = add_question_to_db(question)
     return question if success else None
 
-def update_question(question_id: str, updates: dict, user: str | None = None) -> QuestionModel | None:
+def update_question(question_id: str, updates: dict, user: str | None = None, role: str | None = None) -> QuestionModel | None:
     """Update an existing question in the database."""
     media_file = updates.pop("media_file", None)
-    remove_media = "media_url" in updates and updates.get("media_url") is None
+    remove_media = "media_path" in updates and updates.get("media_path") is None
 
     existing = get_question_by_id_db(question_id) if (media_file or remove_media or user) else None
     if (media_file or remove_media) and not existing:
         return None
 
-    if existing and user and user != existing.added_by and user != "admin":
+    if existing and user and role != "admin" and user != existing.added_by:
         return None
 
     if media_file:
-        new_media_url = upload_file_to_s3(media_file)
-        if new_media_url:
-            updates["media_url"] = new_media_url
-            if existing and existing.media_url:
-                delete_file_from_s3(existing.media_url)
+        new_media_path = upload_file_to_s3(media_file)
+        if new_media_path:
+            updates["media_path"] = new_media_path
+            if existing and existing.media_path:
+                delete_file_from_s3(existing.media_path)
 
-    if remove_media and existing and existing.media_url:
-        delete_file_from_s3(existing.media_url)
+    if remove_media and existing and existing.media_path:
+        delete_file_from_s3(existing.media_path)
 
     if user:
         updates["updated_by"] = user  # Track who made the update when available
@@ -108,10 +108,10 @@ def update_question(question_id: str, updates: dict, user: str | None = None) ->
 
 def delete_question(question_id: str) -> bool:
     question = get_question_by_id_db(question_id)
-    media_url = getattr(question, "media_url", None) if question else None
+    media_path = getattr(question, "media_path", None) if question else None
 
-    if media_url:
-        delete_file_from_s3(media_url)
+    if media_path:
+        delete_file_from_s3(media_path)
 
     return delete_question_from_db(question_id)
 

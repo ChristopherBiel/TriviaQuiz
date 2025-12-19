@@ -25,11 +25,23 @@ def get_question_by_id_db(question_id) -> Optional[QuestionModel]:
     if not question_id:
         print("DEBUG: No question ID provided.")
         return None
-    response = table.get_item(Key={"id": question_id})
-    if "Item" not in response:
-        print(f"DEBUG: Question with ID {question_id} not found.")
-        return None
-    return QuestionModel(**response["Item"])
+    try:
+        response = table.get_item(Key={"id": question_id})
+        if "Item" in response:
+            return QuestionModel(**response["Item"])
+    except Exception as e:
+        print(f"DEBUG: direct get_item failed, falling back to scan: {e}")
+
+    # Fallback: scan for matching id/question_id
+    try:
+        scan_resp = table.scan()
+        for item in scan_resp.get("Items", []):
+            if item.get("id") == question_id or item.get("question_id") == question_id:
+                return QuestionModel(**item)
+    except Exception as e:
+        print(f"ERROR: failed to scan for question {question_id}: {e}")
+    print(f"DEBUG: Question with ID {question_id} not found.")
+    return None
 
 def get_all_questions_db(filters=None, limit: int = 50, last_key: Optional[Dict[str, Any]] = None) -> Tuple[List[QuestionModel], Optional[Dict[str, Any]]]:
     """
@@ -54,9 +66,34 @@ def get_all_questions_db(filters=None, limit: int = 50, last_key: Optional[Dict[
     questions = [QuestionModel(**item) for item in items]
     return questions, response.get("LastEvaluatedKey")
 
+def _get_item_with_fallback(question_id: str):
+    try:
+        resp = table.get_item(Key={"id": question_id})
+        item = resp.get("Item")
+        if item:
+            return item
+    except Exception:
+        pass
+    try:
+        scan_resp = table.scan()
+        for it in scan_resp.get("Items", []):
+            if it.get("id") == question_id or it.get("question_id") == question_id:
+                return it
+    except Exception as e:
+        print(f"ERROR scanning for question {question_id}: {e}")
+    return None
+
+
+def _make_key_from_item(item: dict) -> dict:
+    key = {"id": item.get("id")}
+    if item.get("question_topic") is not None:
+        key["question_topic"] = item["question_topic"]
+    return key
+
+
 def update_question_in_db(question_id: str, update: dict) -> QuestionModel | None:
     # Fetch the current item to get its update_history
-    current = table.get_item(Key={"id": question_id}).get("Item")
+    current = _get_item_with_fallback(question_id)
     if not current:
         return None
 
@@ -92,7 +129,7 @@ def update_question_in_db(question_id: str, update: dict) -> QuestionModel | Non
     update_expression = "SET " + ", ".join(update_expr)
 
     response = table.update_item(
-        Key={"id": question_id},
+        Key=_make_key_from_item(current),
         UpdateExpression=update_expression,
         ExpressionAttributeValues=expr_attr_vals,
         ReturnValues="ALL_NEW"
@@ -104,7 +141,10 @@ def update_question_in_db(question_id: str, update: dict) -> QuestionModel | Non
 
 def delete_question_from_db(question_id):
     try:
-        table.delete_item(Key={"id": question_id})
+        item = _get_item_with_fallback(question_id)
+        if not item:
+            return False
+        table.delete_item(Key=_make_key_from_item(item))
         return True
     except Exception:
         return False

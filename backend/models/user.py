@@ -1,15 +1,27 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
+from pydantic import BaseModel, Field
+import uuid
 
-Base = declarative_base()
 
-class User(Base):
-    __tablename__ = 'users'
+class UserModel(BaseModel):
+    user_id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="id")
+    username: str
+    email: str
+    password_hash: str
+    role: str = "user"
+    is_verified: bool = False
+    is_approved: bool = False
+    verification_token: str | None = None
+    verification_expires_at: datetime | None = None
+    reset_token: str | None = None
+    reset_expires_at: datetime | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login_at: datetime | None = None
+    last_login_ip: str | None = None
 
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(120), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(128), nullable=False)
-
-    def __repr__(self):
-        return f"<User(username='{self.username}', email='{self.email}')>"
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }

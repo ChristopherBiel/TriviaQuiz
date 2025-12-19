@@ -116,7 +116,7 @@ def test_update_enforces_owner(client, monkeypatch):
 
     assert resp.status_code == 404
     assert resp.get_json()["error"] == "Question not found or not permitted"
-    mock_update.assert_called_once_with("any-id", {"question": "ok"}, "tester")
+    mock_update.assert_called_once_with("any-id", {"question": "ok"}, "tester", "user")
 
 
 def test_delete_requires_admin(client):

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, render_template
 from backend.services.question_service import (
     get_question_by_id,
     get_all_questions,
@@ -7,8 +7,17 @@ from backend.services.question_service import (
     delete_question,
     get_random_question_filtered
 )
+from backend.models.question import QuestionModel
 
 questions_bp = Blueprint("questions", __name__, url_prefix="/questions")
+
+
+def _serialize_question(question: QuestionModel) -> dict:
+    data = question.model_dump(mode="json")
+    media_path = getattr(question, "media_path", None) or data.get("media_path") or data.get("media_path")
+    if media_path:
+        data.setdefault("media_path", media_path)
+    return data
 
 
 def _parse_bool(value):
@@ -54,7 +63,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
         "language",
         "tags",
         "review_status",
-        "media_url",
+        "media_path",
     }
     required_fields = {"question", "answer", "added_by"} if not partial else set()
     missing = [field for field in required_fields if not data.get(field)]
@@ -65,7 +74,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
     for key, value in data.items():
         if key not in allowed_fields:
             continue
-        if key in {"question", "answer", "added_by", "question_topic", "question_source", "answer_source", "language", "media_url"}:
+        if key in {"question", "answer", "added_by", "question_topic", "question_source", "answer_source", "language", "media_path"}:
             if value is not None and not isinstance(value, str):
                 return None, f"{key} must be a string"
             sanitized[key] = value.strip() if isinstance(value, str) else value
@@ -112,7 +121,7 @@ def list_questions():
     total = len(total_probe)
 
     payload = {
-        "items": [question.model_dump(mode="json") for question in questions],
+        "items": [_serialize_question(question) for question in questions],
         "pagination": {
             "limit": limit,
             "offset": offset,
@@ -128,9 +137,15 @@ def list_questions():
 def get_question(question_id):
     """Get a specific question by ID."""
     question = get_question_by_id(question_id)
-    if question:
-        return jsonify(question.model_dump(mode="json")), 200
-    return jsonify({"error": "Question not found"}), 404
+    if not question:
+        return jsonify({"error": "Question not found"}), 404
+
+    # Serve HTML when HTML is preferred over JSON
+    accepts = request.accept_mimetypes
+    if accepts['text/html'] > accepts['application/json']:
+        return render_template("question_detail.html", question_id=question_id)
+
+    return jsonify(_serialize_question(question)), 200
 
 
 @questions_bp.route("/", methods=["POST"])
@@ -158,12 +173,24 @@ def update_existing_question(question_id):
     if auth_error:
         return auth_error
 
-    updates = request.get_json(silent=True)
-    payload, error = _validate_question_payload(updates, partial=True)
-    if error:
-        return jsonify({"error": error}), 400
+    media_file = None
+    if request.files:
+        media_file = request.files.get("media")
+        raw = request.form.to_dict()
+        if raw.get("remove_media"):
+            raw["media_path"] = None
+        payload, error = _validate_question_payload(raw, partial=True)
+        if error:
+            return jsonify({"error": error}), 400
+        if media_file:
+            payload["media_file"] = media_file
+    else:
+        updates = request.get_json(silent=True)
+        payload, error = _validate_question_payload(updates, partial=True)
+        if error:
+            return jsonify({"error": error}), 400
 
-    updated_question = update_question(question_id, payload, session.get("username"))
+    updated_question = update_question(question_id, payload, session.get("username"), session.get("role"))
     if updated_question:
         return jsonify(updated_question.model_dump(mode="json")), 200
     return jsonify({"error": "Question not found or not permitted"}), 404
@@ -193,4 +220,4 @@ def random_question():
     if not question:
         return jsonify({"error": "No more unseen questions available."}), 404
 
-    return jsonify(question.model_dump(mode="json"))
+    return jsonify(_serialize_question(question))

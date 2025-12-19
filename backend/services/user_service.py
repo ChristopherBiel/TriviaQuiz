@@ -1,83 +1,123 @@
 from backend.db.userdb import (
-    get_user_by_username_db,
-    get_all_users_db,
     add_user_to_db,
+    get_user_by_username_db,
+    get_user_by_id_db,
+    get_all_users_db,
     update_user_in_db,
-    delete_user_from_db
+    delete_user_from_db,
 )
-from backend.utils.input_validation import is_email_valid, is_username_valid, is_password_valid, is_referral_code_valid
-from backend.utils.password_utils import hash_password, verify_password
+from backend.models.user import UserModel
+from backend.utils.password_utils import hash_password
+import secrets
+from datetime import datetime, timedelta
 
 
-def get_user_by_username(username):
-    """Fetch a user by username."""
-    return get_user_by_username_db(username)
-
-def get_all_users(filters=None):
-    """Fetch all users, optionally filtered by provided criteria."""
-    return get_all_users_db(filters)
-
-def get_user_by_email(email):
-    """Fetch a user by email, using the get_all_users function."""
-    users = get_all_users({"email": email})
-    if users:
-        return users[0]  # Return the first user found with the given email
-    return None
-
-def create_user(data):
-    """Create a new user."""
+def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
     username = data.get("username")
     email = data.get("email")
     password = data.get("password")
-    referral_code = data.get("referral_code")
+    role = data.get("role", "user")
 
-    if not all([username, email, password]):
-        raise ValueError("Missing required fields: username, email, password")
-    if referral_code is None:
-        referral_code = ""
+    if acting_role != "admin" and role != "user":
+        return None
 
-    # Check if input formats are valid
-    if not is_username_valid(username):
-        raise ValueError("Invalid username format")
-    if not is_email_valid(email):
-        raise ValueError("Invalid email format")
-    if not is_password_valid(password):
-        raise ValueError("Invalid password format")
-    if not is_referral_code_valid(referral_code):
-        raise ValueError("Invalid referral code format")
-    
-    # Check if the user or email already exists
-    existing_user = get_user_by_username(username)
-    if existing_user:
-        raise ValueError("Username already exists")
-    existing_email = get_user_by_email(email)
-    if existing_email:
-        raise ValueError("Email already exists")
-    
-    # Add the user to the database
-    return add_user_to_db(
-        username=username,
-        email=email,
+    if not username or not email or not password:
+        return None
+
+    if get_user_by_username_db(username):
+        return None
+
+    user = UserModel(
+        username=username.strip(),
+        email=email.strip(),
         password_hash=hash_password(password),
-        referral_code=referral_code
+        role=role,
+        is_verified=data.get("is_verified", False),
+        is_approved=data.get("is_approved", False),
     )
 
-def update_user(username, updates):
-    """Update an existing user."""
-    # Check if the user exists
-    user = get_user_by_username(username)
-    if not user:
-        raise ValueError("User not found")
-    # Validate the updates
-    if not isinstance(updates, dict):
-        raise ValueError("Updates must be a dictionary")
-    allowed_updates = {"password", "role", "is_verified", "is_approved"}
-    if "password" in updates and not is_password_valid(updates["password"]):
-        raise ValueError("Invalid password format")
-    
+    success = add_user_to_db(user)
+    return user if success else None
+
+
+def get_user(username: str) -> UserModel | None:
+    return get_user_by_username_db(username)
+
+
+def get_user_by_id(user_id: str) -> UserModel | None:
+    return get_user_by_id_db(user_id)
+
+
+def list_users(filters: dict | None = None) -> list[UserModel]:
+    return get_all_users_db(filters)
+
+
+def update_user(username: str, updates: dict, acting_role: str, acting_username: str | None = None) -> UserModel | None:
+    existing = get_user_by_username_db(username)
+    if not existing:
+        return None
+
+    if acting_role != "admin" and acting_username != username:
+        return None
+
+    payload = {}
+    if "email" in updates:
+        payload["email"] = updates["email"].strip()
     if "password" in updates:
-        # Hash the new password if it is being updated
-        updates["password_hash"] = hash_password(updates.pop("password"))
-        updates.pop("password", None)  # Remove the plain password from updates
-    
-    return update_user_in_db(username, updates)
+        payload["password_hash"] = hash_password(updates["password"])
+    if "role" in updates and acting_role == "admin":
+        payload["role"] = updates["role"]
+    if "is_verified" in updates and acting_role == "admin":
+        payload["is_verified"] = bool(updates["is_verified"])
+    if "is_approved" in updates and acting_role == "admin":
+        payload["is_approved"] = bool(updates["is_approved"])
+    if "username" in updates and (acting_role == "admin" or acting_username == username):
+        payload["username"] = updates["username"].strip()
+    if "reset_token" in updates or "reset_expires_at" in updates:
+        payload["reset_token"] = updates.get("reset_token")
+        payload["reset_expires_at"] = updates.get("reset_expires_at")
+    if "verification_token" in updates or "verification_expires_at" in updates:
+        payload["verification_token"] = updates.get("verification_token")
+        payload["verification_expires_at"] = updates.get("verification_expires_at")
+
+    if not payload:
+        return None
+
+    return update_user_in_db(existing.user_id, payload)
+
+
+def delete_user(username: str, acting_role: str) -> bool:
+    if acting_role != "admin":
+        return False
+    existing = get_user_by_username_db(username)
+    if not existing:
+        return False
+    return delete_user_from_db(existing.user_id)
+
+
+def issue_verification(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
+    token = secrets.token_urlsafe(16)
+    expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    return update_user_in_db(user.user_id, {"verification_token": token, "verification_expires_at": expires})
+
+
+def verify_user(token: str) -> UserModel | None:
+    users = get_all_users_db()
+    for u in users:
+        if u.verification_token == token and u.verification_expires_at and u.verification_expires_at > datetime.utcnow():
+            return update_user_in_db(u.user_id, {"is_verified": True, "verification_token": None, "verification_expires_at": None})
+    return None
+
+
+def issue_reset_token(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
+    token = secrets.token_urlsafe(16)
+    expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    return update_user_in_db(user.user_id, {"reset_token": token, "reset_expires_at": expires})
+
+
+def reset_password(token: str, new_password: str) -> UserModel | None:
+    users = get_all_users_db()
+    for u in users:
+        if u.reset_token == token and u.reset_expires_at and u.reset_expires_at > datetime.utcnow():
+            return update_user_in_db(u.user_id, {"password_hash": hash_password(new_password), "reset_token": None, "reset_expires_at": None})
+    return None
