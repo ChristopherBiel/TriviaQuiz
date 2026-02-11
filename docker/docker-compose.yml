@@ -1,0 +1,88 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      STORE_BACKEND: ${STORE_BACKEND:-postgres}
+      QUESTION_STORE: ${QUESTION_STORE:-postgres}
+      USER_STORE: ${USER_STORE:-postgres}
+      MEDIA_STORE: ${MEDIA_STORE:-minio}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-trivia}
+      POSTGRES_USER: ${POSTGRES_USER:-trivia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trivia}
+      POSTGRES_AUTO_CREATE: ${POSTGRES_AUTO_CREATE:-0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-trivia}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-trivia-secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-trivia-media}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_SECURE: ${MINIO_SECURE:-0}
+      MINIO_AUTO_CREATE_BUCKET: ${MINIO_AUTO_CREATE_BUCKET:-1}
+      MEDIA_PROXY: ${MEDIA_PROXY:-1}
+      MEDIA_URL_EXPIRES_SECONDS: ${MEDIA_URL_EXPIRES_SECONDS:-3600}
+    expose:
+      - "5600"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5600/health').status==200 else sys.exit(1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-trivia}
+      POSTGRES_USER: ${POSTGRES_USER:-trivia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trivia}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-trivia}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-trivia-secret}
+    expose:
+      - "9000"
+      - "9001"
+    volumes:
+      - minio_data:/data
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_DOMAIN=${CADDY_DOMAIN:-localhost}
+      - CADDY_EMAIL=${CADDY_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
+  caddy_data:
+  caddy_config:

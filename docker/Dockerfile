@@ -1,26 +1,24 @@
-# Use a smaller base image
-FROM python:3.12-alpine
+# Use a slim base image for better compatibility with binary wheels
+FROM python:3.12-slim
 
-# Set work directory early for better caching
 WORKDIR /app
 
-# Copy only requirements first to take advantage of Docker caching
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 COPY requirements.txt .
 
-# Install dependencies (Alpine needs some build dependencies)
-RUN apk add --no-cache gcc musl-dev libffi-dev && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
     python -m pip install --no-cache-dir -r requirements.txt && \
-    apk del gcc musl-dev libffi-dev
+    apt-get purge -y --auto-remove gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy application files last
 COPY . .
 
-# Expose the correct port
 EXPOSE 5600
 
-# Create a non-root user
-RUN adduser -u 5678 --disabled-password --gecos "" appuser
+RUN useradd -u 5678 -m appuser
 USER appuser
 
-# Command to start the server
 CMD ["gunicorn", "--bind", "0.0.0.0:5600", "wsgi:app"]
