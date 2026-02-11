@@ -2,14 +2,7 @@ import random
 import json
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from backend.models.question import QuestionModel
-from backend.db.questiondb import (
-    get_question_by_id_db,
-    get_all_questions_db,
-    add_question_to_db,
-    update_question_in_db,
-    delete_question_from_db
-)
-from backend.db.files3 import upload_file_to_s3, delete_file_from_s3
+from backend.storage import get_media_store, get_question_store
 
 
 def _encode_page_token(last_key):
@@ -28,7 +21,7 @@ def _decode_page_token(token: str | None):
 
 def get_question_by_id(question_id: str) -> QuestionModel | None:
     """Fetch a question by ID from the database."""
-    return get_question_by_id_db(question_id)
+    return get_question_store().get_by_id(question_id)
 
 def get_all_questions(
     filters: dict = None,
@@ -41,6 +34,7 @@ def get_all_questions(
     if limit is None:
         limit = 10_000  # safety cap for unbounded fetch
 
+    store = get_question_store()
     start_key = _decode_page_token(page_token)
 
     collected: list[QuestionModel] = []
@@ -48,7 +42,7 @@ def get_all_questions(
     skipped = 0
 
     while len(collected) < limit:
-        result = get_all_questions_db(filters, limit=limit, last_key=last_key)
+        result = store.list(filters, limit=limit, last_key=last_key)
         if isinstance(result, tuple):
             batch, last_key = result
         else:
@@ -69,6 +63,8 @@ def get_all_questions(
 
 def create_question(data: dict) -> QuestionModel | None:
     """Create a new question in the database."""
+    question_store = get_question_store()
+    media_store = get_media_store()
     media_file = data.get("media_file")
     question_payload = {k: v for k, v in data.items() if k != "media_file"}
     if not question_payload.get("question_topic"):
@@ -76,20 +72,22 @@ def create_question(data: dict) -> QuestionModel | None:
     question = QuestionModel(**question_payload)
     # If the question has a media file, upload it to S3 and get the URL
     if media_file:
-        question.media_path = upload_file_to_s3(media_file)
+        question.media_path = media_store.upload(media_file)
     else:
         question.media_path = None
-    success = add_question_to_db(question)
+    success = question_store.add(question)
     return question if success else None
 
 def update_question(question_id: str, updates: dict, user: str | None = None, role: str | None = None) -> QuestionModel | None:
     """Update an existing question in the database."""
+    question_store = get_question_store()
+    media_store = get_media_store()
     if "question_topic" in updates:
         raise ValueError("question_topic cannot be updated after creation")
     media_file = updates.pop("media_file", None)
     remove_media = "media_path" in updates and updates.get("media_path") is None
 
-    existing = get_question_by_id_db(question_id) if (media_file or remove_media or user) else None
+    existing = question_store.get_by_id(question_id) if (media_file or remove_media or user) else None
     if (media_file or remove_media) and not existing:
         return None
 
@@ -97,27 +95,29 @@ def update_question(question_id: str, updates: dict, user: str | None = None, ro
         return None
 
     if media_file:
-        new_media_path = upload_file_to_s3(media_file)
+        new_media_path = media_store.upload(media_file)
         if new_media_path:
             updates["media_path"] = new_media_path
             if existing and existing.media_path:
-                delete_file_from_s3(existing.media_path)
+                media_store.delete(existing.media_path)
 
     if remove_media and existing and existing.media_path:
-        delete_file_from_s3(existing.media_path)
+        media_store.delete(existing.media_path)
 
     if user:
         updates["updated_by"] = user  # Track who made the update when available
-    return update_question_in_db(question_id, updates)
+    return question_store.update(question_id, updates)
 
 def delete_question(question_id: str) -> bool:
-    question = get_question_by_id_db(question_id)
+    question_store = get_question_store()
+    media_store = get_media_store()
+    question = question_store.get_by_id(question_id)
     media_path = getattr(question, "media_path", None) if question else None
 
     if media_path:
-        delete_file_from_s3(media_path)
+        media_store.delete(media_path)
 
-    return delete_question_from_db(question_id)
+    return question_store.delete(question_id)
 
 def get_random_question_filtered(seen_ids: list = None, filters: dict = None):
     """Fetch a random reviewed question not in seen_ids with optional filters."""
@@ -128,7 +128,8 @@ def get_random_question_filtered(seen_ids: list = None, filters: dict = None):
     effective_filters = dict(filters) if filters else {}
     effective_filters["review_status"] = True
 
-    result = get_all_questions_db(effective_filters)
+    store = get_question_store()
+    result = store.list(effective_filters)
     if isinstance(result, tuple):
         items, _ = result
     else:

@@ -1,11 +1,4 @@
-from backend.db.userdb import (
-    add_user_to_db,
-    get_user_by_username_db,
-    get_user_by_id_db,
-    get_all_users_db,
-    update_user_in_db,
-    delete_user_from_db,
-)
+from backend.storage import get_user_store
 from backend.models.user import UserModel
 from backend.utils.password_utils import hash_password
 import secrets
@@ -13,6 +6,7 @@ from datetime import datetime, timedelta
 
 
 def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
+    store = get_user_store()
     username = data.get("username")
     email = data.get("email")
     password = data.get("password")
@@ -24,7 +18,7 @@ def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
     if not username or not email or not password:
         return None
 
-    if get_user_by_username_db(username):
+    if store.get_by_username(username):
         return None
 
     user = UserModel(
@@ -36,24 +30,25 @@ def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
         is_approved=data.get("is_approved", False),
     )
 
-    success = add_user_to_db(user)
+    success = store.add(user)
     return user if success else None
 
 
 def get_user(username: str) -> UserModel | None:
-    return get_user_by_username_db(username)
+    return get_user_store().get_by_username(username)
 
 
 def get_user_by_id(user_id: str) -> UserModel | None:
-    return get_user_by_id_db(user_id)
+    return get_user_store().get_by_id(user_id)
 
 
 def list_users(filters: dict | None = None) -> list[UserModel]:
-    return get_all_users_db(filters)
+    return get_user_store().list(filters)
 
 
 def update_user(username: str, updates: dict, acting_role: str, acting_username: str | None = None) -> UserModel | None:
-    existing = get_user_by_username_db(username)
+    store = get_user_store()
+    existing = store.get_by_username(username)
     if not existing:
         return None
 
@@ -83,41 +78,52 @@ def update_user(username: str, updates: dict, acting_role: str, acting_username:
     if not payload:
         return None
 
-    return update_user_in_db(existing.user_id, payload)
+    return store.update(existing.user_id, payload)
 
 
 def delete_user(username: str, acting_role: str) -> bool:
     if acting_role != "admin":
         return False
-    existing = get_user_by_username_db(username)
+    store = get_user_store()
+    existing = store.get_by_username(username)
     if not existing:
         return False
-    return delete_user_from_db(existing.user_id)
+    return store.delete(existing.user_id)
 
 
 def issue_verification(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
     expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
-    return update_user_in_db(user.user_id, {"verification_token": token, "verification_expires_at": expires})
+    return get_user_store().update(user.user_id, {"verification_token": token, "verification_expires_at": expires})
 
 
 def verify_user(token: str) -> UserModel | None:
-    users = get_all_users_db()
+    users = get_user_store().list()
     for u in users:
         if u.verification_token == token and u.verification_expires_at and u.verification_expires_at > datetime.utcnow():
-            return update_user_in_db(u.user_id, {"is_verified": True, "verification_token": None, "verification_expires_at": None})
+            return get_user_store().update(
+                u.user_id,
+                {"is_verified": True, "verification_token": None, "verification_expires_at": None},
+            )
     return None
 
 
 def issue_reset_token(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
     expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
-    return update_user_in_db(user.user_id, {"reset_token": token, "reset_expires_at": expires})
+    return get_user_store().update(user.user_id, {"reset_token": token, "reset_expires_at": expires})
 
 
 def reset_password(token: str, new_password: str) -> UserModel | None:
-    users = get_all_users_db()
+    users = get_user_store().list()
     for u in users:
         if u.reset_token == token and u.reset_expires_at and u.reset_expires_at > datetime.utcnow():
-            return update_user_in_db(u.user_id, {"password_hash": hash_password(new_password), "reset_token": None, "reset_expires_at": None})
+            return get_user_store().update(
+                u.user_id,
+                {
+                    "password_hash": hash_password(new_password),
+                    "reset_token": None,
+                    "reset_expires_at": None,
+                },
+            )
     return None

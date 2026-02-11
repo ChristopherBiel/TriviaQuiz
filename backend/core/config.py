@@ -1,10 +1,10 @@
-import os
-from dotenv import load_dotenv
+from backend.core.settings import get_settings
 
-load_dotenv()
+settings = get_settings()
+
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
-    UPLOAD_FOLDER = "static/uploads"
-    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "mp3", "mp4"}
+    SECRET_KEY = settings.secret_key
+    UPLOAD_FOLDER = settings.upload_folder
+    ALLOWED_EXTENSIONS = settings.allowed_extensions
     DATABASE_NAME = "trivia.db"

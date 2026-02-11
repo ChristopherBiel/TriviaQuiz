@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+from functools import lru_cache
+
+from backend.core.settings import get_settings
+from backend.storage.base import MediaStore, QuestionStore, UserStore
+
+
+def _normalize_backend(value: str, default: str = "aws") -> str:
+    if not value:
+        return default
+    normalized = value.strip().lower()
+    aliases = {
+        "dynamodb": "aws",
+        "s3": "aws",
+        "postgresql": "postgres",
+    }
+    return aliases.get(normalized, normalized)
+
+
+@lru_cache()
+def get_question_store() -> QuestionStore:
+    settings = get_settings()
+    backend = _normalize_backend(settings.question_store, settings.store_backend)
+
+    if backend == "aws":
+        from backend.storage.aws import DynamoQuestionStore
+
+        return DynamoQuestionStore()
+
+    if backend == "postgres":
+        raise RuntimeError("Postgres question store not yet configured")
+
+    raise RuntimeError(f"Unsupported question store backend: {backend}")
+
+
+@lru_cache()
+def get_user_store() -> UserStore:
+    settings = get_settings()
+    backend = _normalize_backend(settings.user_store, settings.store_backend)
+
+    if backend == "aws":
+        from backend.storage.aws import DynamoUserStore
+
+        return DynamoUserStore()
+
+    if backend == "postgres":
+        raise RuntimeError("Postgres user store not yet configured")
+
+    raise RuntimeError(f"Unsupported user store backend: {backend}")
+
+
+@lru_cache()
+def get_media_store() -> MediaStore:
+    settings = get_settings()
+    backend = _normalize_backend(settings.media_store, settings.store_backend)
+
+    if backend == "aws":
+        from backend.storage.aws import S3MediaStore
+
+        return S3MediaStore()
+
+    if backend == "minio":
+        raise RuntimeError("MinIO media store not yet configured")
+
+    raise RuntimeError(f"Unsupported media store backend: {backend}")
+
+
+def reset_store_cache() -> None:
+    get_question_store.cache_clear()
+    get_user_store.cache_clear()
+    get_media_store.cache_clear()
