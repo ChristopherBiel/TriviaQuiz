@@ -3,7 +3,19 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime
 from functools import lru_cache
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, Text, create_engine, or_, select
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    or_,
+    select,
+    text,
+)
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -29,17 +41,17 @@ class QuestionRecord(Base):
     question_source = Column(String)
     answer_source = Column(String)
 
-    incorrect_answers = Column(JSONB, nullable=False, default=list)
-    times_asked = Column(Integer, nullable=False, default=0)
-    times_correct = Column(Integer, nullable=False, default=0)
-    times_incorrect = Column(Integer, nullable=False, default=0)
+    incorrect_answers = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    times_asked = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    times_correct = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    times_incorrect = Column(Integer, nullable=False, default=0, server_default=text("0"))
 
-    update_history = Column(JSONB, nullable=False, default=list)
+    update_history = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     last_updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     language = Column(String)
-    tags = Column(JSONB, nullable=False, default=list)
-    review_status = Column(Boolean, nullable=False, default=False)
+    tags = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    review_status = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     media_path = Column(String)
 
     __table_args__ = (
@@ -53,12 +65,12 @@ class UserRecord(Base):
     __tablename__ = "users"
 
     user_id = Column(String, primary_key=True)
-    username = Column(String, nullable=False, unique=True, index=True)
+    username = Column(String, nullable=False, unique=True)
     email = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False, default="user")
-    is_verified = Column(Boolean, nullable=False, default=False)
-    is_approved = Column(Boolean, nullable=False, default=False)
+    role = Column(String, nullable=False, default="user", server_default=text("'user'"))
+    is_verified = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    is_approved = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     verification_token = Column(String)
     verification_expires_at = Column(DateTime)
     reset_token = Column(String)
