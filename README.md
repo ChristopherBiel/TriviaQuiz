@@ -1,102 +1,65 @@
 ![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
 
 # TriviaQuiz
-Flask-powered trivia game with session-based authentication, DynamoDB for questions/users, and S3-backed media uploads. Serves a lightweight HTML UI plus JSON APIs that power moderation, gameplay, and admin workflows.
+TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTML pages for gameplay/moderation, and JSON APIs for question and user workflows. The current architecture targets a single VPS deployment with Docker Compose, using Caddy, Postgres, and MinIO.
 
-## Repository layout
-- `app.py` – Flask entrypoint binding everything together
-- `backend/` – application code (Flask blueprints, services, models, data access)
-- `templates/` – HTML pages for gameplay, auth, moderation, and question detail
-- `scripts/` – operational helpers (e.g., ensuring an admin account)
-- `docker/` – Dockerfile for containerized deployments
-- `tests/` – API/service integration tests (pytest)
-- `requirements.txt` – Python dependencies
+## Tech stack
+- Python 3.12, Flask, Gunicorn
+- Postgres 16 with SQLAlchemy and Alembic
+- MinIO (S3-compatible) with boto3
+- Caddy reverse proxy with automatic TLS
+- Docker Compose for local/dev/prod orchestration
 
-## Features
-- Auth + approval: signup/login with email verification flags and admin approval gates
-- Question workflow: CRUD APIs, random unseen selection with filters, review/approval toggles
-- Media support: upload images/audio/video to S3 and store URLs alongside questions
-- Admin tools: user management, question moderation, database view via HTML pages
-- Pagination: token + offset based listing for DynamoDB-backed questions
+## Architecture at a glance
+- Public traffic hits Caddy (ports 80/443) and is reverse-proxied to the app container on port 5600.
+- The app container runs Gunicorn + Flask and calls the service layer and storage adapters.
+- Postgres stores questions/users; MinIO stores media.
+- `/media/*` is served by the app when `MEDIA_PROXY=1`.
 
-## Prerequisites
-- Python 3.12+
-- AWS credentials configured (DynamoDB + S3 access)
-- DynamoDB tables:
-  - Questions: partition key `id` (optionally a sort key `question_topic` if you need topic-level uniqueness)
-  - Users: partition key `user_id`
-- S3 bucket for media uploads (public-read or presigned access depending on your policy)
+## Quickstart (Docker, local)
+1. Create a local env file.
+   ```bash
+   cp docker/app.env.example .env
+   ```
+2. Start the stack.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env up -d
+   ```
+3. Run database migrations.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
+   ```
+4. (Optional) Create an admin user.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/ensure_admin.py --username admin --email admin@example.com --password "change-me"
+   ```
+5. Open the app at `http://localhost` (Caddy) and check `http://localhost/health`.
 
-## Quickstart (local)
-```bash
-python -m venv .venv
-source .venv/bin/activate  # or .venv\\Scripts\\activate on Windows
-pip install -r requirements.txt
+## Key commands / workflows
+- Build: `docker compose -f docker/docker-compose.yml --env-file .env build`
+- Start: `docker compose -f docker/docker-compose.yml --env-file .env up -d`
+- Stop: `docker compose -f docker/docker-compose.yml --env-file .env stop`
+- Logs: `docker compose -f docker/docker-compose.yml --env-file .env logs -f app`
+- Migrations: `docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head`
+- Tests: `pytest` (install `pytest` in your environment if needed)
 
-export AWS_REGION=eu-central-1
-export DYNAMODB_TABLE=TriviaQuestions
-export USERS_TABLE=TriviaUsersDev
-export AWS_S3_BUCKET=your-media-bucket
-export SECRET_KEY=replace-me
+## Configuration overview
+- App: `SECRET_KEY`, `STORE_BACKEND`, `QUESTION_STORE`, `USER_STORE`, `MEDIA_STORE`, `MEDIA_PROXY`, `MEDIA_URL_EXPIRES_SECONDS`, `UPLOAD_FOLDER`, `ALLOWED_EXTENSIONS`
+- Postgres: `POSTGRES_DSN`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_AUTO_CREATE`
+- MinIO: `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_REGION`, `MINIO_SECURE`, `MINIO_AUTO_CREATE_BUCKET`
+- Caddy: `CADDY_DOMAIN`, `CADDY_EMAIL`
+- Legacy AWS adapters (optional): `AWS_REGION`, `AWS_ENDPOINT_URL`, `DYNAMODB_TABLE`, `USERS_TABLE`, `AWS_S3_BUCKET`
 
-python app.py  # serves on http://127.0.0.1:5600
-```
-For production (or Docker), run via Gunicorn:
-```bash
-gunicorn --bind 0.0.0.0:5600 wsgi:app
-```
-
-Sessions are cookie-based; ensure `SECRET_KEY` is set in production. The app expects AWS credentials through the standard SDK sources (env vars, AWS profile, or instance roles).
-
-## Environment variables
-- `AWS_REGION` (default `eu-central-1`) – AWS region for DynamoDB/S3
-- `DYNAMODB_TABLE` – DynamoDB table for questions
-- `USERS_TABLE` – DynamoDB table for users
-- `AWS_S3_BUCKET` – bucket for media uploads
-- `SECRET_KEY` – Flask session key (required for auth)
-- Optional: standard AWS SDK vars (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, etc.)
-
-## Local-only secrets
-`backend/logindata.env` is a convenience file for local development only. It is not loaded by the app and must not be used for production secrets.
-
-## Running with Docker
-```bash
-docker build -t triviaquiz -f docker/Dockerfile .
-docker run --rm -p 5600:5600 \
-  -e AWS_REGION=eu-central-1 \
-  -e DYNAMODB_TABLE=TriviaQuestions \
-  -e USERS_TABLE=TriviaUsersDev \
-  -e AWS_S3_BUCKET=your-media-bucket \
-  -e SECRET_KEY=replace-me \
-  triviaquiz
-```
-Grant the container IAM access via env vars or the host/role you run with.
-
-## Testing
-```bash
-pytest
-```
-Most tests mock AWS calls, but integration tests still expect AWS environment variables to be present. Provide disposable tables/bucket when running against real services.
-
-## API and data model docs
-- Question/user API usage: `backend/api/README.md`
-- DynamoDB/S3 expectations and pagination details: `backend/db/README.md`
-- Backend architecture overview: `backend/README.md`
-
-## Operational helpers
-- `scripts/ensure_admin.py` – create or promote an admin user with verified/approved flags. Example:
-  ```bash
-  python scripts/ensure_admin.py --username admin --email you@example.com --password "secret"
-  ```
-
-## Changelog / Migration Notes
-- 2026-02-11: Added `wsgi.py` as the Gunicorn entrypoint and updated Docker to use `wsgi:app`. Local dev continues to use `python app.py`.
-- 2026-02-11: Added `GET /questions/metadata` to expose server-computed language/topic/tag metadata.
-- 2026-02-11: Updated gameplay UI to use `/questions/random` and `/questions/metadata` instead of legacy endpoints.
-- 2026-02-11: Removed legacy question endpoints from `backend/routes.py` (`/random-question`, `/get-questions`, `/add-question`, `/question-metadata`, `/approve-question`, `/reject-question`, `/delete-question`). Use `/questions/*` APIs instead.
-- 2026-02-11: Removed legacy user mutation routes from `backend/routes.py`. Use `/users/*` APIs instead.
-- 2026-02-11: Removed HTML helper routes in `backend/api/pages.py`; HTML rendering now uses `GET /questions/<id>` with `Accept: text/html`.
-- 2026-02-11: Documented and stubbed event replay modules (`backend/api/events.py`, `backend/db/eventdb.py`) without wiring routes yet.
-- 2026-02-11: Removed unused legacy modules (`backend/db.py`, `backend/utils.py`, `backend/utils/input_validation.py`, `singular_tests.py`).
-- 2026-02-11: DynamoDB access now queries by `id`; new questions default `question_topic` to `General`, and `question_topic` updates are rejected.
-- 2026-02-11: Pruned unused Python dependencies (OpenAI/HTTP client stack and unused helpers).
+## Docs
+- Overview: `docs/00-overview.md`
+- Architecture: `docs/01-architecture.md`
+- Local development: `docs/02-local-development.md`
+- Deployment: `docs/03-deployment.md`
+- Operations: `docs/04-operations.md`
+- Backups and restore: `docs/05-backups-and-restore.md`
+- Migrations: `docs/06-migrations.md`
+- Troubleshooting: `docs/07-troubleshooting.md`
+- Interfaces: `docs/interfaces/storage.md`, `docs/interfaces/services.md`
+- Architecture decisions: `docs/adr/`
+- API reference: `backend/api/README.md`
