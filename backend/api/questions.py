@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session, render_template
 from backend.services.question_service import (
     get_question_by_id,
     get_all_questions,
+    get_question_metadata,
     create_question,
     update_question,
     delete_question,
@@ -14,6 +15,11 @@ questions_bp = Blueprint("questions", __name__, url_prefix="/questions")
 
 def _serialize_question(question: QuestionModel) -> dict:
     data = question.model_dump(mode="json")
+    # Provide both id and question_id for compatibility with legacy clients.
+    if "id" not in data:
+        qid = getattr(question, "question_id", None)
+        if qid:
+            data["id"] = qid
     media_path = getattr(question, "media_path", None) or data.get("media_path") or data.get("media_path")
     if media_path:
         data.setdefault("media_path", media_path)
@@ -190,7 +196,10 @@ def update_existing_question(question_id):
         if error:
             return jsonify({"error": error}), 400
 
-    updated_question = update_question(question_id, payload, session.get("username"), session.get("role"))
+    try:
+        updated_question = update_question(question_id, payload, session.get("username"), session.get("role"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     if updated_question:
         return jsonify(updated_question.model_dump(mode="json")), 200
     return jsonify({"error": "Question not found or not permitted"}), 404
@@ -221,3 +230,9 @@ def random_question():
         return jsonify({"error": "No more unseen questions available."}), 404
 
     return jsonify(_serialize_question(question))
+
+
+@questions_bp.route("/metadata", methods=["GET"])
+def question_metadata():
+    metadata = get_question_metadata()
+    return jsonify(metadata), 200

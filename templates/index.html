@@ -16,7 +16,7 @@
             try {
                 let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
 
-                let response = await fetch("/random-question", {
+                let response = await fetch("/questions/random", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ seen, filters: filterOptions })
@@ -66,7 +66,7 @@
         // Metadata loading and dropdown setup
         async function loadMetadata() {
             try {
-                const response = await fetch("/question-metadata");
+                const response = await fetch("/questions/metadata");
                 const data = await response.json();
 
                 populateDropdown("language-select", data.languages, "English");

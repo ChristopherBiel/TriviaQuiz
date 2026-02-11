@@ -3,6 +3,8 @@ from flask import Flask
 from unittest.mock import MagicMock
 
 from backend.api.questions import questions_bp
+from backend.api.questions import _serialize_question
+from backend.models.question import QuestionModel
 
 
 class DummyQuestion:
@@ -101,6 +103,17 @@ def test_update_question_invalid_fields(client):
     assert "error" in resp.get_json()
 
 
+def test_update_question_rejects_topic_change(client, monkeypatch):
+    _login_session(client)
+    monkeypatch.setattr(
+        "backend.api.questions.update_question",
+        MagicMock(side_effect=ValueError("question_topic cannot be updated after creation"))
+    )
+    resp = client.put("/questions/any-id", json={"question_topic": "New"})
+    assert resp.status_code == 400
+    assert "question_topic" in resp.get_json()["error"]
+
+
 def test_update_requires_auth(client):
     resp = client.put("/questions/any-id", json={"question": "ok"})
     assert resp.status_code == 403
@@ -141,3 +154,20 @@ def test_random_question_invalid_filters(client):
     resp = client.post("/questions/random", json={"filters": {"tags": 123}})
     assert resp.status_code == 400
     assert "error" in resp.get_json()
+
+
+def test_question_metadata_endpoint(client, monkeypatch):
+    monkeypatch.setattr(
+        "backend.api.questions.get_question_metadata",
+        lambda: {"languages": ["en"], "topics": ["general"], "tags": ["history"]}
+    )
+    resp = client.get("/questions/metadata")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"languages": ["en"], "topics": ["general"], "tags": ["history"]}
+
+
+def test_serialize_includes_id_alias():
+    q = QuestionModel(question="Q", answer="A", added_by="tester")
+    data = _serialize_question(q)
+    assert data["question_id"] == q.question_id
+    assert data["id"] == q.question_id

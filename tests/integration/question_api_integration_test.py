@@ -25,7 +25,7 @@ def app(monkeypatch):
         sliced = items[offset: offset + limit] if limit else items
         return (sliced, None) if include_token else sliced
 
-    def fake_update(qid, updates, user=None):
+    def fake_update(qid, updates, user=None, role=None):
         if qid not in store:
             return None
         store[qid] = store[qid].model_copy(update=updates)

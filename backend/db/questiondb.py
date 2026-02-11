@@ -2,6 +2,7 @@ import boto3
 import os
 from datetime import datetime
 from typing import Optional, List, Tuple, Dict, Any
+from boto3.dynamodb.conditions import Key
 
 from backend.models.question import QuestionModel
 
@@ -20,26 +21,27 @@ def add_question_to_db(question: QuestionModel) -> bool:
     table.put_item(Item=item)
     return True
 
+def _query_item_by_id(question_id: str) -> Optional[dict]:
+    try:
+        resp = table.query(
+            KeyConditionExpression=Key("id").eq(question_id),
+            Limit=1,
+        )
+        items = resp.get("Items", [])
+        return items[0] if items else None
+    except Exception as e:
+        print(f"ERROR: query failed for question {question_id}: {e}")
+        return None
+
+
 def get_question_by_id_db(question_id) -> Optional[QuestionModel]:
     """Fetch a question by ID from the database."""
     if not question_id:
         print("DEBUG: No question ID provided.")
         return None
-    try:
-        response = table.get_item(Key={"id": question_id})
-        if "Item" in response:
-            return QuestionModel(**response["Item"])
-    except Exception as e:
-        print(f"DEBUG: direct get_item failed, falling back to scan: {e}")
-
-    # Fallback: scan for matching id/question_id
-    try:
-        scan_resp = table.scan()
-        for item in scan_resp.get("Items", []):
-            if item.get("id") == question_id or item.get("question_id") == question_id:
-                return QuestionModel(**item)
-    except Exception as e:
-        print(f"ERROR: failed to scan for question {question_id}: {e}")
+    item = _query_item_by_id(question_id)
+    if item:
+        return QuestionModel(**item)
     print(f"DEBUG: Question with ID {question_id} not found.")
     return None
 
@@ -67,21 +69,7 @@ def get_all_questions_db(filters=None, limit: int = 50, last_key: Optional[Dict[
     return questions, response.get("LastEvaluatedKey")
 
 def _get_item_with_fallback(question_id: str):
-    try:
-        resp = table.get_item(Key={"id": question_id})
-        item = resp.get("Item")
-        if item:
-            return item
-    except Exception:
-        pass
-    try:
-        scan_resp = table.scan()
-        for it in scan_resp.get("Items", []):
-            if it.get("id") == question_id or it.get("question_id") == question_id:
-                return it
-    except Exception as e:
-        print(f"ERROR scanning for question {question_id}: {e}")
-    return None
+    return _query_item_by_id(question_id)
 
 
 def _make_key_from_item(item: dict) -> dict:

@@ -103,7 +103,7 @@ def test_create_question_with_media(mock_db, sample_question_data):
     with patch("backend.services.question_service.upload_file_to_s3", return_value=None) as mock_upload:
         result = create_question(sample_question_data)
         assert isinstance(result, QuestionModel)
-        assert result.media_url is None
+        assert result.media_path is None
         mock_upload.assert_called_once_with("fake_media_file")
     mock_db.add_question_to_db.assert_called_once()
 
@@ -117,7 +117,7 @@ def test_create_question_with_media_success(mock_db, sample_question_data):
         assert isinstance(result, QuestionModel)
         mock_db.add_question_to_db.assert_called_once()
         mock_upload.assert_called_once_with("fake_media_file")
-        assert result.media_url == "s3://fake-bucket/fake_media_file"
+        assert result.media_path == "s3://fake-bucket/fake_media_file"
 
 def test_update_question(mock_db, sample_question):
     """Test updating an existing question."""
@@ -157,35 +157,41 @@ def test_update_question_admin_allowed(mock_db, sample_question):
     assert updated_question is not None
     mock_db.update_question_in_db.assert_called_once()
 
+
+def test_update_question_rejects_topic_change(mock_db, sample_question):
+    updates = {"question_topic": "New Topic"}
+    with pytest.raises(ValueError):
+        update_question(sample_question.question_id, updates, "admin", "admin")
+
 def test_update_question_replaces_media(mock_db, sample_question):
     """Updating with a new media file uploads and deletes the old one."""
-    sample_question = sample_question.model_copy(update={"media_url": "old_url"})
+    sample_question = sample_question.model_copy(update={"media_path": "old_url"})
     mock_db.get_question_by_id_db.return_value = sample_question
-    mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"media_url": "new_url"})
+    mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"media_path": "new_url"})
 
     with patch("backend.services.question_service.upload_file_to_s3", return_value="new_url") as mock_upload:
         updates = {"media_file": "fileobj"}
         updated = update_question(sample_question.question_id, updates, "user123")
 
-    assert updated.media_url == "new_url"
+    assert updated.media_path == "new_url"
     mock_upload.assert_called_once_with("fileobj")
     mock_db.delete_file_from_s3.assert_called_once_with("old_url")
     assert updates["updated_by"] == "user123"
-    mock_db.update_question_in_db.assert_called_once_with(sample_question.question_id, {"media_url": "new_url", "updated_by": "user123"})
+    mock_db.update_question_in_db.assert_called_once_with(sample_question.question_id, {"media_path": "new_url", "updated_by": "user123"})
 
 def test_update_question_remove_media(mock_db, sample_question):
-    """Setting media_url to None removes S3 asset."""
-    sample_question = sample_question.model_copy(update={"media_url": "old_url"})
+    """Setting media_path to None removes S3 asset."""
+    sample_question = sample_question.model_copy(update={"media_path": "old_url"})
     mock_db.get_question_by_id_db.return_value = sample_question
-    mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"media_url": None})
+    mock_db.update_question_in_db.return_value = sample_question.model_copy(update={"media_path": None})
 
-    updates = {"media_url": None}
+    updates = {"media_path": None}
     updated = update_question(sample_question.question_id, updates, "user123")
 
-    assert updated.media_url is None
+    assert updated.media_path is None
     mock_db.delete_file_from_s3.assert_called_once_with("old_url")
     assert updates["updated_by"] == "user123"
-    mock_db.update_question_in_db.assert_called_once_with(sample_question.question_id, {"media_url": None, "updated_by": "user123"})
+    mock_db.update_question_in_db.assert_called_once_with(sample_question.question_id, {"media_path": None, "updated_by": "user123"})
 
 def test_delete_question(mock_db, sample_question):
     """Test deleting a question."""
@@ -197,14 +203,14 @@ def test_delete_question(mock_db, sample_question):
 
 def test_delete_question_with_media(mock_db, sample_question):
     """Test deleting a question removes its media from S3."""
-    sample_question = sample_question.model_copy(update={"media_url": "https://bucket.s3.region.amazonaws.com/file.png"})
+    sample_question = sample_question.model_copy(update={"media_path": "https://bucket.s3.region.amazonaws.com/file.png"})
     mock_db.get_question_by_id_db.return_value = sample_question
     mock_db.delete_question_from_db.return_value = True
 
     success = delete_question(sample_question.question_id)
 
     assert success is True
-    mock_db.delete_file_from_s3.assert_called_once_with(sample_question.media_url)
+    mock_db.delete_file_from_s3.assert_called_once_with(sample_question.media_path)
     mock_db.delete_question_from_db.assert_called_once_with(sample_question.question_id)
 
 def test_delete_question_not_found(mock_db):

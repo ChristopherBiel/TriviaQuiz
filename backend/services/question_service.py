@@ -71,6 +71,8 @@ def create_question(data: dict) -> QuestionModel | None:
     """Create a new question in the database."""
     media_file = data.get("media_file")
     question_payload = {k: v for k, v in data.items() if k != "media_file"}
+    if not question_payload.get("question_topic"):
+        question_payload["question_topic"] = "General"
     question = QuestionModel(**question_payload)
     # If the question has a media file, upload it to S3 and get the URL
     if media_file:
@@ -82,6 +84,8 @@ def create_question(data: dict) -> QuestionModel | None:
 
 def update_question(question_id: str, updates: dict, user: str | None = None, role: str | None = None) -> QuestionModel | None:
     """Update an existing question in the database."""
+    if "question_topic" in updates:
+        raise ValueError("question_topic cannot be updated after creation")
     media_file = updates.pop("media_file", None)
     remove_media = "media_path" in updates and updates.get("media_path") is None
 
@@ -137,3 +141,17 @@ def get_random_question_filtered(seen_ids: list = None, filters: dict = None):
         return None
 
     return random.choice(items)
+
+
+def get_question_metadata(filters: dict | None = None) -> dict:
+    """Return distinct languages, topics, and tags for reviewed questions."""
+    effective_filters = dict(filters) if filters else {}
+    # Default to reviewed questions to match gameplay/admin expectations.
+    effective_filters.setdefault("review_status", True)
+
+    items = get_all_questions(effective_filters, limit=None)
+    languages = sorted({q.language for q in items if q.language})
+    topics = sorted({q.question_topic for q in items if q.question_topic})
+    tags = sorted({tag for q in items for tag in (q.tags or [])})
+
+    return {"languages": languages, "topics": topics, "tags": tags}

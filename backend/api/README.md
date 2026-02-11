@@ -10,9 +10,10 @@ Session-backed JSON endpoints served by Flask blueprints. Use the `/login` route
 
 ### Question endpoints (base `/questions`)
 - `GET /questions/` — list questions with filters + pagination. Response: `{"items":[...],"pagination":{"limit":n,"offset":n,"count":n,"total":n,"next_page_token":str|null}}`.
-- `GET /questions/<question_id>` — fetch a question; 404 if missing; renders HTML when Accept prefers text/html.
-- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `question_source`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required.
-- `PUT /questions/<question_id>` — partial update. Auth required; only owner or admin can update. Accepts JSON or multipart with `media`.
+- `GET /questions/<question_id>` — fetch a question; 404 if missing; renders HTML when `Accept` prefers text/html.
+- `GET /questions/metadata` — fetch distinct `languages`, `topics`, and `tags` for reviewed questions.
+- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `question_source`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required. If `question_topic` is omitted, it defaults to `General`.
+- `PUT /questions/<question_id>` — partial update. Auth required; only owner or admin can update. Accepts JSON or multipart with `media`. `question_topic` cannot be updated after creation.
 - `DELETE /questions/<question_id>` — delete a question (and associated S3 media). Admin-only.
 - `POST /questions/random` — returns one unseen question matching filters; body: `{"seen":[...],"filters":{...}}`; 404 when none available.
 
@@ -32,5 +33,8 @@ curl -b cookiejar -H "Content-Type: application/json" \
 - `PUT /users/<username>` — update fields (`email`, `password`, `role`, `is_verified`, `is_approved`, `username`).
 - `DELETE /users/<username>` — remove user.
 
-### HTML helper routes
-- `GET /question/<question_id>` and `GET /questions/<question_id>/view` render `question_detail.html` without colliding with the JSON API paths.
+### HTML rendering
+`GET /questions/<question_id>` will render `question_detail.html` when the `Accept` header prefers HTML. Otherwise it returns JSON.
+
+### Event replay (roadmap)
+The event replay API is stubbed in `backend/api/events.py` and is not yet registered in the app.

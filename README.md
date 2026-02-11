@@ -41,6 +41,10 @@ export SECRET_KEY=replace-me
 
 python app.py  # serves on http://127.0.0.1:5600
 ```
+For production (or Docker), run via Gunicorn:
+```bash
+gunicorn --bind 0.0.0.0:5600 wsgi:app
+```
 
 Sessions are cookie-based; ensure `SECRET_KEY` is set in production. The app expects AWS credentials through the standard SDK sources (env vars, AWS profile, or instance roles).
 
@@ -51,6 +55,9 @@ Sessions are cookie-based; ensure `SECRET_KEY` is set in production. The app exp
 - `AWS_S3_BUCKET` – bucket for media uploads
 - `SECRET_KEY` – Flask session key (required for auth)
 - Optional: standard AWS SDK vars (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, etc.)
+
+## Local-only secrets
+`backend/logindata.env` is a convenience file for local development only. It is not loaded by the app and must not be used for production secrets.
 
 ## Running with Docker
 ```bash
@@ -81,3 +88,15 @@ Most tests mock AWS calls, but integration tests still expect AWS environment va
   ```bash
   python scripts/ensure_admin.py --username admin --email you@example.com --password "secret"
   ```
+
+## Changelog / Migration Notes
+- 2026-02-11: Added `wsgi.py` as the Gunicorn entrypoint and updated Docker to use `wsgi:app`. Local dev continues to use `python app.py`.
+- 2026-02-11: Added `GET /questions/metadata` to expose server-computed language/topic/tag metadata.
+- 2026-02-11: Updated gameplay UI to use `/questions/random` and `/questions/metadata` instead of legacy endpoints.
+- 2026-02-11: Removed legacy question endpoints from `backend/routes.py` (`/random-question`, `/get-questions`, `/add-question`, `/question-metadata`, `/approve-question`, `/reject-question`, `/delete-question`). Use `/questions/*` APIs instead.
+- 2026-02-11: Removed legacy user mutation routes from `backend/routes.py`. Use `/users/*` APIs instead.
+- 2026-02-11: Removed HTML helper routes in `backend/api/pages.py`; HTML rendering now uses `GET /questions/<id>` with `Accept: text/html`.
+- 2026-02-11: Documented and stubbed event replay modules (`backend/api/events.py`, `backend/db/eventdb.py`) without wiring routes yet.
+- 2026-02-11: Removed unused legacy modules (`backend/db.py`, `backend/utils.py`, `backend/utils/input_validation.py`, `singular_tests.py`).
+- 2026-02-11: DynamoDB access now queries by `id`; new questions default `question_topic` to `General`, and `question_topic` updates are rejected.
+- 2026-02-11: Pruned unused Python dependencies (OpenAI/HTTP client stack and unused helpers).
