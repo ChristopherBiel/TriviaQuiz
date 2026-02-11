@@ -42,11 +42,8 @@ Implemented by:
 Public methods and behavior:
 - `upload(file) -> str | None` returns an object key or `None` if the upload is rejected.
 - `delete(media_path: str) -> bool` returns `False` on missing keys or errors.
-- `get_url(media_path: str, expires_in: int | None) -> str | None`
-  - MinIO returns `/media/<key>` when `MEDIA_PROXY=1`.
-  - MinIO returns a presigned URL when `MEDIA_PROXY=0`.
-- `download(media_path: str) -> (IO[bytes], content_type: str | None, content_length: int | None)`
-  - Used by `GET /media/<key>` to stream the object.
+- `get_url(media_path: str, expires_in: int | None) -> str | None` returns `/media/<key>` when `MEDIA_PROXY=1`, and a presigned URL when `MEDIA_PROXY=0`.
+- `download(media_path: str) -> (IO[bytes], content_type: str | None, content_length: int | None)` is used by `GET /media/<key>` to stream the object.
 
 ## Usage example
 ```python

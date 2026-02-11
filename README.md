@@ -45,11 +45,12 @@ TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTM
 - Tests: `pytest` (install `pytest` in your environment if needed)
 
 ## Configuration overview
+- Full list and definitions: `docs/08-environment-variables.md`
 - App: `SECRET_KEY`, `STORE_BACKEND`, `QUESTION_STORE`, `USER_STORE`, `MEDIA_STORE`, `MEDIA_PROXY`, `MEDIA_URL_EXPIRES_SECONDS`, `UPLOAD_FOLDER`, `ALLOWED_EXTENSIONS`
 - Postgres: `POSTGRES_DSN`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_AUTO_CREATE`
 - MinIO: `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_REGION`, `MINIO_SECURE`, `MINIO_AUTO_CREATE_BUCKET`
 - Caddy: `CADDY_DOMAIN`, `CADDY_EMAIL`
-- Legacy AWS adapters (optional): `AWS_REGION`, `AWS_ENDPOINT_URL`, `DYNAMODB_TABLE`, `USERS_TABLE`, `AWS_S3_BUCKET`
+- Legacy AWS adapters (optional): `AWS_REGION`, `AWS_ENDPOINT_URL`, `DYNAMODB_TABLE`, `USERS_TABLE`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`
 
 ## Docs
 - Overview: `docs/00-overview.md`
@@ -60,6 +61,7 @@ TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTM
 - Backups and restore: `docs/05-backups-and-restore.md`
 - Migrations: `docs/06-migrations.md`
 - Troubleshooting: `docs/07-troubleshooting.md`
+- Environment variables: `docs/08-environment-variables.md`
 - Interfaces: `docs/interfaces/storage.md`, `docs/interfaces/services.md`
 - Architecture decisions: `docs/adr/`
 - API reference: `backend/api/README.md`
