@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from backend.db.files3 import delete_file_from_s3, upload_file_to_s3
+from urllib.parse import urlparse
+
+from botocore.exceptions import ClientError
+
+from backend.db.files3 import AWS_S3_BUCKET, delete_file_from_s3, upload_file_to_s3, s3
 from backend.db.questiondb import (
     add_question_to_db,
     delete_question_from_db,
@@ -68,3 +72,19 @@ class S3MediaStore(MediaStore):
 
     def get_url(self, media_path: str, expires_in: int | None = None):
         return media_path
+
+    def download(self, media_path: str):
+        if not media_path:
+            raise FileNotFoundError("Missing media path")
+        parsed = urlparse(media_path)
+        key = parsed.path.lstrip("/") or media_path.rsplit("/", 1)[-1]
+        if not key:
+            raise FileNotFoundError("Missing media key")
+        try:
+            obj = s3.get_object(Bucket=AWS_S3_BUCKET, Key=key)
+        except ClientError as exc:
+            code = (exc.response.get("Error") or {}).get("Code")
+            if code in {"NoSuchKey", "404", "NotFound"}:
+                raise FileNotFoundError("Media not found") from exc
+            raise
+        return obj.get("Body"), obj.get("ContentType"), obj.get("ContentLength")

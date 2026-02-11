@@ -9,6 +9,7 @@ from backend.services.question_service import (
     get_random_question_filtered
 )
 from backend.models.question import QuestionModel
+from backend.storage import get_media_store
 
 questions_bp = Blueprint("questions", __name__, url_prefix="/questions")
 
@@ -22,7 +23,9 @@ def _serialize_question(question: QuestionModel) -> dict:
             data["id"] = qid
     media_path = getattr(question, "media_path", None) or data.get("media_path") or data.get("media_path")
     if media_path:
-        data.setdefault("media_path", media_path)
+        resolved = get_media_store().get_url(media_path)
+        if resolved:
+            data["media_path"] = resolved
     return data
 
 
@@ -169,7 +172,7 @@ def create_new_question():
     new_question = create_question(payload)
     if not new_question:
         return jsonify({"error": "Failed to create question"}), 500
-    return jsonify(new_question.model_dump(mode="json")), 201
+    return jsonify(_serialize_question(new_question)), 201
 
 
 @questions_bp.route("/<question_id>", methods=["PUT"])
@@ -201,7 +204,7 @@ def update_existing_question(question_id):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     if updated_question:
-        return jsonify(updated_question.model_dump(mode="json")), 200
+        return jsonify(_serialize_question(updated_question)), 200
     return jsonify({"error": "Question not found or not permitted"}), 404
 
 

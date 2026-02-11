@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, IO
 
 from backend.models.question import QuestionModel
 from backend.models.user import UserModel
@@ -80,4 +80,8 @@ class MediaStore(ABC):
 
     @abstractmethod
     def get_url(self, media_path: str, expires_in: int | None = None) -> Optional[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def download(self, media_path: str) -> tuple[IO[bytes], str | None, int | None]:
         raise NotImplementedError

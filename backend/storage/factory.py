@@ -29,7 +29,9 @@ def get_question_store() -> QuestionStore:
         return DynamoQuestionStore()
 
     if backend == "postgres":
-        raise RuntimeError("Postgres question store not yet configured")
+        from backend.storage.postgres import PostgresQuestionStore
+
+        return PostgresQuestionStore()
 
     raise RuntimeError(f"Unsupported question store backend: {backend}")
 
@@ -45,7 +47,9 @@ def get_user_store() -> UserStore:
         return DynamoUserStore()
 
     if backend == "postgres":
-        raise RuntimeError("Postgres user store not yet configured")
+        from backend.storage.postgres import PostgresUserStore
+
+        return PostgresUserStore()
 
     raise RuntimeError(f"Unsupported user store backend: {backend}")
 
@@ -61,7 +65,9 @@ def get_media_store() -> MediaStore:
         return S3MediaStore()
 
     if backend == "minio":
-        raise RuntimeError("MinIO media store not yet configured")
+        from backend.storage.minio import MinioMediaStore
+
+        return MinioMediaStore()
 
     raise RuntimeError(f"Unsupported media store backend: {backend}")
 
