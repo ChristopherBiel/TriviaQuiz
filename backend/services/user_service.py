@@ -102,13 +102,13 @@ def issue_verification(user: UserModel, ttl_minutes: int = 15) -> UserModel | No
 
 
 def verify_user(token: str) -> UserModel | None:
-    users = get_user_store().list()
-    for u in users:
-        if u.verification_token == token and u.verification_expires_at and u.verification_expires_at > _utcnow():
-            return get_user_store().update(
-                u.user_id,
-                {"is_verified": True, "verification_token": None, "verification_expires_at": None},
-            )
+    store = get_user_store()
+    u = store.get_by_verification_token(token)
+    if u and u.verification_expires_at and u.verification_expires_at > _utcnow():
+        return store.update(
+            u.user_id,
+            {"is_verified": True, "verification_token": None, "verification_expires_at": None},
+        )
     return None
 
 
@@ -119,15 +119,15 @@ def issue_reset_token(user: UserModel, ttl_minutes: int = 15) -> UserModel | Non
 
 
 def reset_password(token: str, new_password: str) -> UserModel | None:
-    users = get_user_store().list()
-    for u in users:
-        if u.reset_token == token and u.reset_expires_at and u.reset_expires_at > _utcnow():
-            return get_user_store().update(
-                u.user_id,
-                {
-                    "password_hash": hash_password(new_password),
-                    "reset_token": None,
-                    "reset_expires_at": None,
-                },
-            )
+    store = get_user_store()
+    u = store.get_by_reset_token(token)
+    if u and u.reset_expires_at and u.reset_expires_at > _utcnow():
+        return store.update(
+            u.user_id,
+            {
+                "password_hash": hash_password(new_password),
+                "reset_token": None,
+                "reset_expires_at": None,
+            },
+        )
     return None

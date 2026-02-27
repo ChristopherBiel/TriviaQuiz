@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random as _random
 from abc import ABC, abstractmethod
 from typing import Optional, IO
 
@@ -42,6 +43,22 @@ class QuestionStore(ABC):
     def delete(self, question_id: str) -> bool:
         raise NotImplementedError
 
+    def count(self, filters: dict | None = None) -> int:
+        """Return total questions matching filters. Override for O(1) DB-level count."""
+        items, _ = self.list(filters, limit=10_000)
+        return len(items)
+
+    def random_reviewed(
+        self,
+        seen_ids: list[str] | None = None,
+        filters: dict | None = None,
+    ) -> Optional[QuestionModel]:
+        """Return a random reviewed question not in seen_ids. Override for DB-level random."""
+        items, _ = self.list(filters, limit=10_000)
+        if seen_ids:
+            items = [q for q in items if q.question_id not in seen_ids]
+        return _random.choice(items) if items else None
+
 
 class UserStore(ABC):
     @abstractmethod
@@ -67,6 +84,20 @@ class UserStore(ABC):
     @abstractmethod
     def delete(self, user_id: str) -> bool:
         raise NotImplementedError
+
+    def get_by_verification_token(self, token: str) -> Optional[UserModel]:
+        """Find a user by verification token. Override for O(1) DB-level lookup."""
+        for u in self.list():
+            if u.verification_token == token:
+                return u
+        return None
+
+    def get_by_reset_token(self, token: str) -> Optional[UserModel]:
+        """Find a user by reset token. Override for O(1) DB-level lookup."""
+        for u in self.list():
+            if u.reset_token == token:
+                return u
+        return None
 
 
 class MediaStore(ABC):

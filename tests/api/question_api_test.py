@@ -42,19 +42,19 @@ def test_list_questions_invalid_limit(client):
 
 
 def test_list_questions_pagination_and_filters(client, monkeypatch):
-    mock_get_all = MagicMock()
-    mock_get_all.side_effect = [
-        ([DummyQuestion("2"), DummyQuestion("3")], "token-123"),  # paged result
-        [DummyQuestion("1"), DummyQuestion("2"), DummyQuestion("3")],  # total probe
-    ]
+    mock_get_all = MagicMock(return_value=([DummyQuestion("2"), DummyQuestion("3")], "token-123"))
+    mock_count = MagicMock(return_value=3)
     monkeypatch.setattr("backend.api.questions.get_all_questions", mock_get_all)
+    monkeypatch.setattr("backend.api.questions.count_questions", mock_count)
 
     resp = client.get("/questions/?limit=2&offset=1&tags=a,b&review_status=true&language=en")
 
     assert resp.status_code == 200
-    assert mock_get_all.call_count == 2
-    mock_get_all.assert_any_call({"tags": ["a", "b"], "review_status": True, "language": "en"}, limit=2, offset=1, page_token=None, include_token=True)
-    mock_get_all.assert_any_call({"tags": ["a", "b"], "review_status": True, "language": "en"}, limit=None)
+    mock_get_all.assert_called_once_with(
+        {"tags": ["a", "b"], "review_status": True, "language": "en"},
+        limit=2, offset=1, page_token=None, include_token=True,
+    )
+    mock_count.assert_called_once_with({"tags": ["a", "b"], "review_status": True, "language": "en"})
 
     data = resp.get_json()
     assert data["pagination"] == {"limit": 2, "offset": 1, "count": 2, "total": 3, "next_page_token": "token-123"}

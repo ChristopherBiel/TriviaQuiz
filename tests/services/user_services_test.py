@@ -292,11 +292,12 @@ def test_verify_user_valid_token(mock_store, sample_user):
         "verification_expires_at": _utcnow() + timedelta(minutes=10),
         "is_verified": False,
     })
-    mock_store.list.return_value = [user_with_token]
+    mock_store.get_by_verification_token.return_value = user_with_token
     mock_store.update.return_value = user_with_token.model_copy(update={"is_verified": True})
 
     result = verify_user("good-token")
     assert result is not None
+    mock_store.get_by_verification_token.assert_called_once_with("good-token")
     mock_store.update.assert_called_once_with(
         user_with_token.user_id,
         {"is_verified": True, "verification_token": None, "verification_expires_at": None},
@@ -308,23 +309,19 @@ def test_verify_user_expired_token_returns_none(mock_store, sample_user):
         "verification_token": "old-token",
         "verification_expires_at": _utcnow() - timedelta(minutes=1),
     })
-    mock_store.list.return_value = [user_with_expired]
+    mock_store.get_by_verification_token.return_value = user_with_expired
     assert verify_user("old-token") is None
     mock_store.update.assert_not_called()
 
 
-def test_verify_user_wrong_token_returns_none(mock_store, sample_user):
-    user_with_token = sample_user.model_copy(update={
-        "verification_token": "right-token",
-        "verification_expires_at": _utcnow() + timedelta(minutes=10),
-    })
-    mock_store.list.return_value = [user_with_token]
+def test_verify_user_wrong_token_returns_none(mock_store):
+    mock_store.get_by_verification_token.return_value = None
     assert verify_user("wrong-token") is None
     mock_store.update.assert_not_called()
 
 
 def test_verify_user_no_users_returns_none(mock_store):
-    mock_store.list.return_value = []
+    mock_store.get_by_verification_token.return_value = None
     assert verify_user("any-token") is None
 
 
@@ -349,11 +346,12 @@ def test_reset_password_valid_token(mock_store, sample_user):
         "reset_token": "reset-tok",
         "reset_expires_at": _utcnow() + timedelta(minutes=10),
     })
-    mock_store.list.return_value = [user_with_token]
+    mock_store.get_by_reset_token.return_value = user_with_token
     mock_store.update.return_value = user_with_token
 
     result = reset_password("reset-tok", "newpassword")
     assert result is not None
+    mock_store.get_by_reset_token.assert_called_once_with("reset-tok")
     args = mock_store.update.call_args[0][1]
     assert "password_hash" in args
     assert args["password_hash"] != "newpassword"
@@ -366,16 +364,12 @@ def test_reset_password_expired_token_returns_none(mock_store, sample_user):
         "reset_token": "reset-tok",
         "reset_expires_at": _utcnow() - timedelta(minutes=1),
     })
-    mock_store.list.return_value = [user_with_expired]
+    mock_store.get_by_reset_token.return_value = user_with_expired
     assert reset_password("reset-tok", "newpw") is None
     mock_store.update.assert_not_called()
 
 
-def test_reset_password_wrong_token_returns_none(mock_store, sample_user):
-    user_with_token = sample_user.model_copy(update={
-        "reset_token": "right-tok",
-        "reset_expires_at": _utcnow() + timedelta(minutes=10),
-    })
-    mock_store.list.return_value = [user_with_token]
+def test_reset_password_wrong_token_returns_none(mock_store):
+    mock_store.get_by_reset_token.return_value = None
     assert reset_password("wrong-tok", "newpw") is None
     mock_store.update.assert_not_called()

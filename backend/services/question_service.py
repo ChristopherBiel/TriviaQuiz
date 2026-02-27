@@ -1,4 +1,3 @@
-import random
 import json
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from backend.models.question import QuestionModel
@@ -119,29 +118,16 @@ def delete_question(question_id: str) -> bool:
 
     return question_store.delete(question_id)
 
+def count_questions(filters: dict | None = None) -> int:
+    """Return total question count matching filters."""
+    return get_question_store().count(filters)
+
+
 def get_random_question_filtered(seen_ids: list = None, filters: dict = None):
     """Fetch a random reviewed question not in seen_ids with optional filters."""
-
-    if seen_ids is None:
-        seen_ids = []
-    
     effective_filters = dict(filters) if filters else {}
     effective_filters["review_status"] = True
-
-    store = get_question_store()
-    result = store.list(effective_filters)
-    if isinstance(result, tuple):
-        items, _ = result
-    else:
-        items = result
-
-    if seen_ids:
-        items = [q for q in items if q.question_id not in seen_ids]
-
-    if not items:
-        return None
-
-    return random.choice(items)
+    return get_question_store().random_reviewed(seen_ids or [], effective_filters)
 
 
 def get_question_metadata(filters: dict | None = None) -> dict:

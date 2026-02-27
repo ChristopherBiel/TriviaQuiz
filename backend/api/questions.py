@@ -3,6 +3,7 @@ from backend.services.question_service import (
     get_question_by_id,
     get_all_questions,
     get_question_metadata,
+    count_questions,
     create_question,
     update_question,
     delete_question,
@@ -125,9 +126,7 @@ def list_questions():
         return jsonify({"error": error}), 400
 
     questions, next_token = get_all_questions(filters, limit=limit, offset=offset, page_token=page_token, include_token=True)
-    # Best-effort total: fetch all (capped) to compute total
-    total_probe = get_all_questions(filters, limit=None)
-    total = len(total_probe)
+    total = count_questions(filters)
 
     payload = {
         "items": [_serialize_question(question) for question in questions],

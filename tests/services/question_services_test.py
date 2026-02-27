@@ -214,18 +214,18 @@ def test_delete_question_not_found(mock_stores):
     mock_stores.question_store.delete.assert_called_once_with("nonexistent-id")
 
 def test_get_random_question_filtered(mock_stores, sample_question):
-    """Test fetching a random question that is not in seen_ids and matches filters."""
-    mock_stores.question_store.list.return_value = ([sample_question], None)
-    seen_ids = []
-    filters = {"review_status": True}
-    random_question = get_random_question_filtered(seen_ids, filters)
-    assert random_question is not None
-    assert random_question.model_dump() == sample_question.model_dump()
-    mock_stores.question_store.list.assert_called_once_with(filters)
-    mock_stores.question_store.list.reset_mock()
-    # Test with seen_ids
-    seen_ids = [sample_question.question_id]
-    random_question = get_random_question_filtered(seen_ids, filters)
-    assert random_question is None  # No unseen questions available
-    mock_stores.question_store.list.assert_called_once_with(filters)
-    mock_stores.question_store.list.reset_mock()
+    """Test fetching a random question delegates to store.random_reviewed with correct filters."""
+    mock_stores.question_store.random_reviewed.return_value = sample_question
+    filters = {"language": "english"}
+    result = get_random_question_filtered([], filters)
+    assert result is sample_question
+    mock_stores.question_store.random_reviewed.assert_called_once_with(
+        [], {"language": "english", "review_status": True}
+    )
+
+
+def test_get_random_question_filtered_no_results(mock_stores):
+    """When store returns None, service returns None."""
+    mock_stores.question_store.random_reviewed.return_value = None
+    result = get_random_question_filtered(["some-id"], {})
+    assert result is None

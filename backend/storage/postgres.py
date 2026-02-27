@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    func,
     or_,
     select,
     text,
@@ -299,6 +300,26 @@ class PostgresQuestionStore(QuestionStore):
             session.delete(record)
             return True
 
+    def count(self, filters: dict | None = None) -> int:
+        with session_scope() as session:
+            query = select(func.count(QuestionRecord.question_id))
+            query = _apply_question_filters(query, filters)
+            return session.execute(query).scalar() or 0
+
+    def random_reviewed(
+        self,
+        seen_ids: list[str] | None = None,
+        filters: dict | None = None,
+    ) -> QuestionModel | None:
+        with session_scope() as session:
+            query = select(QuestionRecord)
+            query = _apply_question_filters(query, filters)
+            if seen_ids:
+                query = query.where(~QuestionRecord.question_id.in_(seen_ids))
+            query = query.order_by(func.random()).limit(1)
+            record = session.execute(query).scalars().first()
+            return _question_from_record(record) if record else None
+
 
 class PostgresUserStore(UserStore):
     def add(self, user: UserModel) -> bool:
@@ -368,3 +389,15 @@ class PostgresUserStore(UserStore):
                 return False
             session.delete(record)
             return True
+
+    def get_by_verification_token(self, token: str) -> UserModel | None:
+        with session_scope() as session:
+            query = select(UserRecord).where(UserRecord.verification_token == token)
+            record = session.execute(query).scalars().first()
+            return _user_from_record(record) if record else None
+
+    def get_by_reset_token(self, token: str) -> UserModel | None:
+        with session_scope() as session:
+            query = select(UserRecord).where(UserRecord.reset_token == token)
+            record = session.execute(query).scalars().first()
+            return _user_from_record(record) if record else None

@@ -40,8 +40,15 @@ def app(monkeypatch):
                 return q
         return None
 
+    def fake_count(filters=None):
+        items = list(store.values())
+        if filters and "review_status" in filters:
+            items = [i for i in items if i.review_status == filters["review_status"]]
+        return len(items)
+
     monkeypatch.setattr("backend.api.questions.create_question", fake_create)
     monkeypatch.setattr("backend.api.questions.get_all_questions", fake_get_all)
+    monkeypatch.setattr("backend.api.questions.count_questions", fake_count)
     monkeypatch.setattr("backend.api.questions.update_question", fake_update)
     monkeypatch.setattr("backend.api.questions.delete_question", fake_delete)
     monkeypatch.setattr("backend.api.questions.get_random_question_filtered", fake_random)
