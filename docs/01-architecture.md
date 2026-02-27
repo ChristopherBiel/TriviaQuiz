@@ -1,10 +1,13 @@
 # Architecture
+
 This page explains the running system in plain language, then shows the same idea in diagrams.
 
 ## Why this exists
+
 If you understand how requests flow and where data lives, you can debug issues faster and make safer changes.
 
 ## Key concepts (quick definitions)
+
 Why this exists: these terms are used throughout the docs, so this section gives you a short, shared vocabulary.
 
 - **Reverse proxy**: a front door that receives web traffic and forwards it to the app. Here, Caddy is the reverse proxy.
@@ -14,27 +17,25 @@ Why this exists: these terms are used throughout the docs, so this section gives
 - **S3-compatible storage**: an object store that speaks the same API as Amazon S3.
 
 ## Diagram: request flow
+
 Why this exists: this shows the full path a browser request takes.
 
 ```mermaid
 flowchart LR
     Browser[Browser]
-    Caddy[Caddy
-reverse proxy + TLS]
-    App[Flask + Gunicorn
-app container
-:5600]
+    Caddy["Caddy reverse proxy + TLS"]
+    App["Flask + Gunicorn (app :5600)"]
     Postgres[(Postgres)]
-    MinIO[(MinIO
-S3-compatible)]
+    MinIO[("MinIO S3-compatible")]
 
-    Browser -->|HTTP/HTTPS :80/:443| Caddy
-    Caddy -->|reverse_proxy :5600| App
+    Browser -->|"HTTP/HTTPS :80/:443"| Caddy
+    Caddy -->|"reverse_proxy :5600"| App
     App -->|SQLAlchemy| Postgres
-    App -->|boto3 S3 API| MinIO
+    App -->|"boto3 S3 API"| MinIO
 ```
 
 ## Diagram: trust boundary
+
 Why this exists: it shows what is public and what is private.
 
 ```mermaid
@@ -44,11 +45,11 @@ flowchart TB
     end
 
     subgraph VPS[Single VPS]
-        Caddy2[Caddy :80/:443]
+        Caddy2["Caddy :80/:443"]
         subgraph Docker[Docker network (private)]
-            App2[App :5600]
-            Postgres2[(Postgres :5432)]
-            MinIO2[(MinIO :9000/9001)]
+            App2["App :5600"]
+            Postgres2[("Postgres :5432")]
+            MinIO2[("MinIO :9000/9001")]
         end
     end
 
@@ -61,6 +62,7 @@ flowchart TB
 Common beginner mistake: publishing Postgres or MinIO ports to the public internet. They should remain private to the Docker network.
 
 ## Networking and exposure
+
 Why this exists: ports and exposure explain how traffic is allowed in.
 
 - Caddy is the only public entrypoint and binds ports 80 and 443 on the host.
@@ -69,6 +71,7 @@ Why this exists: ports and exposure explain how traffic is allowed in.
 - Caddy routes all traffic to `app:5600` as configured in `docker/Caddyfile`.
 
 ## Persistence and volumes
+
 Why this exists: you need to know where data actually lives.
 
 - Postgres data persists in the `postgres_data` Docker volume.
@@ -78,6 +81,7 @@ Why this exists: you need to know where data actually lives.
 Common beginner mistake: deleting volumes with `docker compose down -v` and losing all data.
 
 ## Trust boundaries and secrets
+
 Why this exists: security depends on correct handling of secrets.
 
 - All secrets are provided via environment variables and `.env`.
@@ -87,6 +91,7 @@ Why this exists: security depends on correct handling of secrets.
 - When `MEDIA_PROXY=0`, media URLs are presigned and served directly by MinIO.
 
 ## Request flow (step-by-step)
+
 Why this exists: understanding the order of steps helps you debug failures.
 
 1. Browser sends a request to Caddy at the public domain.

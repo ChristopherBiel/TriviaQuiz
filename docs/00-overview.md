@@ -18,14 +18,12 @@ This page is the starting map. It tells you what lives where, which docs to read
 - `tests/` contains pytest-based tests.
 - `docs/` contains architecture, runbooks, and interface documentation.
 
-Common beginner mistake: treating `backend/` as optional. It is the core of the app, and almost everything you will change lives there.
-
 ## Documentation map
 
 Why this exists: each page has a narrow job. You can jump directly to the topic you need.
 
 - `docs/01-architecture.md` explains how requests flow and where data is stored.
-- `docs/02-local-development.md` shows how to run the system with Docker on your laptop.
+- `docs/02-local-development.md` shows how to run the system with Docker on your system.
 - `docs/03-deployment.md` walks through a simple VPS deployment with Caddy and HTTPS.
 - `docs/04-operations.md` covers logs, health checks, and day-to-day operations.
 - `docs/05-backups-and-restore.md` provides backup and restore runbooks.
