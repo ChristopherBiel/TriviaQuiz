@@ -26,15 +26,37 @@ TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTM
    docker compose -f docker/docker-compose.yml --env-file .env up -d
    ```
 3. Run database migrations.
+
    ```bash
    docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
    ```
+
 4. (Optional) Create an admin user.
+
    ```bash
    docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
      python scripts/ensure_admin.py --username admin --email admin@example.com --password "change-me"
    ```
-5. Open the app at `http://localhost` (Caddy) and check `http://localhost/health`.
+
+5. (Optional) Bootstrap user/event storage and seed admin in one step.
+
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/bootstrap_user_event_db.py \
+       --admin-username admin --admin-email admin@example.com --admin-password "change-me"
+   ```
+
+6. (Optional) Migrate legacy questions/media from AWS DynamoDB + S3 into current stores.
+
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/migrate_aws_questions_media.py \
+       --source-region eu-central-1 \
+       --source-dynamodb-table TriviaQuestions \
+       --source-s3-bucket chris-trivia-media-bucket
+   ```
+   
+7. Open the app at `http://localhost` (Caddy) and check `http://localhost/health`.
 
 ## Key commands / workflows
 - Build: `docker compose -f docker/docker-compose.yml --env-file .env build`
@@ -43,6 +65,8 @@ TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTM
 - Logs: `docker compose -f docker/docker-compose.yml --env-file .env logs -f app`
 - Migrations: `docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head`
 - Tests: `pytest` (install `pytest` in your environment if needed)
+- Bootstrap user/event DB + admin: `python scripts/bootstrap_user_event_db.py --admin-username admin --admin-email admin@example.com --admin-password "change-me"`
+- Migrate legacy AWS questions/media: `python scripts/migrate_aws_questions_media.py --source-region eu-central-1 --source-dynamodb-table TriviaQuestions --source-s3-bucket chris-trivia-media-bucket`
 
 ## Configuration overview
 - Full list and definitions: `docs/08-environment-variables.md`

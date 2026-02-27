@@ -1,10 +1,13 @@
 # Documentation overview
+
 This documentation is written for people who are new to Docker and VPS (Virtual Private Server) deployments. It explains the architecture first, then shows how to run the system locally and on a server. When you see “API,” it means Application Programming Interface. When you see “HTML” or “JSON,” think “web pages” and “data responses.”
 
 ## Why this page exists
+
 This page is the starting map. It tells you what lives where, which docs to read first, and how to keep the docs accurate as the code evolves.
 
 ## Repository layout (what lives where)
+
 - `app.py` starts the Flask app for local development on port 5600.
 - `wsgi.py` is the Gunicorn entrypoint used in Docker.
 - `backend/` contains all application logic: routes, services, storage adapters, and models.
@@ -18,6 +21,7 @@ This page is the starting map. It tells you what lives where, which docs to read
 Common beginner mistake: treating `backend/` as optional. It is the core of the app, and almost everything you will change lives there.
 
 ## Documentation map
+
 Why this exists: each page has a narrow job. You can jump directly to the topic you need.
 
 - `docs/01-architecture.md` explains how requests flow and where data is stored.
@@ -34,6 +38,7 @@ Why this exists: each page has a narrow job. You can jump directly to the topic 
 - `backend/api/README.md` documents API endpoints.
 
 ## Recommended reading order
+
 Why this exists: the order below builds understanding step-by-step for beginners.
 
 - `docs/00-overview.md`
@@ -49,6 +54,7 @@ Why this exists: the order below builds understanding step-by-step for beginners
 - `docs/08-environment-variables.md`
 
 ## Docs verification checklist
+
 Why this exists: docs can drift as the code changes. These checks keep them honest.
 
 - [ ] Quickstart commands in `README.md` match `docker/docker-compose.yml`.
