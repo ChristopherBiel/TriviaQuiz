@@ -46,7 +46,7 @@ flowchart TB
 
     subgraph VPS[Single VPS]
         Caddy2["Caddy :80/:443"]
-        subgraph Docker[Docker network (private)]
+        subgraph Docker["Docker network (private)"]
             App2["App :5600"]
             Postgres2[("Postgres :5432")]
             MinIO2[("MinIO :9000/9001")]
