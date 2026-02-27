@@ -1,62 +1,40 @@
-# Service layer interfaces
+# Service layer
 
-## Overview
-Service modules live in `backend/services/` and encapsulate business rules, authorization checks, and data orchestration. Routes handle HTTP concerns and delegate to services.
+Services live in `backend/services/` and own all business logic, authorization, and orchestration. Routes delegate to services; services call storage. Neither layer crosses the other's boundary.
 
 ## Question service (`backend/services/question_service.py`)
-Responsibilities:
-- Validation and normalization of question data.
-- Enforcing invariants like immutable `question_topic`.
-- Pagination token encoding/decoding.
-- Media lifecycle (upload, replace, delete) through `MediaStore`.
-- Filtering and random selection for gameplay.
 
-Key functions:
-- `get_question_by_id(question_id)`
-- `get_all_questions(filters, limit, offset, page_token, include_token)`
-- `create_question(data)`
-- `update_question(question_id, updates, user, role)`
-- `delete_question(question_id)`
-- `get_random_question_filtered(seen_ids, filters)`
-- `get_question_metadata(filters)`
+| Function | Signature | Notes |
+|----------|-----------|-------|
+| `get_question_by_id` | `(question_id) -> QuestionModel \| None` | |
+| `get_all_questions` | `(filters, limit, offset, page_token, include_token)` | Returns `(questions, next_token)` |
+| `create_question` | `(data) -> QuestionModel` | Normalizes tags/language; sets defaults |
+| `update_question` | `(question_id, updates, user, role)` | `question_topic` is immutable after creation |
+| `delete_question` | `(question_id) -> bool` | Also deletes associated media |
+| `get_random_question_filtered` | `(seen_ids, filters) -> QuestionModel \| None` | Excludes already-seen IDs |
+| `get_question_metadata` | `(filters) -> dict` | Topic/tag/language counts |
 
-Usage example:
-```python
-from backend.services.question_service import create_question
-
-question = create_question({
-    "question": "Capital of France?",
-    "answer": "Paris",
-    "added_by": "admin",
-    "tags": ["geography"],
-})
-```
+Pagination: `page_token` is a base64-encoded `last_key` dict. Internally, Postgres uses offset pagination.
 
 ## User service (`backend/services/user_service.py`)
-Responsibilities:
-- User creation with password hashing and role validation.
-- Admin-only field updates and deletes.
-- Issuing verification and reset tokens.
-- Enforcing admin vs self-service boundaries.
 
-Key functions:
-- `create_user(data, acting_role)`
-- `get_user(username)`
-- `list_users(filters)`
-- `update_user(username, updates, acting_role, acting_username)`
-- `delete_user(username, acting_role)`
-- `issue_verification(user)` / `verify_user(token)`
-- `issue_reset_token(user)` / `reset_password(token, new_password)`
+| Function | Signature | Notes |
+|----------|-----------|-------|
+| `create_user` | `(data, acting_role)` | Hashes password; validates role |
+| `get_user` | `(username) -> UserModel \| None` | |
+| `list_users` | `(filters) -> list[UserModel]` | |
+| `update_user` | `(username, updates, acting_role, acting_username)` | Enforces admin vs self-service boundaries |
+| `delete_user` | `(username, acting_role)` | Admin only |
+| `issue_verification` | `(user)` | Issues an email verification token |
+| `verify_user` | `(token)` | Marks user as verified |
+| `issue_reset_token` | `(user)` | Issues a password reset token |
+| `reset_password` | `(token, new_password)` | Validates token, updates password hash |
 
-## Route vs service vs storage boundaries
-- Routes in `backend/api/` and `backend/routes.py` handle HTTP parsing, session checks, and response shaping.
-- Services enforce business rules and orchestration.
-- Storage adapters in `backend/storage/` handle persistence and are backend-agnostic behind interfaces.
+## Adding a feature
 
-## Adding a new feature/table (pattern)
 1. Add a Pydantic model in `backend/models/`.
-2. Extend storage interfaces in `backend/storage/base.py` if needed.
-3. Implement adapters in `backend/storage/postgres.py` (and optional AWS adapters).
-4. Add service methods in `backend/services/` for business logic.
-5. Add API routes in `backend/api/` and templates in `templates/` if needed.
-6. Create an Alembic migration in `alembic/versions/` and run `alembic upgrade head`.
+2. Extend abstract interfaces in `backend/storage/base.py`.
+3. Implement in `backend/storage/postgres.py`.
+4. Add service methods in `backend/services/`.
+5. Add routes in `backend/api/` and templates in `templates/` if needed.
+6. Generate and apply an Alembic migration.

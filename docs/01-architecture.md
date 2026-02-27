@@ -1,24 +1,6 @@
 # Architecture
 
-This page explains the running system in plain language, then shows the same idea in diagrams.
-
-## Why this exists
-
-If you understand how requests flow and where data lives, you can debug issues faster and make safer changes.
-
-## Key concepts (quick definitions)
-
-Why this exists: these terms are used throughout the docs, so this section gives you a short, shared vocabulary.
-
-- **Reverse proxy**: a front door that receives web traffic and forwards it to the app. Here, Caddy is the reverse proxy.
-- **Container network**: a private network created by Docker so containers can talk to each other by name.
-- **Volume**: a persistent disk location managed by Docker so data survives container restarts.
-- **TLS (HTTPS encryption)**: the certificate system that lets browsers trust your site.
-- **S3-compatible storage**: an object store that speaks the same API as Amazon S3.
-
-## Diagram: request flow
-
-Why this exists: this shows the full path a browser request takes.
+## Request flow
 
 ```mermaid
 flowchart LR
@@ -34,9 +16,7 @@ flowchart LR
     App -->|"boto3 S3 API"| MinIO
 ```
 
-## Diagram: trust boundary
-
-Why this exists: it shows what is public and what is private.
+## Trust boundary
 
 ```mermaid
 flowchart TB
@@ -59,44 +39,43 @@ flowchart TB
     App2 --> MinIO2
 ```
 
-Common beginner mistake: publishing Postgres or MinIO ports to the public internet. They should remain private to the Docker network.
+Caddy is the only host-bound process (ports 80/443). The app, Postgres, and MinIO are reachable only within the Docker network. Never publish Postgres or MinIO ports to the host.
 
-## Networking and exposure
+## Layer boundaries
 
-Why this exists: ports and exposure explain how traffic is allowed in.
+Requests flow through three strict layers. Each layer may only call the layer below it.
 
-- Caddy is the only public entrypoint and binds ports 80 and 443 on the host.
-- The app listens on port 5600 inside the Docker network and is not published directly.
-- Postgres (5432) and MinIO (9000/9001) are only reachable inside the Docker network.
-- Caddy routes all traffic to `app:5600` as configured in `docker/Caddyfile`.
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| Routes / API | `backend/api/`, `backend/routes.py`, `backend/auth.py` | HTTP parsing, session checks, response shaping |
+| Services | `backend/services/` | Business rules, authorization, orchestration |
+| Storage | `backend/storage/` | Persistence via abstract adapters |
 
-## Persistence and volumes
+Routes must not touch storage directly. Services must not build HTTP responses.
 
-Why this exists: you need to know where data actually lives.
+## Storage adapter pattern
 
-- Postgres data persists in the `postgres_data` Docker volume.
-- MinIO object data persists in the `minio_data` Docker volume.
-- Caddy state and certificates are stored in `caddy_data` and `caddy_config`.
+`backend/storage/base.py` defines abstract `QuestionStore`, `UserStore`, and `MediaStore`. Concrete implementations:
 
-Common beginner mistake: deleting volumes with `docker compose down -v` and losing all data.
+- `backend/storage/postgres.py` — current Postgres + MinIO path
+- `backend/storage/minio.py` — MinIO media store
+- `backend/storage/aws.py` — legacy DynamoDB/S3 adapters (migration tooling only)
 
-## Trust boundaries and secrets
+`backend/storage/factory.py` selects the implementation via `get_question_store()` / `get_user_store()` / `get_media_store()` (all `lru_cache`d). Selection is controlled by `STORE_BACKEND`, `QUESTION_STORE`, `USER_STORE`, and `MEDIA_STORE` env vars.
 
-Why this exists: security depends on correct handling of secrets.
+## Persistence
 
-- All secrets are provided via environment variables and `.env`.
-- `SECRET_KEY` protects Flask session cookies and must be unique in production.
-- Postgres and MinIO credentials should never be shared outside the Docker network.
-- When `MEDIA_PROXY=1`, media requests flow through the app at `/media/*`.
-- When `MEDIA_PROXY=0`, media URLs are presigned and served directly by MinIO.
+| Data | Storage | Volume |
+|------|---------|--------|
+| Questions, users | Postgres | `postgres_data` |
+| Media objects | MinIO | `minio_data` |
+| TLS certs | Caddy | `caddy_data`, `caddy_config` |
 
-## Request flow (step-by-step)
+## Media delivery
 
-Why this exists: understanding the order of steps helps you debug failures.
+- `MEDIA_PROXY=1` (default): the app streams media at `GET /media/<key>`.
+- `MEDIA_PROXY=0`: the store returns presigned MinIO URLs served directly by MinIO.
 
-1. Browser sends a request to Caddy at the public domain.
-2. Caddy forwards the request to Gunicorn on the app container (`app:5600`).
-3. Flask routes the request to HTML pages (`backend/routes.py`) or JSON APIs (`backend/api/*`).
-4. Services in `backend/services/` enforce business rules and orchestrate media lifecycle.
-5. Storage adapters in `backend/storage/` read/write to Postgres and MinIO.
-6. The response travels back through Caddy to the browser.
+## Configuration
+
+All configuration via environment variables. `backend/core/settings.py` (`get_settings()`, `lru_cache`d) reads from `.env` via `python-dotenv`. See `docs/08-environment-variables.md` for the full reference.

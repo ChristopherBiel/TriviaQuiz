@@ -1,63 +1,56 @@
 # Storage interfaces
 
-## Overview
-Storage adapters live in `backend/storage/` and are selected by `backend/storage/factory.py` using environment variables. The interfaces are defined in `backend/storage/base.py`.
+Abstract interfaces are defined in `backend/storage/base.py`. The factory (`backend/storage/factory.py`) selects implementations via `get_question_store()`, `get_user_store()`, `get_media_store()` — all `lru_cache`d, controlled by `STORE_BACKEND` / `QUESTION_STORE` / `USER_STORE` / `MEDIA_STORE` env vars.
 
 ## QuestionStore
-Implemented by:
-- `PostgresQuestionStore` in `backend/storage/postgres.py`
-- `DynamoQuestionStore` in `backend/storage/aws.py` (legacy)
 
-Public methods and behavior:
-- `add(question: QuestionModel) -> bool` returns `True` on insert success, `False` on conflicts or failures.
-- `get_by_id(question_id: str) -> QuestionModel | None` returns `None` if not found.
-- `list(filters: dict | None, limit: int, last_key: dict | None) -> (list[QuestionModel], dict | None)` returns a page of results and a backend-specific cursor.
-- `list_by_topic(topic: str, limit: int, last_key: dict | None)` is a convenience wrapper over `list`.
-- `update(question_id: str, updates: dict) -> QuestionModel | None` returns the updated model or `None` when missing.
-- `delete(question_id: str) -> bool` returns `False` if the record does not exist.
+Implementations: `PostgresQuestionStore` (`postgres.py`), `DynamoQuestionStore` (`aws.py`, legacy).
 
-Pagination notes:
-- Postgres uses offset pagination, returning `{"offset": <int>}` as `last_key`.
-- DynamoDB uses `LastEvaluatedKey` as `last_key`.
-- Services encode `last_key` into `page_token` via base64 (see `backend/services/question_service.py`).
+| Method | Return | Notes |
+|--------|--------|-------|
+| `add(question: QuestionModel)` | `bool` | `False` on conflict |
+| `get_by_id(question_id: str)` | `QuestionModel \| None` | |
+| `list(filters, limit, last_key)` | `(list[QuestionModel], last_key \| None)` | `last_key` is `{"offset": int}` for Postgres, `LastEvaluatedKey` for DynamoDB |
+| `list_by_topic(topic, limit, last_key)` | same as `list` | Convenience wrapper |
+| `update(question_id, updates)` | `QuestionModel \| None` | `None` if not found |
+| `delete(question_id)` | `bool` | `False` if not found |
 
 ## UserStore
-Implemented by:
-- `PostgresUserStore` in `backend/storage/postgres.py`
-- `DynamoUserStore` in `backend/storage/aws.py` (legacy)
 
-Public methods and behavior:
-- `add(user: UserModel) -> bool` returns `False` on conflicts.
-- `get_by_username(username: str) -> UserModel | None`
-- `get_by_id(user_id: str) -> UserModel | None`
-- `list(filters: dict | None) -> list[UserModel]`
-- `update(user_id: str, updates: dict) -> UserModel | None`
-- `delete(user_id: str) -> bool`
+Implementations: `PostgresUserStore` (`postgres.py`), `DynamoUserStore` (`aws.py`, legacy).
+
+| Method | Return | Notes |
+|--------|--------|-------|
+| `add(user: UserModel)` | `bool` | `False` on conflict |
+| `get_by_username(username)` | `UserModel \| None` | |
+| `get_by_id(user_id)` | `UserModel \| None` | |
+| `list(filters)` | `list[UserModel]` | |
+| `update(user_id, updates)` | `UserModel \| None` | |
+| `delete(user_id)` | `bool` | |
 
 ## MediaStore
-Implemented by:
-- `MinioMediaStore` in `backend/storage/minio.py`
-- `S3MediaStore` in `backend/storage/aws.py` (legacy)
 
-Public methods and behavior:
-- `upload(file) -> str | None` returns an object key or `None` if the upload is rejected.
-- `delete(media_path: str) -> bool` returns `False` on missing keys or errors.
-- `get_url(media_path: str, expires_in: int | None) -> str | None` returns `/media/<key>` when `MEDIA_PROXY=1`, and a presigned URL when `MEDIA_PROXY=0`.
-- `download(media_path: str) -> (IO[bytes], content_type: str | None, content_length: int | None)` is used by `GET /media/<key>` to stream the object.
+Implementations: `MinioMediaStore` (`minio.py`), `S3MediaStore` (`aws.py`, legacy).
 
-## Usage example
+| Method | Return | Notes |
+|--------|--------|-------|
+| `upload(file)` | `str \| None` | Returns object key; `None` on rejection |
+| `delete(media_path)` | `bool` | `False` on missing key or error |
+| `get_url(media_path, expires_in)` | `str \| None` | `/media/<key>` when `MEDIA_PROXY=1`; presigned URL when `MEDIA_PROXY=0` |
+| `download(media_path)` | `(IO[bytes], content_type, content_length)` | Used by `GET /media/<key>` |
+
+## Data invariants
+
+- `question_id` is a UUID set by `QuestionModel` if not provided.
+- `question_topic` defaults to `"General"` and is immutable after creation (enforced in `question_service.update_question`).
+- `tags` and `language` are normalized to lowercase by `QuestionModel` validators.
+- `review_status` defaults to `False`; gameplay and metadata endpoints filter to reviewed questions only.
+
+## Usage
+
 ```python
-from backend.storage import get_question_store
+from backend.storage.factory import get_question_store
 
 store = get_question_store()
-question = store.get_by_id("some-question-id")
-if question:
-    print(question.question)
+question = store.get_by_id("some-uuid")
 ```
-
-## Invariants and data rules
-- `question_id` is a UUID generated by `QuestionModel` when not provided.
-- `question_topic` defaults to `"General"` when omitted in `create_question`.
-- `question_topic` cannot be updated after creation (enforced in `question_service.update_question`).
-- `tags` and `language` are normalized to lowercase in `QuestionModel` validators.
-- `review_status` defaults to `False`; gameplay and metadata endpoints default to reviewed questions.
