@@ -7,4 +7,3 @@ class Config:
     SECRET_KEY = settings.secret_key
     UPLOAD_FOLDER = settings.upload_folder
     ALLOWED_EXTENSIONS = settings.allowed_extensions
-    DATABASE_NAME = "trivia.db"
