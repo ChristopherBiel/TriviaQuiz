@@ -7,7 +7,11 @@ Unit tests for all functions in user_service.py.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from unittest.mock import MagicMock, call
 from types import SimpleNamespace
 
@@ -228,7 +232,7 @@ def test_update_user_empty_payload_returns_none(mock_store, sample_user):
 def test_update_user_reset_token_fields(mock_store, sample_user):
     mock_store.get_by_username.return_value = sample_user
     mock_store.update.return_value = sample_user
-    expires = datetime.utcnow() + timedelta(minutes=15)
+    expires = _utcnow() + timedelta(minutes=15)
     update_user("alice", {"reset_token": "tok", "reset_expires_at": expires}, acting_role="admin")
     args = mock_store.update.call_args[0][1]
     assert args["reset_token"] == "tok"
@@ -238,7 +242,7 @@ def test_update_user_reset_token_fields(mock_store, sample_user):
 def test_update_user_verification_token_fields(mock_store, sample_user):
     mock_store.get_by_username.return_value = sample_user
     mock_store.update.return_value = sample_user
-    expires = datetime.utcnow() + timedelta(minutes=15)
+    expires = _utcnow() + timedelta(minutes=15)
     update_user("alice", {"verification_token": "vtok", "verification_expires_at": expires}, acting_role="admin")
     args = mock_store.update.call_args[0][1]
     assert args["verification_token"] == "vtok"
@@ -279,13 +283,13 @@ def test_issue_verification_calls_store_update(mock_store, sample_user):
     assert "verification_token" in payload
     assert payload["verification_token"] is not None
     assert "verification_expires_at" in payload
-    assert payload["verification_expires_at"] > datetime.utcnow()
+    assert payload["verification_expires_at"] > _utcnow()
 
 
 def test_verify_user_valid_token(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "verification_token": "good-token",
-        "verification_expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "verification_expires_at": _utcnow() + timedelta(minutes=10),
         "is_verified": False,
     })
     mock_store.list.return_value = [user_with_token]
@@ -302,7 +306,7 @@ def test_verify_user_valid_token(mock_store, sample_user):
 def test_verify_user_expired_token_returns_none(mock_store, sample_user):
     user_with_expired = sample_user.model_copy(update={
         "verification_token": "old-token",
-        "verification_expires_at": datetime.utcnow() - timedelta(minutes=1),
+        "verification_expires_at": _utcnow() - timedelta(minutes=1),
     })
     mock_store.list.return_value = [user_with_expired]
     assert verify_user("old-token") is None
@@ -312,7 +316,7 @@ def test_verify_user_expired_token_returns_none(mock_store, sample_user):
 def test_verify_user_wrong_token_returns_none(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "verification_token": "right-token",
-        "verification_expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "verification_expires_at": _utcnow() + timedelta(minutes=10),
     })
     mock_store.list.return_value = [user_with_token]
     assert verify_user("wrong-token") is None
@@ -337,13 +341,13 @@ def test_issue_reset_token_calls_store_update(mock_store, sample_user):
     assert "reset_token" in payload
     assert payload["reset_token"] is not None
     assert "reset_expires_at" in payload
-    assert payload["reset_expires_at"] > datetime.utcnow()
+    assert payload["reset_expires_at"] > _utcnow()
 
 
 def test_reset_password_valid_token(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "reset_token": "reset-tok",
-        "reset_expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "reset_expires_at": _utcnow() + timedelta(minutes=10),
     })
     mock_store.list.return_value = [user_with_token]
     mock_store.update.return_value = user_with_token
@@ -360,7 +364,7 @@ def test_reset_password_valid_token(mock_store, sample_user):
 def test_reset_password_expired_token_returns_none(mock_store, sample_user):
     user_with_expired = sample_user.model_copy(update={
         "reset_token": "reset-tok",
-        "reset_expires_at": datetime.utcnow() - timedelta(minutes=1),
+        "reset_expires_at": _utcnow() - timedelta(minutes=1),
     })
     mock_store.list.return_value = [user_with_expired]
     assert reset_password("reset-tok", "newpw") is None
@@ -370,7 +374,7 @@ def test_reset_password_expired_token_returns_none(mock_store, sample_user):
 def test_reset_password_wrong_token_returns_none(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "reset_token": "right-tok",
-        "reset_expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "reset_expires_at": _utcnow() + timedelta(minutes=10),
     })
     mock_store.list.return_value = [user_with_token]
     assert reset_password("wrong-tok", "newpw") is None

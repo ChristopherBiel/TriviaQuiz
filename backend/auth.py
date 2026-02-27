@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template
 from markupsafe import escape
 import re
@@ -73,7 +73,7 @@ def login():
     if not user.is_approved:
         return jsonify({"error": "Admin approval required"}), 403
 
-    update_user(user.username, {"last_login_at": datetime.utcnow(), "last_login_ip": request.remote_addr}, acting_role="admin")
+    update_user(user.username, {"last_login_at": datetime.now(timezone.utc).replace(tzinfo=None), "last_login_ip": request.remote_addr}, acting_role="admin")
 
     # Set session variables
     session["logged_in"] = True

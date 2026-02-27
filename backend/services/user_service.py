@@ -2,7 +2,11 @@ from backend.storage import get_user_store
 from backend.models.user import UserModel
 from backend.utils.password_utils import hash_password
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
@@ -93,14 +97,14 @@ def delete_user(username: str, acting_role: str) -> bool:
 
 def issue_verification(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
-    expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    expires = _utcnow() + timedelta(minutes=ttl_minutes)
     return get_user_store().update(user.user_id, {"verification_token": token, "verification_expires_at": expires})
 
 
 def verify_user(token: str) -> UserModel | None:
     users = get_user_store().list()
     for u in users:
-        if u.verification_token == token and u.verification_expires_at and u.verification_expires_at > datetime.utcnow():
+        if u.verification_token == token and u.verification_expires_at and u.verification_expires_at > _utcnow():
             return get_user_store().update(
                 u.user_id,
                 {"is_verified": True, "verification_token": None, "verification_expires_at": None},
@@ -110,14 +114,14 @@ def verify_user(token: str) -> UserModel | None:
 
 def issue_reset_token(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
-    expires = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    expires = _utcnow() + timedelta(minutes=ttl_minutes)
     return get_user_store().update(user.user_id, {"reset_token": token, "reset_expires_at": expires})
 
 
 def reset_password(token: str, new_password: str) -> UserModel | None:
     users = get_user_store().list()
     for u in users:
-        if u.reset_token == token and u.reset_expires_at and u.reset_expires_at > datetime.utcnow():
+        if u.reset_token == token and u.reset_expires_at and u.reset_expires_at > _utcnow():
             return get_user_store().update(
                 u.user_id,
                 {

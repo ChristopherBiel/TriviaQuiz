@@ -1,8 +1,12 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 import uuid
 import re
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class QuestionModel(BaseModel):
@@ -14,7 +18,7 @@ class QuestionModel(BaseModel):
     question: str = Field(..., description="The question text to display")
     answer: str = Field(..., description="The correct answer")
     added_by: str = Field(..., description="Username of the person who added the question")
-    added_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when the question was added")
+    added_at: datetime = Field(default_factory=_utcnow, description="Timestamp when the question was added")
     question_topic: Optional[str] = Field(None, description="Topic/category of the question (for categorization, very broad)")
     question_source: Optional[str] = Field(None, description="Source of the question (e.g. an event)")
     answer_source: Optional[str] = Field(None, description="Source of the answer (e.g. a book or website)")
@@ -25,19 +29,14 @@ class QuestionModel(BaseModel):
     times_incorrect: int = Field(default=0, description="Number of times this question has been answered incorrectly", alias="times_incorrectly_answered")
 
     update_history: List[dict] = Field(default_factory=list, description="Revision history of the question")
-    last_updated_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when the question was last updated")
+    last_updated_at: datetime = Field(default_factory=_utcnow, description="Timestamp when the question was last updated")
 
     language: Optional[str] = Field(None, description="Language of the question (e.g. English, Spanish)")
     tags: List[str] = Field(default_factory=list, description="Tags/categories for filtering")
     review_status: bool = Field(default=False, description="Whether the question is approved for display")
     media_path: Optional[str] = Field(None, description="Optional media file URL")
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_encoders={
-            datetime: lambda v: v.isoformat()
-        }
-    )
+    model_config = ConfigDict(populate_by_name=True)
 
     @field_validator("*", mode="before")
     def strip_and_sanitize_all_strings(cls, v):

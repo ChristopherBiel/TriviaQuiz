@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from sqlalchemy import (
     Boolean,
     Column,
@@ -36,7 +40,7 @@ class QuestionRecord(Base):
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=False)
     added_by = Column(String, nullable=False)
-    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    added_at = Column(DateTime, nullable=False, default=_utcnow)
     question_topic = Column(String)
     question_source = Column(String)
     answer_source = Column(String)
@@ -47,7 +51,7 @@ class QuestionRecord(Base):
     times_incorrect = Column(Integer, nullable=False, default=0, server_default=text("0"))
 
     update_history = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
-    last_updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_updated_at = Column(DateTime, nullable=False, default=_utcnow)
 
     language = Column(String)
     tags = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
@@ -75,8 +79,8 @@ class UserRecord(Base):
     verification_expires_at = Column(DateTime)
     reset_token = Column(String)
     reset_expires_at = Column(DateTime)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow)
     last_login_at = Column(DateTime)
     last_login_ip = Column(String)
 
@@ -268,7 +272,7 @@ class PostgresQuestionStore(QuestionStore):
             if not record:
                 return None
 
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = _utcnow().isoformat()
             updated_by = updates.get("updated_by")
             changes = {k: v for k, v in updates.items() if k != "updated_by"}
             update_entry = {"timestamp": timestamp, "changes": changes}
@@ -283,7 +287,7 @@ class PostgresQuestionStore(QuestionStore):
                 if hasattr(record, key):
                     setattr(record, key, value)
 
-            record.last_updated_at = datetime.utcnow()
+            record.last_updated_at = _utcnow()
             session.add(record)
             return _question_from_record(record)
 
@@ -353,7 +357,7 @@ class PostgresUserStore(UserStore):
                 if hasattr(record, key):
                     setattr(record, key, value)
 
-            record.updated_at = datetime.utcnow()
+            record.updated_at = _utcnow()
             session.add(record)
             return _user_from_record(record)
 
