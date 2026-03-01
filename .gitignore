@@ -12,6 +12,7 @@ venv
 .venv
 
 .vscode
+.DS_Store
 
 # Ignore the cache
 __pycache__
