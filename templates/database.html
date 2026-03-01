@@ -3,74 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Database</title>
+    <title>Manage Questions</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117',
+                    card: '#181824',
+                    'card-alt': '#1f1f2e',
+                    border: '#2a2a3c',
+                    primary: '#7c6aef',
+                    'primary-hover': '#8f7ff7',
+                    success: '#34d399',
+                    'success-hover': '#2bb886',
+                    warning: '#fbbf24',
+                    'warning-hover': '#f59e0b',
+                    danger: '#f87171',
+                    'danger-hover': '#ef4444',
+                    muted: '#6b6b80',
+                },
+                fontFamily: {
+                    sans: ['Inter', 'system-ui', 'sans-serif'],
+                },
+            },
+        },
+    }
+    </script>
+    <style>body{font-family:'Inter',system-ui,sans-serif}</style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
-    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
-        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
-        <a href="/logout" class="text-white hover:underline text-lg sm:text-sm">Logout</a>
-    </div>
-    <h1 class="text-4xl font-bold mb-6">Manage Trivia Questions</h1>
+<body class="bg-surface text-gray-100 min-h-screen">
 
-    <div class="w-full max-w-6xl bg-gray-800 p-4 rounded-lg shadow mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        <input id="filter-text" type="text" placeholder="Search question text" class="p-2 rounded text-black">
-        <input id="filter-topic" type="text" placeholder="Topic" class="p-2 rounded text-black">
-        <input id="filter-language" type="text" placeholder="Language" class="p-2 rounded text-black">
-        <label class="flex items-center gap-2"><input id="filter-reviewed" type="checkbox" class="h-5 w-5"> Reviewed only</label>
-        <div class="md:col-span-4 flex gap-2">
-            <button onclick="loadDatabase()" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">Apply Filters</button>
-            <button onclick="clearFilters()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">Clear</button>
+    <header class="fixed top-0 left-0 right-0 z-30 bg-card/80 backdrop-blur-md border-b border-border/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+            <a href="/" class="text-muted hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Home
+            </a>
+            <a href="/logout" class="text-muted hover:text-white transition-colors text-sm">Sign out</a>
         </div>
-    </div>
+    </header>
 
-    <!-- Trivia Questions Table -->
-    <div class="overflow-x-auto w-full">
-    <table class="w-full text-left border-collapse bg-gray-800 p-6 rounded-lg shadow-lg" id="questions-table">
-        <thead>
-            <tr>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('question')">Question</th>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('answer')">Answer</th>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('question_topic')">Topic</th>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('added_by')">Added by</th>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('language')">Lang</th>
-                <th class="border-b p-2 cursor-pointer" onclick="sortBy('added_at')">Added</th>
-                <th class="border-b p-2">Appr</th>
-                <th class="border-b p-2">Actions</th>
-            </tr>
-        </thead>
-        <tbody id="question-list"></tbody>
-    </table>
-    </div>
+    <main class="pt-20 pb-10 px-4 sm:px-6 max-w-7xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">Manage Questions</h1>
 
-    <!-- Edit Panel -->
-    <div id="edit-panel" class="w-full max-w-3xl bg-gray-800 p-6 rounded-lg shadow-lg mt-6 hidden">
-        <h2 class="text-2xl font-semibold mb-4">Edit Question</h2>
-        <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input id="edit-question" type="text" placeholder="Question" class="w-full p-2 rounded text-black" required>
-            <input id="edit-answer" type="text" placeholder="Answer" class="w-full p-2 rounded text-black" required>
-            <input id="edit-added-by" type="text" placeholder="Added by" class="w-full p-2 rounded text-black" required>
-            <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 rounded text-black">
-            <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="w-full p-2 rounded text-black">
-            <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 rounded text-black">
-            <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="w-full p-2 rounded text-black">
-            <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="w-full p-2 rounded text-black">
-            <select id="edit-language" class="w-full p-2 rounded text-black">
-                <option value="">Language (optional)</option>
-                <option value="English">English</option>
-                <option value="German">German</option>
-                <option value="French">French</option>
-            </select>
-            <div class="flex items-center gap-2">
-                <label for="edit-reviewed" class="text-sm text-gray-300">Approved?</label>
-                <input id="edit-reviewed" type="checkbox" class="h-5 w-5">
+        <!-- Filter bar -->
+        <div class="bg-card border border-border rounded-xl p-4 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <input id="filter-text" type="text" placeholder="Search question text"
+                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="filter-topic" type="text" placeholder="Topic"
+                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="filter-language" type="text" placeholder="Language"
+                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
+                    <input id="filter-reviewed" type="checkbox" class="w-4 h-4 rounded border-border bg-card-alt accent-primary">
+                    Reviewed only
+                </label>
             </div>
-            <div class="col-span-full flex gap-2 justify-end mt-2">
-                <button type="button" onclick="hideEdit()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
-                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded">Save</button>
+            <div class="flex gap-2 mt-3">
+                <button onclick="loadDatabase()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Apply</button>
+                <button onclick="clearFilters()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Clear</button>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-card border border-border rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm min-w-[700px]">
+                    <thead>
+                        <tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question')">Question <span id="sort-question"></span></th>
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('answer')">Answer <span id="sort-answer"></span></th>
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question_topic')">Topic <span id="sort-question_topic"></span></th>
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_by')">Added by <span id="sort-added_by"></span></th>
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('language')">Lang <span id="sort-language"></span></th>
+                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_at')">Added <span id="sort-added_at"></span></th>
+                            <th class="px-4 py-3 font-medium">Status</th>
+                            <th class="px-4 py-3 font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="question-list"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Edit Panel -->
+        <div id="edit-panel" class="bg-card border border-border rounded-xl p-6 mt-6 hidden">
+            <h2 class="text-lg font-semibold mb-4">Edit Question</h2>
+            <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input id="edit-question" type="text" placeholder="Question" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <input id="edit-answer" type="text" placeholder="Answer" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <input id="edit-added-by" type="text" placeholder="Added by" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <select id="edit-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                    <option value="">Language (optional)</option>
+                    <option value="English">English</option>
+                    <option value="German">German</option>
+                    <option value="French">French</option>
+                </select>
+                <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
+                    <input id="edit-reviewed" type="checkbox" class="w-4 h-4 rounded accent-primary">
+                    Approved
+                </label>
+                <div class="col-span-full flex gap-2 justify-end mt-2">
+                    <button type="button" onclick="hideEdit()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Cancel</button>
+                    <button type="submit" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-4 py-2 rounded-lg transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </main>
 
     <script>
         let allQuestions = [];
@@ -111,6 +160,10 @@
             updateSortIndicators();
         }
 
+        function escHtml(str) {
+            return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+        }
+
         function renderPage() {
             const questionList = document.getElementById("question-list");
             questionList.innerHTML = "";
@@ -119,31 +172,35 @@
             const start = (currentPage - 1) * pageSize;
             const slice = allQuestions.slice(start, start + pageSize);
 
+            if (slice.length === 0) {
+                questionList.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-muted">No questions found.</td></tr>`;
+                return;
+            }
+
             slice.forEach(q => {
                 const id = q.id || q.question_id;
                 questionCache[id] = q;
                 const isApproved = q.review_status;
-                const actionButton = isApproved
-                    ? `<button onclick='toggleApproval("${id}", false)' class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded'>Reject</button>`
-                    : `<button onclick='toggleApproval("${id}", true)' class='bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded'>Approve</button>`;
+                const approvalBtn = isApproved
+                    ? `<button onclick='toggleApproval("${id}", false)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Reject</button>`
+                    : `<button onclick='toggleApproval("${id}", true)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors">Approve</button>`;
 
-                let row = `<tr>
-                    <td class='border-b p-2'><a class="text-blue-400 hover:underline" href="/questions/${id}">${q.question}</a></td>
-                    <td class='border-b p-2'>${q.answer}</td>
-                    <td class='border-b p-2'>${q.question_topic || "General"}</td>
-                    <td class='border-b p-2'>${q.added_by}</td>
-                    <td class='border-b p-2'>${q.language || "-"}</td>
-                    <td class='border-b p-2'>${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
-                    <td class='border-b p-2'>${q.review_status ? "✔️" : ""}</td>
-                    <td class='border-b p-2'>
-                        <div class="flex gap-2">
-                            ${actionButton}
-                            <button onclick='startEdit("${id}")' class='bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-2 rounded'>Edit</button>
-                            <button onclick='deleteQuestion("${id}")' class='bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded'>Delete</button>
+                questionList.innerHTML += `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
+                    <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/questions/${id}">${escHtml(q.question)}</a></td>
+                    <td class="px-4 py-3 max-w-[150px] truncate">${escHtml(q.answer)}</td>
+                    <td class="px-4 py-3">${escHtml(q.question_topic || "General")}</td>
+                    <td class="px-4 py-3">${escHtml(q.added_by)}</td>
+                    <td class="px-4 py-3">${escHtml(q.language || "-")}</td>
+                    <td class="px-4 py-3 text-muted">${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
+                    <td class="px-4 py-3">${isApproved ? '<span class="text-success text-xs font-medium">Approved</span>' : '<span class="text-muted text-xs">Pending</span>'}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-1.5">
+                            ${approvalBtn}
+                            <button onclick='startEdit("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors">Edit</button>
+                            <button onclick='deleteQuestion("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>
                         </div>
                     </td>
                 </tr>`;
-                questionList.innerHTML += row;
             });
 
             renderPagination();
@@ -153,10 +210,12 @@
             const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
             const questionList = document.getElementById("question-list");
             const pager = document.createElement("tr");
-            pager.innerHTML = `<td colspan="8" class="p-3 text-center space-x-2">
-                <button ${currentPage===1?"disabled":""} class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
-                <span>Page ${currentPage} / ${totalPages}</span>
-                <button ${currentPage===totalPages?"disabled":""} class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
+            pager.innerHTML = `<td colspan="8" class="px-4 py-3">
+                <div class="flex items-center justify-center gap-3 text-sm">
+                    <button ${currentPage===1?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
+                    <span class="text-muted">Page ${currentPage} / ${totalPages}</span>
+                    <button ${currentPage===totalPages?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
+                </div>
             </td>`;
             questionList.appendChild(pager);
         }
@@ -167,16 +226,11 @@
             renderPage();
         }
 
-        function changePageSize() {
-            pageSize = parseInt(document.getElementById("page-size").value, 10) || 20;
-            currentPage = 1;
-            renderPage();
-        }
-
         async function deleteQuestion(id) {
+            if (!confirm("Delete this question?")) return;
             const response = await fetch(`/questions/${id}`, { method: "DELETE" });
             if (response.ok) {
-                loadDatabase(); 
+                loadDatabase();
             } else {
                 alert("Error deleting question.");
             }
@@ -189,7 +243,7 @@
                 body: JSON.stringify({ review_status: approved })
             });
             if (response.ok) {
-                loadDatabase(); 
+                loadDatabase();
             } else {
                 const err = await response.json().catch(() => ({}));
                 alert(err.error || "Error updating approval.");
@@ -211,6 +265,7 @@
             document.getElementById("edit-language").value = q.language || "";
             document.getElementById("edit-reviewed").checked = !!q.review_status;
             document.getElementById("edit-panel").classList.remove("hidden");
+            document.getElementById("edit-panel").scrollIntoView({ behavior: "smooth" });
         }
 
         function hideEdit() {
@@ -260,12 +315,7 @@
         }
 
         function sortBy(field) {
-            if (sortField === field) {
-                sortAsc = !sortAsc;
-            } else {
-                sortField = field;
-                sortAsc = true;
-            }
+            if (sortField === field) { sortAsc = !sortAsc; } else { sortField = field; sortAsc = true; }
             applySort();
             renderPage();
             updateSortIndicators();
@@ -286,12 +336,7 @@
             ["question","answer","question_topic","added_by","language","added_at"].forEach(f => {
                 const el = document.getElementById(`sort-${f}`);
                 if (!el) return;
-                if (f === sortField) {
-                    el.textContent = "▲";
-                    el.style.transform = sortAsc ? "rotate(0deg)" : "rotate(180deg)";
-                } else {
-                    el.textContent = "";
-                }
+                el.textContent = f === sortField ? (sortAsc ? "▲" : "▼") : "";
             });
         }
 

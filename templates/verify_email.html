@@ -5,35 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify Email</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117', card: '#181824', 'card-alt': '#1f1f2e',
+                    border: '#2a2a3c', primary: '#7c6aef', 'primary-hover': '#8f7ff7',
+                    success: '#34d399', 'success-hover': '#2bb886', muted: '#6b6b80', danger: '#f87171',
+                },
+                fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            },
+        },
+    }
+    </script>
+    <style>body{font-family:'Inter',system-ui,sans-serif}</style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
-        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
-    </div>
-    <h1 class="text-3xl font-bold mb-6">Verify Your Email</h1>
-    <form id="verifyForm" class="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <input id="token" type="text" placeholder="Verification token" class="w-full p-2 mt-2 rounded text-black" required>
-        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Verify</button>
-        <p id="msg" class="text-sm mt-2 text-red-400"></p>
-    </form>
+<body class="bg-surface text-gray-100 min-h-screen flex flex-col">
+
+    <header class="fixed top-0 left-0 right-0 z-30 bg-card/80 backdrop-blur-md border-b border-border/50">
+        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center">
+            <a href="/" class="text-muted hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Home
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-1 flex items-center justify-center px-4 pt-14">
+        <div class="w-full max-w-sm">
+            <h1 class="text-2xl font-bold text-center mb-8">Verify your email</h1>
+            <form id="verifyForm" class="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-4">
+                <input id="token" type="text" placeholder="Verification token"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <button type="submit" class="w-full bg-success hover:bg-success-hover text-gray-900 font-semibold py-3 rounded-xl transition-colors">Verify</button>
+                <p id="msg" class="text-sm text-center"></p>
+            </form>
+        </div>
+    </main>
+
     <script>
         document.getElementById("verifyForm").addEventListener("submit", async (e) => {
             e.preventDefault();
             const token = document.getElementById("token").value.trim();
-            if (!token) {
-                document.getElementById("msg").textContent = "Token required.";
-                return;
-            }
+            if (!token) { document.getElementById("msg").textContent = "Token required."; document.getElementById("msg").className = "text-sm text-center text-danger"; return; }
             const resp = await fetch("/users/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ token })
             });
             const res = await resp.json().catch(() => ({}));
+            const msg = document.getElementById("msg");
             if (resp.ok) {
-                document.getElementById("msg").textContent = "Verified! You can log in.";
+                msg.textContent = "Verified! You can now sign in.";
+                msg.className = "text-sm text-center text-success";
             } else {
-                document.getElementById("msg").textContent = res.error || "Verification failed.";
+                msg.textContent = res.error || "Verification failed.";
+                msg.className = "text-sm text-center text-danger";
             }
         });
     </script>

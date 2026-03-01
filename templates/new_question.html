@@ -3,36 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Submit New Question</title>
+    <title>New Question</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117',
+                    card: '#181824',
+                    'card-alt': '#1f1f2e',
+                    border: '#2a2a3c',
+                    primary: '#7c6aef',
+                    'primary-hover': '#8f7ff7',
+                    success: '#34d399',
+                    'success-hover': '#2bb886',
+                    muted: '#6b6b80',
+                },
+                fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            },
+        },
+    }
+    </script>
+    <style>body{font-family:'Inter',system-ui,sans-serif}</style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
+<body class="bg-surface text-gray-100 min-h-screen flex flex-col">
 
-    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
-        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
-        <a href="/logout" class="text-white hover:underline text-lg sm:text-sm">Logout</a>
-    </div>
+    <header class="fixed top-0 left-0 right-0 z-30 bg-card/80 backdrop-blur-md border-b border-border/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+            <a href="/" class="text-muted hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Home
+            </a>
+            <a href="/logout" class="text-muted hover:text-white transition-colors text-sm">Sign out</a>
+        </div>
+    </header>
 
-    <h1 class="text-4xl font-bold mb-6">Add a New Trivia Question</h1>
-
-    <form id="question-form" class="max-w-2xl w-full bg-gray-800 p-6 rounded-lg shadow-lg">
-        <input name="question" type="text" placeholder="Question" class="w-full p-2 mt-2 rounded text-black" required>
-        <input name="answer" type="text" placeholder="Answer" class="w-full p-2 mt-2 rounded text-black" required>
-        <input name="added_by" type="text" placeholder="Your name (required)" class="w-full p-2 mt-2 rounded text-black" required>
-        <input name="question_topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="question_source" type="text" placeholder="Question Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="answer_source" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="incorrect_answers" type="text" placeholder="Incorrect Answers (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
-        <input name="tags" type="text" placeholder="Tags (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
-        <select name="language" class="w-full p-2 mt-2 rounded text-black">
-            <option value="">Language (optional)</option>
-            <option value="English">English</option>
-            <option value="German">German</option>
-            <option value="French">French</option>
-        </select>
-        <p class="text-sm text-gray-400 mt-2 text-left">Media upload is currently not supported via this form.</p>
-        <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Add Question</button>
-    </form>
+    <main class="flex-1 flex items-center justify-center px-4 pt-14 pb-10">
+        <div class="w-full max-w-lg">
+            <h1 class="text-2xl font-bold text-center mb-8">Add a New Question</h1>
+            <form id="question-form" class="bg-card border border-border rounded-2xl p-6 sm:p-8 space-y-4">
+                <input name="question" type="text" placeholder="Question *"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <input name="answer" type="text" placeholder="Answer *"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <input name="added_by" type="text" placeholder="Your name *"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input name="question_topic" type="text" placeholder="Topic"
+                        class="bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                    <select name="language"
+                        class="bg-card-alt border border-border text-white rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                        <option value="">Language</option>
+                        <option value="English">English</option>
+                        <option value="German">German</option>
+                        <option value="French">French</option>
+                    </select>
+                </div>
+                <input name="question_source" type="text" placeholder="Question source"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input name="answer_source" type="text" placeholder="Answer source"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input name="incorrect_answers" type="text" placeholder="Incorrect answers (comma-separated)"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <input name="tags" type="text" placeholder="Tags (comma-separated)"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <p class="text-xs text-muted">Media upload is not available via this form.</p>
+                <button type="submit" class="w-full bg-success hover:bg-success-hover text-gray-900 font-semibold py-3 rounded-xl transition-colors">Submit Question</button>
+            </form>
+        </div>
+    </main>
 
     <script>
         document.getElementById("question-form").onsubmit = async function(event) {
@@ -65,6 +107,5 @@
             }
         };
     </script>
-
 </body>
 </html>
