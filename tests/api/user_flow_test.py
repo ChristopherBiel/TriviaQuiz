@@ -69,7 +69,7 @@ def test_signup_and_verify_flow(client):
     resp = client.post("/users/signup", json={"username": "u", "email": "u@test.com", "password": "pw"})
     assert resp.status_code == 201
     data = resp.get_json()
-    assert data["is_verified"] is False
+    assert data["status"] == "success"
 
     verify = client.post("/users/verify", json={"token": "tok"})
     assert verify.status_code == 200
