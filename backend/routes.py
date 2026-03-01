@@ -24,6 +24,15 @@ def new_question():
         return redirect(url_for("auth.login"))
     return render_template("new_question.html")
 
+# Serve the approve questions page (only for admins)
+@routes_bp.route("/approve_question")
+def approve_question():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+    return render_template("approve_questions.html")
+
 # Fetch all the users (for the user management page)
 @routes_bp.route("/get-users", methods=["GET"])
 def get_users():

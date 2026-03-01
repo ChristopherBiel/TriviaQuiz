@@ -12,14 +12,23 @@
             tags: []
         };
 
+        // Whether the current question's answer is visible
+        let answerRevealed = false;
+
         async function loadQuestion() {
             try {
                 let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
 
+                // Only include filters that have a real value
+                const activeFilters = {};
+                if (filterOptions.language) activeFilters.language = filterOptions.language;
+                if (filterOptions.question_topic) activeFilters.question_topic = filterOptions.question_topic;
+                if (filterOptions.tags && filterOptions.tags.length > 0) activeFilters.tags = filterOptions.tags;
+
                 let response = await fetch("/questions/random", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ seen, filters: filterOptions })
+                    body: JSON.stringify({ seen, filters: activeFilters })
                 });
 
                 if (response.status === 404) {
@@ -33,8 +42,13 @@
                 sessionStorage.setItem("seenQuestions", JSON.stringify(seen));
 
                 document.getElementById("question").innerText = data.question || "No question found";
-                document.getElementById("answer").innerText = "???";
-                document.getElementById("answer").dataset.answer = data.answer || "Unknown";
+
+                // Reset answer state
+                const answerEl = document.getElementById("answer");
+                answerEl.innerText = "???";
+                answerEl.dataset.answer = data.answer || "Unknown";
+                answerRevealed = false;
+                setButtonState("reveal");
 
                 let mediaContainer = document.getElementById("media");
                 mediaContainer.innerHTML = "";
@@ -59,8 +73,31 @@
             }
         }
 
-        function showAnswer() {
-            document.getElementById("answer").innerText = "Answer: " + document.getElementById("answer").dataset.answer;
+        function revealAnswer() {
+            const answerEl = document.getElementById("answer");
+            answerEl.innerText = "Answer: " + answerEl.dataset.answer;
+            answerRevealed = true;
+            setButtonState("next");
+        }
+
+        // Single button handles both states
+        function handleMainButton() {
+            if (answerRevealed) {
+                loadQuestion();
+            } else {
+                revealAnswer();
+            }
+        }
+
+        function setButtonState(state) {
+            const btn = document.getElementById("main-btn");
+            if (state === "reveal") {
+                btn.textContent = "Reveal Answer";
+                btn.className = "mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded";
+            } else {
+                btn.textContent = "Next Question";
+                btn.className = "mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded";
+            }
         }
 
         // Metadata loading and dropdown setup
@@ -69,40 +106,42 @@
                 const response = await fetch("/questions/metadata");
                 const data = await response.json();
 
-                populateDropdown("language-select", data.languages, "English");
-                populateDropdown("topic-select", data.topics, "General");
+                populateDropdown("language-select-desktop", "language-select-mobile", data.languages, "language");
+                populateDropdown("topic-select-desktop", "topic-select-mobile", data.topics, "question_topic");
                 populateMultiselect("tags-select", data.tags);
-
-                // Start with defaults
-                filterOptions = {
-                    language: "English",
-                    question_topic: "General",
-                    tags: []
-                };
             } catch (err) {
                 console.error("Error loading metadata:", err);
             }
         }
 
-        function populateDropdown(id, options, defaultValue) {
-            const select = document.getElementById(id);
-            select.innerHTML = "";
-            options.forEach(opt => {
-                const option = document.createElement("option");
-                option.value = opt;
-                option.innerText = opt;
-                if (opt === defaultValue) option.selected = true;
-                select.appendChild(option);
-            });
-
-            select.addEventListener("change", (e) => {
-                filterOptions[id.includes("language") ? "language" : "question_topic"] = e.target.value;
-                loadQuestion();
+        function populateDropdown(desktopId, mobileId, options, filterKey) {
+            const allLabel = filterKey === "language" ? "All Languages" : "All Topics";
+            const defaultValue = filterOptions[filterKey];
+            [desktopId, mobileId].forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                select.innerHTML = `<option value="">${allLabel}</option>`;
+                options.forEach(opt => {
+                    const option = document.createElement("option");
+                    option.value = opt;
+                    option.innerText = opt;
+                    if (opt === defaultValue) option.selected = true;
+                    select.appendChild(option);
+                });
+                select.addEventListener("change", (e) => {
+                    filterOptions[filterKey] = e.target.value;
+                    // Sync the other dropdown to the same value
+                    const otherId = id === desktopId ? mobileId : desktopId;
+                    const other = document.getElementById(otherId);
+                    if (other) other.value = e.target.value;
+                    loadQuestion();
+                });
             });
         }
 
         function populateMultiselect(id, options) {
             const select = document.getElementById(id);
+            if (!select) return;
             select.innerHTML = "";
             options.forEach(opt => {
                 const option = document.createElement("option");
@@ -182,16 +221,11 @@
             <div>
                 <h2 class="text-lg font-semibold mb-2">Filters</h2>
                 <label class="block mb-2">Language:
-                    <select id="language-select" class="text-black w-full mt-1 rounded p-1"></select>
+                    <select id="language-select-desktop" class="text-black w-full mt-1 rounded p-1"></select>
                 </label>
                 <label class="block mb-2">Topic:
-                    <select id="topic-select" class="text-black w-full mt-1 rounded p-1"></select>
+                    <select id="topic-select-desktop" class="text-black w-full mt-1 rounded p-1"></select>
                 </label>
-                <!--
-                <label class="block mb-2">Tags:
-                    <select id="tags-select" multiple class="text-black w-full mt-1 rounded p-1 h-24"></select>
-                </label>
-                -->
             </div>
             <div class="h-8"></div>
             <div>
@@ -213,10 +247,10 @@
 
                     <h2 class="text-xl font-bold mt-6 mb-4">Filters</h2>
                     <label class="block mb-2">Language:
-                        <select id="language-select" class="text-black w-64 mt-1 rounded p-1"></select>
+                        <select id="language-select-mobile" class="text-black w-64 mt-1 rounded p-1"></select>
                     </label>
                     <label class="block mb-2">Topic:
-                        <select id="topic-select" class="text-black w-64 mt-1 rounded p-1"></select>
+                        <select id="topic-select-mobile" class="text-black w-64 mt-1 rounded p-1"></select>
                     </label>
                     <label class="block mb-2">Tags:
                         <select id="tags-select" multiple class="text-black w-64 mt-1 rounded p-1 h-24"></select>
@@ -232,9 +266,9 @@
     <h1 class="text-4xl font-bold mb-6">Trivia Game</h1>
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md h-[600px] flex flex-col justify-between overflow-hidden">
         <p id="question" class="text-xl mb-4 overflow-y-auto max-h-[150px]">Loading...</p>
-        <p id="answer" class="text-lg cursor-pointer text-blue-400 hover:underline" onclick="showAnswer()">???</p>
+        <p id="answer" class="text-lg text-blue-400">???</p>
         <div id="media" class="mt-4 flex-grow overflow-hidden flex justify-center items-center max-h-[300px]"></div>
-        <button onclick="loadQuestion()" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Next Question</button>
+        <button id="main-btn" onclick="handleMainButton()" class="mt-4 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Reveal Answer</button>
     </div>
 
     <script>
