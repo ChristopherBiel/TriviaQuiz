@@ -1,360 +1,213 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trivia Quiz</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    surface: '#0f1117',
-                    card: '#181824',
-                    'card-alt': '#1f1f2e',
-                    border: '#2a2a3c',
-                    primary: '#7c6aef',
-                    'primary-hover': '#8f7ff7',
-                    success: '#34d399',
-                    'success-hover': '#2bb886',
-                    warning: '#fbbf24',
-                    'warning-hover': '#f59e0b',
-                    danger: '#f87171',
-                    'danger-hover': '#ef4444',
-                    muted: '#6b6b80',
-                },
-                fontFamily: {
-                    sans: ['Inter', 'system-ui', 'sans-serif'],
-                },
-            },
-        },
-    }
-    </script>
-    <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
-    </style>
+{% extends "base.html" %}
 
-    <script>
-        let filterOptions = {
-            language: "English",
-            question_topic: "General",
-            tags: []
-        };
+{% block title %}Trivia Quiz{% endblock %}
+{% block mobile_title %}TRIVIA QUIZ{% endblock %}
 
-        let answerRevealed = false;
+{% block sidebar_extra %}
+<div>
+    <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Filters</p>
+    <div class="space-y-3 px-1">
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Language</label>
+            <select id="language-select" class="w-full bg-card-alt border border-border text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"></select>
+        </div>
+        <div>
+            <label class="text-xs text-gray-400 mb-1 block">Topic</label>
+            <select id="topic-select" class="w-full bg-card-alt border border-border text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"></select>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-        async function loadQuestion() {
-            try {
-                let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
+{% block content %}
+<main class="min-h-[calc(100dvh-3.5rem)] md:min-h-screen flex items-center justify-center px-4 pt-6 pb-28">
+    <div class="w-full max-w-lg">
+        <div class="bg-card border border-border rounded-2xl p-6 md:p-8 flex flex-col gap-5">
+            <div>
+                <p id="question" class="text-xl md:text-2xl font-semibold leading-relaxed">Loading...</p>
+            </div>
+            <div id="media" class="flex justify-center items-center rounded-xl empty:hidden"></div>
+            <div id="answer-zone" class="border border-dashed border-border rounded-xl p-4 text-center transition-all duration-300">
+                <p id="answer-label" class="text-xs text-emerald-500/70 uppercase tracking-wide mb-1 hidden">Answer</p>
+                <p id="answer" class="text-lg text-muted">???</p>
+            </div>
+        </div>
+    </div>
+</main>
 
-                const activeFilters = {};
-                if (filterOptions.language) activeFilters.language = filterOptions.language;
-                if (filterOptions.question_topic) activeFilters.question_topic = filterOptions.question_topic;
-                if (filterOptions.tags && filterOptions.tags.length > 0) activeFilters.tags = filterOptions.tags;
+<!-- Fixed action button -->
+<div class="fixed bottom-0 left-0 md:left-64 right-0 px-4 pb-6 pt-4 bg-gradient-to-t from-surface to-transparent">
+    <div class="max-w-lg mx-auto">
+        <button id="main-btn" onclick="handleMainButton()"
+            class="w-full py-3.5 rounded-xl font-semibold text-base transition-all duration-200 bg-warning hover:bg-warning-hover text-gray-900">
+            Reveal Answer
+        </button>
+    </div>
+</div>
 
-                let response = await fetch("/questions/random", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ seen, filters: activeFilters })
-                });
+<!-- Lightbox -->
+<div id="lightbox" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out hidden" onclick="closeLightbox()">
+    <button class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10 cursor-pointer" onclick="closeLightbox()">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <div id="lightbox-content" class="flex items-center justify-center cursor-default" onclick="event.stopPropagation()"></div>
+</div>
+{% endblock %}
 
-                if (response.status === 404) {
-                    sessionStorage.setItem("seenQuestions", JSON.stringify([]));
-                    return loadQuestion();
-                }
+{% block extra_scripts %}
+<script>
+    let filterOptions = {
+        language: "English",
+        question_topic: "General",
+        tags: []
+    };
 
-                let data = await response.json();
+    let answerRevealed = false;
 
-                seen.push(data.id);
-                sessionStorage.setItem("seenQuestions", JSON.stringify(seen));
+    async function loadQuestion() {
+        try {
+            let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
 
-                document.getElementById("question").innerText = data.question || "No question found";
+            const activeFilters = {};
+            if (filterOptions.language) activeFilters.language = filterOptions.language;
+            if (filterOptions.question_topic) activeFilters.question_topic = filterOptions.question_topic;
+            if (filterOptions.tags && filterOptions.tags.length > 0) activeFilters.tags = filterOptions.tags;
 
-                // Reset answer state
-                const answerEl = document.getElementById("answer");
-                const answerLabel = document.getElementById("answer-label");
-                const zone = document.getElementById("answer-zone");
-                answerEl.innerText = "???";
-                answerEl.dataset.answer = data.answer || "Unknown";
-                answerEl.className = "text-lg text-muted";
-                answerLabel.classList.add("hidden");
-                zone.className = "border border-dashed border-border rounded-xl p-4 text-center transition-all duration-300";
-                answerRevealed = false;
-                setButtonState("reveal");
+            let response = await fetch("/questions/random", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ seen, filters: activeFilters })
+            });
 
-                let mediaContainer = document.getElementById("media");
-                mediaContainer.innerHTML = "";
-
-                const mediaPath = data.media_path;
-                if (mediaPath) {
-                    const cleanUrl = mediaPath.split("?")[0];
-                    const fileType = cleanUrl.split(".").pop().toLowerCase();
-                    if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<img src="${mediaPath}" class="max-w-full max-h-[280px] object-contain rounded-xl cursor-zoom-in" onclick="openLightbox('${mediaPath}', 'image')" title="Click to enlarge" />`;
-                    } else if (["mp4", "webm"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<div class="relative inline-block"><video controls class="max-w-full max-h-[280px] object-contain rounded-xl"><source src="${mediaPath}" type="video/${fileType}"></video><button onclick="openLightbox('${mediaPath}', 'video')" class="absolute top-1 right-1 bg-black/60 hover:bg-black/90 text-white rounded-full p-1.5 transition-colors" title="Expand"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg></button></div>`;
-                    } else if (["mp3", "wav", "ogg"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${mediaPath}" type="audio/${fileType === "mp3" ? "mpeg" : fileType}"></audio></div>`;
-                    } else {
-                        mediaContainer.innerHTML = `<a class="text-primary hover:text-primary-hover underline" href="${mediaPath}" target="_blank">View media</a>`;
-                    }
-                }
-            } catch (error) {
-                document.getElementById("question").innerText = "Error loading question!";
-                console.error("Error fetching question:", error);
+            if (response.status === 404) {
+                sessionStorage.setItem("seenQuestions", JSON.stringify([]));
+                return loadQuestion();
             }
-        }
 
-        function revealAnswer() {
+            let data = await response.json();
+
+            seen.push(data.id);
+            sessionStorage.setItem("seenQuestions", JSON.stringify(seen));
+
+            document.getElementById("question").innerText = data.question || "No question found";
+
+            // Reset answer state
             const answerEl = document.getElementById("answer");
             const answerLabel = document.getElementById("answer-label");
             const zone = document.getElementById("answer-zone");
-            answerLabel.classList.remove("hidden");
-            answerEl.innerText = answerEl.dataset.answer;
-            answerEl.className = "text-lg font-medium text-emerald-400";
-            zone.className = "border border-emerald-500/20 bg-emerald-500/5 rounded-xl p-4 text-center transition-all duration-300";
-            answerRevealed = true;
-            setButtonState("next");
-        }
+            answerEl.innerText = "???";
+            answerEl.dataset.answer = data.answer || "Unknown";
+            answerEl.className = "text-lg text-muted";
+            answerLabel.classList.add("hidden");
+            zone.className = "border border-dashed border-border rounded-xl p-4 text-center transition-all duration-300";
+            answerRevealed = false;
+            setButtonState("reveal");
 
-        function handleMainButton() {
-            if (answerRevealed) {
-                loadQuestion();
-            } else {
-                revealAnswer();
-            }
-        }
+            let mediaContainer = document.getElementById("media");
+            mediaContainer.innerHTML = "";
 
-        function setButtonState(state) {
-            const btn = document.getElementById("main-btn");
-            btn.classList.remove("bg-warning", "hover:bg-warning-hover", "text-gray-900",
-                                 "bg-primary", "hover:bg-primary-hover", "text-white");
-            if (state === "reveal") {
-                btn.textContent = "Reveal Answer";
-                btn.classList.add("bg-warning", "hover:bg-warning-hover", "text-gray-900");
-            } else {
-                btn.textContent = "Next Question";
-                btn.classList.add("bg-primary", "hover:bg-primary-hover", "text-white");
-            }
-        }
-
-        async function loadMetadata() {
-            try {
-                const response = await fetch("/questions/metadata");
-                const data = await response.json();
-                populateDropdown("language-select", data.languages, "language");
-                populateDropdown("topic-select", data.topics, "question_topic");
-            } catch (err) {
-                console.error("Error loading metadata:", err);
-            }
-        }
-
-        function populateDropdown(id, options, filterKey) {
-            const allLabel = filterKey === "language" ? "All Languages" : "All Topics";
-            const defaultValue = filterOptions[filterKey];
-            const select = document.getElementById(id);
-            if (!select) return;
-            select.innerHTML = `<option value="">${allLabel}</option>`;
-            options.forEach(opt => {
-                const option = document.createElement("option");
-                option.value = opt;
-                option.innerText = opt;
-                if (opt === defaultValue) option.selected = true;
-                select.appendChild(option);
-            });
-            select.addEventListener("change", (e) => {
-                filterOptions[filterKey] = e.target.value;
-                loadQuestion();
-            });
-        }
-    </script>
-</head>
-<body class="bg-surface text-gray-100 min-h-[100dvh]">
-
-    <!-- Mobile top bar -->
-    <header class="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-surface/90 backdrop-blur-md border-b border-border/50 flex items-center justify-between px-4">
-        <button onclick="openDrawer()" class="p-2 -ml-2 text-gray-400 hover:text-white transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
-        <span class="text-sm font-semibold tracking-wide text-gray-300">TRIVIA QUIZ</span>
-        <div class="w-10"></div>
-    </header>
-
-    <!-- Backdrop (mobile only) -->
-    <div id="backdrop" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="closeDrawer()"></div>
-
-    <!-- Sidebar: drawer on mobile, fixed on desktop -->
-    <aside id="sidebar" class="fixed top-0 left-0 bottom-0 w-64 bg-card border-r border-border z-50
-        -translate-x-full md:translate-x-0 transition-transform duration-300 flex flex-col overflow-y-auto">
-
-        <!-- Close button (mobile) -->
-        <div class="md:hidden flex justify-between items-center px-5 h-14 border-b border-border/50 shrink-0">
-            <span class="text-sm font-semibold text-gray-300">Menu</span>
-            <button onclick="closeDrawer()" class="p-1 text-gray-400 hover:text-white transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
-
-        <!-- Brand (desktop) -->
-        <div class="hidden md:block px-5 py-5 border-b border-border/50 shrink-0">
-            <h1 class="text-lg font-bold tracking-tight">Trivia Quiz</h1>
-        </div>
-
-        <div class="flex-1 px-4 py-5 space-y-6 overflow-y-auto">
-            <!-- Play -->
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Play</p>
-                <a href="/" class="block py-2 px-3 rounded-lg bg-primary/10 text-primary text-sm font-medium">Normal</a>
-                <a class="block py-2 px-3 rounded-lg text-muted/60 text-sm cursor-default">Replay Event</a>
-            </div>
-
-            <!-- Filters -->
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Filters</p>
-                <div class="space-y-3 px-1">
-                    <div>
-                        <label class="text-xs text-gray-400 mb-1 block">Language</label>
-                        <select id="language-select" class="w-full bg-card-alt border border-border text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"></select>
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400 mb-1 block">Topic</label>
-                        <select id="topic-select" class="w-full bg-card-alt border border-border text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"></select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Manage -->
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Manage</p>
-                <div id="manage-section" class="space-y-0.5">
-                    <p class="text-sm text-muted px-3">Loading...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- User section -->
-        <div class="border-t border-border/50 px-5 py-4 shrink-0 flex items-center justify-between gap-3">
-            <div id="login-section"></div>
-            <span class="text-xs text-muted/55 select-none shrink-0">v{{ app_version }}</span>
-        </div>
-    </aside>
-
-    <!-- Main content -->
-    <main class="pt-14 md:pt-0 md:pl-64 min-h-[100dvh] flex items-center justify-center px-4 pt-6 pb-28">
-        <div class="w-full max-w-lg">
-            <div class="bg-card border border-border rounded-2xl p-6 md:p-8 flex flex-col gap-5">
-                <div>
-                    <p id="question" class="text-xl md:text-2xl font-semibold leading-relaxed">Loading...</p>
-                </div>
-                <div id="media" class="flex justify-center items-center rounded-xl empty:hidden"></div>
-                <div id="answer-zone" class="border border-dashed border-border rounded-xl p-4 text-center transition-all duration-300">
-                    <p id="answer-label" class="text-xs text-emerald-500/70 uppercase tracking-wide mb-1 hidden">Answer</p>
-                    <p id="answer" class="text-lg text-muted">???</p>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Fixed action button -->
-    <div class="fixed bottom-0 left-0 md:left-64 right-0 px-4 pb-6 pt-4 bg-gradient-to-t from-surface to-transparent">
-        <div class="max-w-lg mx-auto">
-            <button id="main-btn" onclick="handleMainButton()"
-                class="w-full py-3.5 rounded-xl font-semibold text-base transition-all duration-200 bg-warning hover:bg-warning-hover text-gray-900">
-                Reveal Answer
-            </button>
-        </div>
-    </div>
-
-    <script>
-        async function checkLoginStatus() {
-            try {
-                let response = await fetch("/login-status");
-                let data = await response.json();
-
-                const loginSection = document.getElementById("login-section");
-                const manageSection = document.getElementById("manage-section");
-
-                if (data.logged_in) {
-                    loginSection.innerHTML = `
-                        <p class="text-sm text-gray-400 mb-1">${data.username}</p>
-                        <a href="/logout" class="text-sm text-muted hover:text-white transition-colors">Sign out</a>
-                    `;
+            const mediaPath = data.media_path;
+            if (mediaPath) {
+                const cleanUrl = mediaPath.split("?")[0];
+                const fileType = cleanUrl.split(".").pop().toLowerCase();
+                if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileType)) {
+                    mediaContainer.innerHTML = `<img src="${mediaPath}" class="max-w-full max-h-[280px] object-contain rounded-xl cursor-zoom-in" onclick="openLightbox('${mediaPath}', 'image')" title="Click to enlarge" />`;
+                } else if (["mp4", "webm"].includes(fileType)) {
+                    mediaContainer.innerHTML = `<div class="relative inline-block"><video controls class="max-w-full max-h-[280px] object-contain rounded-xl"><source src="${mediaPath}" type="video/${fileType}"></video><button onclick="openLightbox('${mediaPath}', 'video')" class="absolute top-1 right-1 bg-black/60 hover:bg-black/90 text-white rounded-full p-1.5 transition-colors" title="Expand"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg></button></div>`;
+                } else if (["mp3", "wav", "ogg"].includes(fileType)) {
+                    mediaContainer.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${mediaPath}" type="audio/${fileType === "mp3" ? "mpeg" : fileType}"></audio></div>`;
                 } else {
-                    loginSection.innerHTML = `
-                        <a href="/login" class="text-sm text-primary hover:text-primary-hover transition-colors font-medium">Sign in</a>
-                    `;
+                    mediaContainer.innerHTML = `<a class="text-primary hover:text-primary-hover underline" href="${mediaPath}" target="_blank">View media</a>`;
                 }
-
-                if (!data.logged_in) {
-                    manageSection.innerHTML = `<p class="text-sm text-muted px-3">Sign in to manage</p>`;
-                } else if (data.role === "user") {
-                    manageSection.innerHTML = `
-                        <a href="/new_question" class="block py-2 px-3 rounded-lg text-gray-300 hover:bg-card-alt hover:text-white transition-colors text-sm">New Question</a>
-                        <span class="block py-2 px-3 text-muted/60 text-sm">Manage Own Questions</span>
-                    `;
-                } else if (data.role === "admin") {
-                    manageSection.innerHTML = `
-                        <a href="/new_question" class="block py-2 px-3 rounded-lg text-gray-300 hover:bg-card-alt hover:text-white transition-colors text-sm">New Question</a>
-                        <a href="/approve_question" class="block py-2 px-3 rounded-lg text-gray-300 hover:bg-card-alt hover:text-white transition-colors text-sm">Approve Questions</a>
-                        <a href="/database" class="block py-2 px-3 rounded-lg text-gray-300 hover:bg-card-alt hover:text-white transition-colors text-sm">Manage Questions</a>
-                        <a href="/approve_user" class="block py-2 px-3 rounded-lg text-gray-300 hover:bg-card-alt hover:text-white transition-colors text-sm">Manage Users</a>
-                    `;
-                }
-            } catch (error) {
-                console.error("Error checking login status:", error);
             }
+        } catch (error) {
+            document.getElementById("question").innerText = "Error loading question!";
+            console.error("Error fetching question:", error);
         }
+    }
 
-        function openDrawer() {
-            document.getElementById('sidebar').classList.remove('-translate-x-full');
-            document.getElementById('backdrop').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
+    function revealAnswer() {
+        const answerEl = document.getElementById("answer");
+        const answerLabel = document.getElementById("answer-label");
+        const zone = document.getElementById("answer-zone");
+        answerLabel.classList.remove("hidden");
+        answerEl.innerText = answerEl.dataset.answer;
+        answerEl.className = "text-lg font-medium text-emerald-400";
+        zone.className = "border border-emerald-500/20 bg-emerald-500/5 rounded-xl p-4 text-center transition-all duration-300";
+        answerRevealed = true;
+        setButtonState("next");
+    }
+
+    function handleMainButton() {
+        if (answerRevealed) { loadQuestion(); } else { revealAnswer(); }
+    }
+
+    function setButtonState(state) {
+        const btn = document.getElementById("main-btn");
+        btn.classList.remove("bg-warning", "hover:bg-warning-hover", "text-gray-900",
+                             "bg-primary", "hover:bg-primary-hover", "text-white");
+        if (state === "reveal") {
+            btn.textContent = "Reveal Answer";
+            btn.classList.add("bg-warning", "hover:bg-warning-hover", "text-gray-900");
+        } else {
+            btn.textContent = "Next Question";
+            btn.classList.add("bg-primary", "hover:bg-primary-hover", "text-white");
         }
+    }
 
-        function closeDrawer() {
-            document.getElementById('sidebar').classList.add('-translate-x-full');
-            document.getElementById('backdrop').classList.add('hidden');
-            document.body.style.overflow = '';
+    async function loadMetadata() {
+        try {
+            const response = await fetch("/questions/metadata");
+            const data = await response.json();
+            populateDropdown("language-select", data.languages, "language");
+            populateDropdown("topic-select", data.topics, "question_topic");
+        } catch (err) {
+            console.error("Error loading metadata:", err);
         }
+    }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            checkLoginStatus();
-            loadMetadata();
+    function populateDropdown(id, options, filterKey) {
+        const allLabel = filterKey === "language" ? "All Languages" : "All Topics";
+        const defaultValue = filterOptions[filterKey];
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.innerHTML = `<option value="">${allLabel}</option>`;
+        options.forEach(opt => {
+            const option = document.createElement("option");
+            option.value = opt;
+            option.innerText = opt;
+            if (opt === defaultValue) option.selected = true;
+            select.appendChild(option);
+        });
+        select.addEventListener("change", (e) => {
+            filterOptions[filterKey] = e.target.value;
             loadQuestion();
         });
+    }
 
-        function openLightbox(src, type) {
-            const content = document.getElementById("lightbox-content");
-            if (type === "image") {
-                content.innerHTML = `<img src="${src}" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
-            } else {
-                const ext = src.split("?")[0].split(".").pop().toLowerCase();
-                content.innerHTML = `<video controls autoplay class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"><source src="${src}" type="video/${ext}"></video>`;
-            }
-            document.getElementById("lightbox").classList.remove("hidden");
-            document.body.style.overflow = "hidden";
+    function openLightbox(src, type) {
+        const content = document.getElementById("lightbox-content");
+        if (type === "image") {
+            content.innerHTML = `<img src="${src}" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
+        } else {
+            const ext = src.split("?")[0].split(".").pop().toLowerCase();
+            content.innerHTML = `<video controls autoplay class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"><source src="${src}" type="video/${ext}"></video>`;
         }
+        document.getElementById("lightbox").classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+    }
 
-        function closeLightbox() {
-            document.getElementById("lightbox-content").innerHTML = "";
-            document.getElementById("lightbox").classList.add("hidden");
-            document.body.style.overflow = "";
-        }
+    function closeLightbox() {
+        document.getElementById("lightbox-content").innerHTML = "";
+        document.getElementById("lightbox").classList.add("hidden");
+        document.body.style.overflow = "";
+    }
 
-        document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
-    </script>
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
 
-    <div class="hidden md:block fixed bottom-2 right-3 text-xs text-muted/55 select-none pointer-events-none">v{{ app_version }}</div>
-
-    <!-- Lightbox -->
-    <div id="lightbox" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out hidden" onclick="closeLightbox()">
-        <button class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10 cursor-pointer" onclick="closeLightbox()">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-        <div id="lightbox-content" class="flex items-center justify-center cursor-default" onclick="event.stopPropagation()"></div>
-    </div>
-</body>
-</html>
+    document.addEventListener("DOMContentLoaded", () => {
+        loadMetadata();
+        loadQuestion();
+    });
+</script>
+{% endblock %}

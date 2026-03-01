@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Trivia Quiz{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117',
+                    card: '#181824',
+                    'card-alt': '#1f1f2e',
+                    border: '#2a2a3c',
+                    primary: '#7c6aef',
+                    'primary-hover': '#8f7ff7',
+                    success: '#34d399',
+                    'success-hover': '#2bb886',
+                    warning: '#fbbf24',
+                    'warning-hover': '#f59e0b',
+                    danger: '#f87171',
+                    'danger-hover': '#ef4444',
+                    muted: '#6b6b80',
+                },
+                fontFamily: {
+                    sans: ['Inter', 'system-ui', 'sans-serif'],
+                },
+            },
+        },
+    }
+    </script>
+    <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-surface text-gray-100 min-h-screen">
+
+    <!-- Mobile top bar -->
+    <header class="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-surface/90 backdrop-blur-md border-b border-border/50 flex items-center justify-between px-4">
+        <button onclick="openDrawer()" class="p-2 -ml-2 text-gray-400 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span class="text-sm font-semibold tracking-wide text-gray-300">{% block mobile_title %}TRIVIA QUIZ{% endblock %}</span>
+        <div class="w-10"></div>
+    </header>
+
+    <!-- Backdrop (mobile only) -->
+    <div id="backdrop" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="closeDrawer()"></div>
+
+    <!-- Sidebar: drawer on mobile, fixed on desktop -->
+    <aside id="sidebar" class="fixed top-0 left-0 bottom-0 w-64 bg-card border-r border-border z-50
+        -translate-x-full md:translate-x-0 transition-transform duration-300 flex flex-col overflow-y-auto">
+
+        <!-- Close button (mobile) -->
+        <div class="md:hidden flex justify-between items-center px-5 h-14 border-b border-border/50 shrink-0">
+            <span class="text-sm font-semibold text-gray-300">Menu</span>
+            <button onclick="closeDrawer()" class="p-1 text-gray-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Brand (desktop) -->
+        <div class="hidden md:block px-5 py-5 border-b border-border/50 shrink-0">
+            <h1 class="text-lg font-bold tracking-tight">Trivia Quiz</h1>
+        </div>
+
+        <div class="flex-1 px-4 py-5 space-y-6 overflow-y-auto">
+            <!-- Play -->
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Play</p>
+                {% set play_active = request.path == '/' %}
+                <a href="/" class="block py-2 px-3 rounded-lg text-sm font-medium {{ 'bg-primary/10 text-primary' if play_active else 'text-gray-300 hover:bg-card-alt hover:text-white transition-colors' }}">Normal</a>
+                <a class="block py-2 px-3 rounded-lg text-muted/60 text-sm cursor-default">Replay Event</a>
+            </div>
+
+            {% block sidebar_extra %}{% endblock %}
+
+            <!-- Manage -->
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Manage</p>
+                <div id="manage-section" class="space-y-0.5">
+                    <p class="text-sm text-muted px-3">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User section -->
+        <div class="border-t border-border/50 px-5 py-4 shrink-0 flex items-center justify-between gap-3">
+            <div id="login-section"></div>
+            <span class="text-xs text-muted/55 select-none shrink-0">v{{ app_version }}</span>
+        </div>
+    </aside>
+
+    <!-- Page content: offset for mobile top bar and desktop sidebar -->
+    <div class="pt-14 md:pt-0 md:pl-64">
+        {% block content %}{% endblock %}
+    </div>
+
+    <div class="hidden md:block fixed bottom-2 right-3 text-xs text-muted/55 select-none pointer-events-none">v{{ app_version }}</div>
+
+    <script>
+        function openDrawer() {
+            document.getElementById('sidebar').classList.remove('-translate-x-full');
+            document.getElementById('backdrop').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeDrawer() {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('backdrop').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch("/login-status");
+                const data = await response.json();
+                const loginSection = document.getElementById("login-section");
+                const manageSection = document.getElementById("manage-section");
+                const path = window.location.pathname;
+
+                function navLink(href, label) {
+                    const active = path === href;
+                    return `<a href="${href}" class="block py-2 px-3 rounded-lg text-sm ${active ? 'bg-primary/10 text-primary font-medium' : 'text-gray-300 hover:bg-card-alt hover:text-white transition-colors'}">${label}</a>`;
+                }
+
+                if (data.logged_in) {
+                    loginSection.innerHTML = `
+                        <p class="text-sm text-gray-400 mb-1">${data.username}</p>
+                        <a href="/logout" class="text-sm text-muted hover:text-white transition-colors">Sign out</a>
+                    `;
+                } else {
+                    loginSection.innerHTML = `<a href="/login" class="text-sm text-primary hover:text-primary-hover transition-colors font-medium">Sign in</a>`;
+                }
+
+                if (!data.logged_in) {
+                    manageSection.innerHTML = `<p class="text-sm text-muted px-3">Sign in to manage</p>`;
+                } else if (data.role === "user") {
+                    manageSection.innerHTML =
+                        navLink("/new_question", "New Question") +
+                        `<span class="block py-2 px-3 text-muted/60 text-sm">Manage Own Questions</span>`;
+                } else if (data.role === "admin") {
+                    manageSection.innerHTML =
+                        navLink("/new_question", "New Question") +
+                        navLink("/approve_question", "Approve Questions") +
+                        navLink("/database", "Manage Questions") +
+                        navLink("/approve_user", "Manage Users");
+                }
+            } catch (error) {
+                console.error("Error checking login status:", error);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", checkLoginStatus);
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,346 +1,287 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Questions</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    surface: '#0f1117',
-                    card: '#181824',
-                    'card-alt': '#1f1f2e',
-                    border: '#2a2a3c',
-                    primary: '#7c6aef',
-                    'primary-hover': '#8f7ff7',
-                    success: '#34d399',
-                    'success-hover': '#2bb886',
-                    warning: '#fbbf24',
-                    'warning-hover': '#f59e0b',
-                    danger: '#f87171',
-                    'danger-hover': '#ef4444',
-                    muted: '#6b6b80',
-                },
-                fontFamily: {
-                    sans: ['Inter', 'system-ui', 'sans-serif'],
-                },
-            },
-        },
+{% extends "base.html" %}
+
+{% block title %}Manage Questions{% endblock %}
+{% block mobile_title %}MANAGE QUESTIONS{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Manage Questions</h1>
+
+    <!-- Filter bar -->
+    <div class="bg-card border border-border rounded-xl p-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <input id="filter-text" type="text" placeholder="Search question text"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="filter-topic" type="text" placeholder="Topic"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="filter-language" type="text" placeholder="Language"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
+                <input id="filter-reviewed" type="checkbox" class="w-4 h-4 rounded border-border bg-card-alt accent-primary">
+                Reviewed only
+            </label>
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button onclick="loadDatabase()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Apply</button>
+            <button onclick="clearFilters()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Clear</button>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-card border border-border rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm min-w-[700px]">
+                <thead>
+                    <tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question')">Question <span id="sort-question"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('answer')">Answer <span id="sort-answer"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question_topic')">Topic <span id="sort-question_topic"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_by')">Added by <span id="sort-added_by"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('language')">Lang <span id="sort-language"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_at')">Added <span id="sort-added_at"></span></th>
+                        <th class="px-4 py-3 font-medium">Status</th>
+                        <th class="px-4 py-3 font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="question-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit Panel -->
+    <div id="edit-panel" class="bg-card border border-border rounded-xl p-6 mt-6 hidden">
+        <h2 class="text-lg font-semibold mb-4">Edit Question</h2>
+        <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input id="edit-question" type="text" placeholder="Question" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+            <input id="edit-answer" type="text" placeholder="Answer" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+            <input id="edit-added-by" type="text" placeholder="Added by" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+            <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <select id="edit-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <option value="">Language (optional)</option>
+                <option value="English">English</option>
+                <option value="German">German</option>
+                <option value="French">French</option>
+            </select>
+            <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
+                <input id="edit-reviewed" type="checkbox" class="w-4 h-4 rounded accent-primary">
+                Approved
+            </label>
+            <div class="col-span-full flex gap-2 justify-end mt-2">
+                <button type="button" onclick="hideEdit()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Cancel</button>
+                <button type="submit" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-4 py-2 rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let allQuestions = [];
+    let questionCache = {};
+    let editingId = null;
+    let sortField = null;
+    let sortAsc = true;
+    let currentPage = 1;
+    let pageSize = 20;
+
+    async function loadDatabase() {
+        const txt = document.getElementById("filter-text").value.trim();
+        const topic = document.getElementById("filter-topic").value.trim();
+        const lang = document.getElementById("filter-language").value.trim();
+        const reviewed = document.getElementById("filter-reviewed").checked;
+
+        allQuestions = [];
+        let pageToken = null;
+        do {
+            const params = new URLSearchParams({ limit: 100, offset: 0 });
+            if (pageToken) params.set("page_token", pageToken);
+            if (topic) params.set("question_topic", topic);
+            if (lang) params.set("language", lang);
+            if (reviewed) params.set("review_status", true);
+            const response = await fetch(`/questions/?${params.toString()}`);
+            if (!response.ok) break;
+            const payload = await response.json();
+            allQuestions.push(...(payload.items || []));
+            pageToken = payload.pagination?.next_page_token;
+        } while (pageToken && allQuestions.length < 2000);
+
+        if (txt) {
+            allQuestions = allQuestions.filter(q => (q.question || "").toLowerCase().includes(txt.toLowerCase()));
+        }
+        applySort();
+        currentPage = 1;
+        renderPage();
+        updateSortIndicators();
     }
-    </script>
-    <style>body{font-family:'Inter',system-ui,sans-serif}</style>
-</head>
-<body class="bg-surface text-gray-100 min-h-screen">
 
-    <header class="fixed top-0 left-0 right-0 z-30 bg-card/80 backdrop-blur-md border-b border-border/50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            <a href="/" class="text-muted hover:text-white transition-colors flex items-center gap-1.5 text-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                Home
-            </a>
-            <a href="/logout" class="text-muted hover:text-white transition-colors text-sm">Sign out</a>
-        </div>
-    </header>
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
 
-    <main class="pt-20 pb-10 px-4 sm:px-6 max-w-7xl mx-auto">
-        <h1 class="text-2xl font-bold mb-6">Manage Questions</h1>
+    function renderPage() {
+        const questionList = document.getElementById("question-list");
+        questionList.innerHTML = "";
+        questionCache = {};
 
-        <!-- Filter bar -->
-        <div class="bg-card border border-border rounded-xl p-4 mb-6">
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <input id="filter-text" type="text" placeholder="Search question text"
-                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="filter-topic" type="text" placeholder="Topic"
-                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="filter-language" type="text" placeholder="Language"
-                    class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
-                    <input id="filter-reviewed" type="checkbox" class="w-4 h-4 rounded border-border bg-card-alt accent-primary">
-                    Reviewed only
-                </label>
-            </div>
-            <div class="flex gap-2 mt-3">
-                <button onclick="loadDatabase()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Apply</button>
-                <button onclick="clearFilters()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Clear</button>
-            </div>
-        </div>
+        const start = (currentPage - 1) * pageSize;
+        const slice = allQuestions.slice(start, start + pageSize);
 
-        <!-- Table -->
-        <div class="bg-card border border-border rounded-xl overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm min-w-[700px]">
-                    <thead>
-                        <tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question')">Question <span id="sort-question"></span></th>
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('answer')">Answer <span id="sort-answer"></span></th>
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('question_topic')">Topic <span id="sort-question_topic"></span></th>
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_by')">Added by <span id="sort-added_by"></span></th>
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('language')">Lang <span id="sort-language"></span></th>
-                            <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('added_at')">Added <span id="sort-added_at"></span></th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="question-list"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Edit Panel -->
-        <div id="edit-panel" class="bg-card border border-border rounded-xl p-6 mt-6 hidden">
-            <h2 class="text-lg font-semibold mb-4">Edit Question</h2>
-            <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input id="edit-question" type="text" placeholder="Question" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
-                <input id="edit-answer" type="text" placeholder="Answer" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
-                <input id="edit-added-by" type="text" placeholder="Added by" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
-                <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <select id="edit-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                    <option value="">Language (optional)</option>
-                    <option value="English">English</option>
-                    <option value="German">German</option>
-                    <option value="French">French</option>
-                </select>
-                <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
-                    <input id="edit-reviewed" type="checkbox" class="w-4 h-4 rounded accent-primary">
-                    Approved
-                </label>
-                <div class="col-span-full flex gap-2 justify-end mt-2">
-                    <button type="button" onclick="hideEdit()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Cancel</button>
-                    <button type="submit" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-4 py-2 rounded-lg transition-colors">Save</button>
-                </div>
-            </form>
-        </div>
-    </main>
-
-    <script>
-        let allQuestions = [];
-        let questionCache = {};
-        let editingId = null;
-        let sortField = null;
-        let sortAsc = true;
-        let currentPage = 1;
-        let pageSize = 20;
-
-        async function loadDatabase() {
-            const txt = document.getElementById("filter-text").value.trim();
-            const topic = document.getElementById("filter-topic").value.trim();
-            const lang = document.getElementById("filter-language").value.trim();
-            const reviewed = document.getElementById("filter-reviewed").checked;
-
-            allQuestions = [];
-            let pageToken = null;
-            do {
-                const params = new URLSearchParams({ limit: 100, offset: 0 });
-                if (pageToken) params.set("page_token", pageToken);
-                if (topic) params.set("question_topic", topic);
-                if (lang) params.set("language", lang);
-                if (reviewed) params.set("review_status", true);
-                const response = await fetch(`/questions/?${params.toString()}`);
-                if (!response.ok) break;
-                const payload = await response.json();
-                allQuestions.push(...(payload.items || []));
-                pageToken = payload.pagination?.next_page_token;
-            } while (pageToken && allQuestions.length < 2000);
-
-            if (txt) {
-                allQuestions = allQuestions.filter(q => (q.question || "").toLowerCase().includes(txt.toLowerCase()));
-            }
-            applySort();
-            currentPage = 1;
-            renderPage();
-            updateSortIndicators();
+        if (slice.length === 0) {
+            questionList.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-muted">No questions found.</td></tr>`;
+            return;
         }
 
-        function escHtml(str) {
-            return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-        }
+        slice.forEach(q => {
+            const id = q.id || q.question_id;
+            questionCache[id] = q;
+            const isApproved = q.review_status;
+            const approvalBtn = isApproved
+                ? `<button onclick='toggleApproval("${id}", false)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Reject</button>`
+                : `<button onclick='toggleApproval("${id}", true)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors">Approve</button>`;
 
-        function renderPage() {
-            const questionList = document.getElementById("question-list");
-            questionList.innerHTML = "";
-            questionCache = {};
-
-            const start = (currentPage - 1) * pageSize;
-            const slice = allQuestions.slice(start, start + pageSize);
-
-            if (slice.length === 0) {
-                questionList.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-muted">No questions found.</td></tr>`;
-                return;
-            }
-
-            slice.forEach(q => {
-                const id = q.id || q.question_id;
-                questionCache[id] = q;
-                const isApproved = q.review_status;
-                const approvalBtn = isApproved
-                    ? `<button onclick='toggleApproval("${id}", false)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Reject</button>`
-                    : `<button onclick='toggleApproval("${id}", true)' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors">Approve</button>`;
-
-                questionList.innerHTML += `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
-                    <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/questions/${id}">${escHtml(q.question)}</a></td>
-                    <td class="px-4 py-3 max-w-[150px] truncate">${escHtml(q.answer)}</td>
-                    <td class="px-4 py-3">${escHtml(q.question_topic || "General")}</td>
-                    <td class="px-4 py-3">${escHtml(q.added_by)}</td>
-                    <td class="px-4 py-3">${escHtml(q.language || "-")}</td>
-                    <td class="px-4 py-3 text-muted">${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
-                    <td class="px-4 py-3">${isApproved ? '<span class="text-success text-xs font-medium">Approved</span>' : '<span class="text-muted text-xs">Pending</span>'}</td>
-                    <td class="px-4 py-3">
-                        <div class="flex gap-1.5">
-                            ${approvalBtn}
-                            <button onclick='startEdit("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors">Edit</button>
-                            <button onclick='deleteQuestion("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>
-                        </div>
-                    </td>
-                </tr>`;
-            });
-
-            renderPagination();
-        }
-
-        function renderPagination() {
-            const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
-            const questionList = document.getElementById("question-list");
-            const pager = document.createElement("tr");
-            pager.innerHTML = `<td colspan="8" class="px-4 py-3">
-                <div class="flex items-center justify-center gap-3 text-sm">
-                    <button ${currentPage===1?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
-                    <span class="text-muted">Page ${currentPage} / ${totalPages}</span>
-                    <button ${currentPage===totalPages?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
-                </div>
-            </td>`;
-            questionList.appendChild(pager);
-        }
-
-        function gotoPage(page) {
-            const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
-            currentPage = Math.min(Math.max(1, page), totalPages);
-            renderPage();
-        }
-
-        async function deleteQuestion(id) {
-            if (!confirm("Delete this question?")) return;
-            const response = await fetch(`/questions/${id}`, { method: "DELETE" });
-            if (response.ok) {
-                loadDatabase();
-            } else {
-                alert("Error deleting question.");
-            }
-        }
-
-        async function toggleApproval(id, approved) {
-            const response = await fetch(`/questions/${id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ review_status: approved })
-            });
-            if (response.ok) {
-                loadDatabase();
-            } else {
-                const err = await response.json().catch(() => ({}));
-                alert(err.error || "Error updating approval.");
-            }
-        }
-
-        function startEdit(id) {
-            const q = questionCache[id];
-            if (!q) return;
-            editingId = id;
-            document.getElementById("edit-question").value = q.question || "";
-            document.getElementById("edit-answer").value = q.answer || "";
-            document.getElementById("edit-added-by").value = q.added_by || "";
-            document.getElementById("edit-topic").value = q.question_topic || "";
-            document.getElementById("edit-qsource").value = q.question_source || "";
-            document.getElementById("edit-asource").value = q.answer_source || "";
-            document.getElementById("edit-incorrect").value = (q.incorrect_answers || []).join(", ");
-            document.getElementById("edit-tags").value = (q.tags || []).join(", ");
-            document.getElementById("edit-language").value = q.language || "";
-            document.getElementById("edit-reviewed").checked = !!q.review_status;
-            document.getElementById("edit-panel").classList.remove("hidden");
-            document.getElementById("edit-panel").scrollIntoView({ behavior: "smooth" });
-        }
-
-        function hideEdit() {
-            editingId = null;
-            document.getElementById("edit-panel").classList.add("hidden");
-        }
-
-        document.getElementById("edit-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            if (!editingId) return;
-            const payload = {
-                question: document.getElementById("edit-question").value,
-                answer: document.getElementById("edit-answer").value,
-                added_by: document.getElementById("edit-added-by").value,
-                question_topic: document.getElementById("edit-topic").value || null,
-                question_source: document.getElementById("edit-qsource").value || null,
-                answer_source: document.getElementById("edit-asource").value || null,
-                incorrect_answers: document.getElementById("edit-incorrect").value.split(",").map(s => s.trim()).filter(Boolean),
-                tags: document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
-                language: document.getElementById("edit-language").value || null,
-                review_status: document.getElementById("edit-reviewed").checked,
-            };
-
-            const response = await fetch(`/questions/${editingId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                hideEdit();
-                loadDatabase();
-            } else {
-                const err = await response.json().catch(() => ({}));
-                alert(err.error || "Error updating question.");
-            }
+            questionList.innerHTML += `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
+                <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/questions/${id}">${escHtml(q.question)}</a></td>
+                <td class="px-4 py-3 max-w-[150px] truncate">${escHtml(q.answer)}</td>
+                <td class="px-4 py-3">${escHtml(q.question_topic || "General")}</td>
+                <td class="px-4 py-3">${escHtml(q.added_by)}</td>
+                <td class="px-4 py-3">${escHtml(q.language || "-")}</td>
+                <td class="px-4 py-3 text-muted">${q.added_at ? new Date(q.added_at).toLocaleDateString() : "-"}</td>
+                <td class="px-4 py-3">${isApproved ? '<span class="text-success text-xs font-medium">Approved</span>' : '<span class="text-muted text-xs">Pending</span>'}</td>
+                <td class="px-4 py-3">
+                    <div class="flex gap-1.5">
+                        ${approvalBtn}
+                        <button onclick='startEdit("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors">Edit</button>
+                        <button onclick='deleteQuestion("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>
+                    </div>
+                </td>
+            </tr>`;
         });
 
-        function clearFilters() {
-            document.getElementById("filter-text").value = "";
-            document.getElementById("filter-topic").value = "";
-            document.getElementById("filter-language").value = "";
-            document.getElementById("filter-reviewed").checked = false;
-            sortField = null;
-            sortAsc = true;
-            loadDatabase();
-        }
+        renderPagination();
+    }
 
-        function sortBy(field) {
-            if (sortField === field) { sortAsc = !sortAsc; } else { sortField = field; sortAsc = true; }
-            applySort();
-            renderPage();
-            updateSortIndicators();
-        }
+    function renderPagination() {
+        const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
+        const questionList = document.getElementById("question-list");
+        const pager = document.createElement("tr");
+        pager.innerHTML = `<td colspan="8" class="px-4 py-3">
+            <div class="flex items-center justify-center gap-3 text-sm">
+                <button ${currentPage===1?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
+                <span class="text-muted">Page ${currentPage} / ${totalPages}</span>
+                <button ${currentPage===totalPages?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
+            </div>
+        </td>`;
+        questionList.appendChild(pager);
+    }
 
-        function applySort() {
-            if (!sortField) return;
-            allQuestions.sort((a, b) => {
-                const va = (a[sortField] || "").toString().toLowerCase();
-                const vb = (b[sortField] || "").toString().toLowerCase();
-                if (va < vb) return sortAsc ? -1 : 1;
-                if (va > vb) return sortAsc ? 1 : -1;
-                return 0;
-            });
-        }
+    function gotoPage(page) {
+        const totalPages = Math.max(1, Math.ceil(allQuestions.length / pageSize));
+        currentPage = Math.min(Math.max(1, page), totalPages);
+        renderPage();
+    }
 
-        function updateSortIndicators() {
-            ["question","answer","question_topic","added_by","language","added_at"].forEach(f => {
-                const el = document.getElementById(`sort-${f}`);
-                if (!el) return;
-                el.textContent = f === sortField ? (sortAsc ? "▲" : "▼") : "";
-            });
-        }
+    async function deleteQuestion(id) {
+        if (!confirm("Delete this question?")) return;
+        const response = await fetch(`/questions/${id}`, { method: "DELETE" });
+        if (response.ok) { loadDatabase(); } else { alert("Error deleting question."); }
+    }
 
+    async function toggleApproval(id, approved) {
+        const response = await fetch(`/questions/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ review_status: approved })
+        });
+        if (response.ok) { loadDatabase(); }
+        else { const err = await response.json().catch(() => ({})); alert(err.error || "Error updating approval."); }
+    }
+
+    function startEdit(id) {
+        const q = questionCache[id];
+        if (!q) return;
+        editingId = id;
+        document.getElementById("edit-question").value = q.question || "";
+        document.getElementById("edit-answer").value = q.answer || "";
+        document.getElementById("edit-added-by").value = q.added_by || "";
+        document.getElementById("edit-topic").value = q.question_topic || "";
+        document.getElementById("edit-qsource").value = q.question_source || "";
+        document.getElementById("edit-asource").value = q.answer_source || "";
+        document.getElementById("edit-incorrect").value = (q.incorrect_answers || []).join(", ");
+        document.getElementById("edit-tags").value = (q.tags || []).join(", ");
+        document.getElementById("edit-language").value = q.language || "";
+        document.getElementById("edit-reviewed").checked = !!q.review_status;
+        document.getElementById("edit-panel").classList.remove("hidden");
+        document.getElementById("edit-panel").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function hideEdit() {
+        editingId = null;
+        document.getElementById("edit-panel").classList.add("hidden");
+    }
+
+    document.getElementById("edit-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!editingId) return;
+        const payload = {
+            question: document.getElementById("edit-question").value,
+            answer: document.getElementById("edit-answer").value,
+            added_by: document.getElementById("edit-added-by").value,
+            question_topic: document.getElementById("edit-topic").value || null,
+            question_source: document.getElementById("edit-qsource").value || null,
+            answer_source: document.getElementById("edit-asource").value || null,
+            incorrect_answers: document.getElementById("edit-incorrect").value.split(",").map(s => s.trim()).filter(Boolean),
+            tags: document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+            language: document.getElementById("edit-language").value || null,
+            review_status: document.getElementById("edit-reviewed").checked,
+        };
+        const response = await fetch(`/questions/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) { hideEdit(); loadDatabase(); }
+        else { const err = await response.json().catch(() => ({})); alert(err.error || "Error updating question."); }
+    });
+
+    function clearFilters() {
+        document.getElementById("filter-text").value = "";
+        document.getElementById("filter-topic").value = "";
+        document.getElementById("filter-language").value = "";
+        document.getElementById("filter-reviewed").checked = false;
+        sortField = null;
+        sortAsc = true;
         loadDatabase();
-    </script>
-</body>
-</html>
+    }
+
+    function sortBy(field) {
+        if (sortField === field) { sortAsc = !sortAsc; } else { sortField = field; sortAsc = true; }
+        applySort(); renderPage(); updateSortIndicators();
+    }
+
+    function applySort() {
+        if (!sortField) return;
+        allQuestions.sort((a, b) => {
+            const va = (a[sortField] || "").toString().toLowerCase();
+            const vb = (b[sortField] || "").toString().toLowerCase();
+            if (va < vb) return sortAsc ? -1 : 1;
+            if (va > vb) return sortAsc ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function updateSortIndicators() {
+        ["question","answer","question_topic","added_by","language","added_at"].forEach(f => {
+            const el = document.getElementById(`sort-${f}`);
+            if (!el) return;
+            el.textContent = f === sortField ? (sortAsc ? "▲" : "▼") : "";
+        });
+    }
+
+    loadDatabase();
+</script>
+{% endblock %}
