@@ -1,15 +1,18 @@
-# Ignore the database
+# Environment files (may contain secrets)
+.env
+*.env
+!docker/*.env.example
+
+# Database files
 *.db
 static/uploads/*
-
-# Ignore the login data
-backend/logindata.env
 
 # Ignore the virtual environment
 venv
 .venv
 
 .vscode
+.DS_Store
 
 # Ignore the cache
 __pycache__

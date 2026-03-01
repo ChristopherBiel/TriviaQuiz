@@ -1,34 +1,18 @@
-import boto3
-import os
-import bcrypt
-from datetime import datetime
-from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template, flash
+from datetime import datetime, timezone
+from flask import Blueprint, request, session, redirect, url_for, jsonify, render_template
 from markupsafe import escape
 import re
 
+from backend.services.user_service import (
+    create_user,
+    get_user,
+    update_user,
+    delete_user,
+)
+from backend.utils.password_utils import hash_password, verify_password
+from backend.utils.email_stub import send_email
+
 auth_bp = Blueprint("auth", __name__)
-
-# Initialize AWS Clients
-AWS_REGION = os.getenv("AWS_REGION", "eu-central-1")
-dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
-ssm = boto3.client("ssm", region_name=AWS_REGION)
-users_table = dynamodb.Table("TriviaUsers")
-
-# Fetch referral code from AWS Systems Manager Parameter Store
-REFERRAL_CODE_PARAM = "/TriviaQuiz/REFERRAL_CODE"
-def get_referral_code():
-    try:
-        response = ssm.get_parameter(Name=REFERRAL_CODE_PARAM, WithDecryption=True)
-        return response["Parameter"]["Value"]
-    except Exception as e:
-        print("Error fetching referral code:", str(e))
-        return None
-
-def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def verify_password(password, hashed):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
     
 @auth_bp.route("/signup", methods=["GET", "POST"])
 def signup():
@@ -39,48 +23,22 @@ def signup():
     username = escape(request.form.get("username", "").strip())
     email = escape(request.form.get("email", "").strip())
     password = request.form.get("password", "")
-    referral_code = escape(request.form.get("referral_code", "").strip())
 
-    if not username or not email or not password or not referral_code:
+    if not username or not email or not password:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
 
-    if not re.match(r"^[\w.@+-]+$", username):
+    if not re.match(r"^[\\w.@+-]+$", username):
         return jsonify({"status": "error", "message": "Username contains invalid characters"}), 400
 
-    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+    if not re.match(r"^[^@]+@[^@]+\\.[^@]+$", email):
         return jsonify({"status": "error", "message": "Invalid email format"}), 400
 
-    stored_referral_code = get_referral_code()
-    if stored_referral_code is None:
-        return jsonify({"status": "error", "message": "Referral system not configured"}), 500
-
-    if referral_code != stored_referral_code:
-        return jsonify({"status": "error", "message": "Invalid referral code"}), 403
-
-    existing_user = users_table.get_item(Key={"username": username}).get("Item")
-    if existing_user:
-        return jsonify({"status": "error", "message": "Username already exists"}), 400
-
-    password_hash = hash_password(password)
-
-    users_table.put_item(
-        Item={
-            "username": username,
-            "email": email,
-            "password_hash": password_hash,
-            "is_verified": False,
-            "is_approved": False,
-            "role": "user",
-            "signup_date": str(datetime.utcnow().isoformat()),
-            "verification_code": None,
-            "verification_code_expiry": None,
-            "approval_date": None,
-            "last_login_date": None,
-            "last_login_ip": None,
-            "referral_code_used": referral_code,
-        }
-    )
-    return jsonify({"status": "success", "message": "Signup successful, please wait for admin approval."}), 201
+    user = create_user({"username": username, "email": email, "password": password}, acting_role="user")
+    if not user:
+        return jsonify({"status": "error", "message": "Signup failed"}), 400
+    if user.verification_token:
+        send_email(user.email, "Verify your account", f"Token: {user.verification_token}")
+    return jsonify({"status": "success", "message": "Signup successful, please verify your email."}), 201
 
 
 
@@ -105,29 +63,24 @@ def login():
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
 
-    user = users_table.get_item(Key={"username": username}).get("Item")
-    if not user or not verify_password(password, user["password_hash"]):
+    user = get_user(username)
+    if not user or not verify_password(password, user.password_hash):
         return jsonify({"error": "Invalid credentials"}), 401
 
-    if not user["is_approved"]:
+    if not user.is_verified:
+        return jsonify({"error": "Email verification required"}), 403
+
+    if not user.is_approved:
         return jsonify({"error": "Admin approval required"}), 403
 
-    # Update last login date and IP
-    users_table.update_item(
-        Key={"username": username},
-        UpdateExpression="SET last_login_date = :date, last_login_ip = :ip",
-        ExpressionAttributeValues={
-            ":date": str(datetime.utcnow()),
-            ":ip": request.remote_addr
-        }
-    )
+    update_user(user.username, {"last_login_at": datetime.now(timezone.utc).replace(tzinfo=None), "last_login_ip": request.remote_addr}, acting_role="admin")
 
     # Set session variables
     session["logged_in"] = True
-    session["username"] = user["username"]
-    session["email"] = user["email"]
-    session["role"] = user["role"]
-    session["is_admin"] = user["role"] == "admin"
+    session["username"] = user.username
+    session["email"] = user.email
+    session["role"] = user.role
+    session["is_admin"] = user.role == "admin"
     return redirect("/")
 
 
@@ -140,49 +93,36 @@ def logout():
     session.clear()
     return redirect(url_for("routes.serve_frontend"))
 
+@auth_bp.route("/reset_password")
+def reset_password_page():
+    return render_template("reset_password.html")
+
+@auth_bp.route("/verify_email")
+def verify_email_page():
+    return render_template("verify_email.html")
+
 def get_all_users():
-    """Fetch all users from DynamoDB."""
+    """Fetch all users."""
     try:
-        response = users_table.scan()
-        return response.get("Items", [])
+        from backend.services.user_service import list_users
+        return [u.model_dump(mode="json") for u in list_users()]
     except Exception as e:
         print(f"Error fetching users: {e}")
         return []
 
 def edit_user(user_id, action):
-    """Edit user details in DynamoDB."""
+    """Edit user details."""
     try:
         if action == "approve":
-            users_table.update_item(
-                Key={"username": user_id},
-                UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
-                ExpressionAttributeValues={
-                    ":val": True,
-                    ":date": datetime.utcnow().isoformat(),
-                    ":admin": session["username"]
-                }
-            )
+            return bool(update_user(user_id, {"is_approved": True}, acting_role="admin"))
         elif action == "reject":
-            users_table.update_item(
-                Key={"username": user_id},
-                UpdateExpression="SET is_approved = :val, approval_date = :date, approved_by = :admin",
-                ExpressionAttributeValues={
-                    ":val": False,
-                    ":date": datetime.utcnow().isoformat(),
-                    ":admin": session["username"]
-                }
-            )
+            return bool(update_user(user_id, {"is_approved": False}, acting_role="admin"))
         elif action == "make_admin":
-            users_table.update_item(
-                Key={"username": user_id},
-                UpdateExpression="SET role = :val",
-                ExpressionAttributeValues={":val": "admin"}
-            )
+            return bool(update_user(user_id, {"role": "admin"}, acting_role="admin"))
         elif action == "delete":
-            users_table.delete_item(Key={"username": user_id})
+            return delete_user(user_id, acting_role="admin")
         else:
             return False
-        return True
     except Exception as e:
         print(f"Error editing user: {e}")
         return False

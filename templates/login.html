@@ -11,29 +11,53 @@
         <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
     </div>
     <h1 class="text-3xl font-bold mb-6">Login</h1>
-    <form method="post" onsubmit="return validateForm()" class="bg-gray-800 p-6 rounded-lg shadow-lg">
-        <input name="username" type="text" placeholder="Username" class="w-full p-2 mt-2 rounded text-black">
-        <input name="password" type="password" placeholder="Password" class="w-full p-2 mt-2 rounded text-black">
+    <form id="loginForm" class="bg-gray-800 p-6 rounded-lg shadow-lg">
+        <input id="username" name="username" type="text" placeholder="Username" class="w-full p-2 mt-2 rounded text-black" required>
+        <input id="password" name="password" type="password" placeholder="Password" class="w-full p-2 mt-2 rounded text-black" required>
         <button type="submit" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Login</button>
     </form>
     <p>Don't have an account? <a href="/signup" class="text-blue-400 hover:underline">Sign up here</a>.</p>
+    <p class="mt-2"><a href="#" onclick="requestReset()" class="text-blue-400 hover:underline">Forgot password?</a></p>
 
     <script>
-        function validateForm() {
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
-        
+
             if (!username || !password) {
                 alert("Username and password cannot be empty.");
-                return false;
+                return;
             }
-        
-            if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
-                alert("Username must be 3–30 characters and use only letters, numbers, and underscores.");
-                return false;
+
+            const resp = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (resp.ok) {
+                window.location.href = "/";
+            } else {
+                const err = await resp.json().catch(() => ({}));
+                alert(err.error || "Login failed");
             }
-        
-            return true;
+        });
+
+        async function requestReset() {
+            const username = prompt("Enter your username for password reset:");
+            if (!username) return;
+            const resp = await fetch("/users/request-reset", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username })
+            });
+            if (resp.ok) {
+                alert("If the user exists, a reset token was sent (stub). Use the token on the reset page.");
+                window.location.href = "/reset_password";
+            } else {
+                alert("Failed to request reset.");
+            }
         }
     </script>
 </body>

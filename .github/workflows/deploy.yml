@@ -1,47 +1,72 @@
-name: Deploy Flask App
+name: Test and Deploy
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
-    types:
-      - closed
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: trivia_test
+          POSTGRES_USER: trivia
+          POSTGRES_PASSWORD: trivia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trivia -d trivia_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      STORE_BACKEND: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: trivia_test
+      POSTGRES_USER: trivia
+      POSTGRES_PASSWORD: trivia
+      POSTGRES_AUTO_CREATE: "1"
+      SECRET_KEY: test-secret
+      MEDIA_STORE: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest --ignore=tests/services/user_services_test.py
+
   deploy:
-    if: github.event.pull_request.merged == true
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
-
-    - name: Setup SSH Key
-      run: |
-        echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
-        chmod 600 private_key.pem
-
-
-    - name: Debug SSH Connection
-      env:
-        EC2_USER: ubuntu
-        EC2_HOST: trivia.biels.net
-      run: |
-        ssh -vvv -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST echo "Connected successfully!"
-
-
-    - name: Deploy to EC2
-      env:
-        EC2_USER: ubuntu
-        EC2_HOST: trivia.biels.net
-      run: |
-        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_HOST << 'EOF'
-          cd ~/flask-app
-          git pull origin main
-          source venv/bin/activate
-          pip install -r requirements.txt
-          sudo systemctl restart flask_app
-        EOF
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          echo "${{ secrets.VPS_SSH_KEY }}" > private_key
+          chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST << 'EOF'
+            set -e
+            cd ~/TriviaQuiz
+            git pull origin main
+            docker compose -f docker/docker-compose.yml --env-file .env build app
+            docker compose -f docker/docker-compose.yml --env-file .env up -d
+            docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
+          EOF
+          rm -f private_key

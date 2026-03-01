@@ -1,53 +1,91 @@
 ![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
 
 # TriviaQuiz
-Hosts a webpage which serves trivia questions from a database.
-The webservice is aimed at being deployed on an AWS EC2 instance with a dynamoDB and S3 backend.
+TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTML pages for gameplay/moderation, and JSON APIs for question and user workflows. The current architecture targets a single VPS deployment with Docker Compose, using Caddy, Postgres, and MinIO.
 
-## Getting started
-Setup a dynamoDB table, S3 bucket and EC2 instance.
+## Tech stack
+- Python 3.12, Flask, Gunicorn
+- Postgres 16 with SQLAlchemy and Alembic
+- MinIO (S3-compatible) with boto3
+- Caddy reverse proxy with automatic TLS
+- Docker Compose for local/dev/prod orchestration
 
+## Architecture at a glance
+- Public traffic hits Caddy (ports 80/443) and is reverse-proxied to the app container on port 5600.
+- The app container runs Gunicorn + Flask and calls the service layer and storage adapters.
+- Postgres stores questions/users; MinIO stores media.
+- `/media/*` is served by the app when `MEDIA_PROXY=1`.
 
-Running `app.py`
+## Quickstart (Docker, local)
+1. Create a local env file.
+   ```bash
+   cp docker/app.env.example .env
+   ```
+2. Start the stack.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env up -d
+   ```
+3. Run database migrations.
 
-# Functionality
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
+   ```
 
-## Database Handling
+4. (Optional) Create an admin user.
 
-The project utilizes AWS DynamoDB and Amazon S3 to store and manage trivia questions efficiently. Below is an overview of how the database operations are handled.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/ensure_admin.py --username admin --email admin@example.com --password "change-me"
+   ```
 
-### DynamoDB (TriviaQuestions Table)
-The trivia questions are stored in a DynamoDB table named `TriviaQuestions`. Each question is stored as an item with the following attributes:
+5. (Optional) Bootstrap user/event storage and seed admin in one step.
 
-- **id** (String, Primary Key): A unique identifier generated using `uuid.uuid4()`.
-- **question** (String): The trivia question.
-- **answer** (String): The correct answer to the question.
-- **added_by** (String): The user who added the question.
-- **question_topic** (String, Optional): The category or topic of the question.
-- **question_source** (String, Optional): The source from which the question was obtained.
-- **answer_source** (String, Optional): The source of the answer.
-- **media_path** (String, Optional): A reference to an associated media file stored in S3.
-- **language** (String, Optional): The language of the question.
-- **incorrect_answers** (List, Optional): A list of incorrect answers for multiple-choice questions.
-- **tags** (List, Optional): Tags related to the question.
-- **timestamp** (String): The timestamp when the question was added.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/bootstrap_user_event_db.py \
+       --admin-username admin --admin-email admin@example.com --admin-password "change-me"
+   ```
 
-### Amazon S3 (Media Storage)
-If a question includes an associated media file (image, audio, or video), it is uploaded to an S3 bucket. The following process is followed:
+6. (Optional) Migrate legacy questions/media from AWS DynamoDB + S3 into current stores.
 
-1. The media file is uploaded to the S3 bucket specified in the `AWS_S3_BUCKET` environment variable.
-2. The function `upload_file_to_s3(media_file)` handles the file upload and generates a public or private URL.
-3. The generated S3 URL is stored in the `media_path` attribute in DynamoDB.
+   ```bash
+   docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
+     python scripts/migrate_aws_questions_media.py \
+       --source-region eu-central-1 \
+       --source-dynamodb-table TriviaQuestions \
+       --source-s3-bucket chris-trivia-media-bucket
+   ```
+   
+7. Open the app at `http://localhost` (Caddy) and check `http://localhost/health`.
 
-### Adding a Question
-To add a new trivia question, the `add_question()` function is used. It follows these steps:
-1. Generates a unique `id`.
-2. Uploads the media file to S3 (if provided) and retrieves its URL.
-3. Constructs an item with all attributes.
-4. Saves the item in the `TriviaQuestions` table using DynamoDB.
+## Key commands / workflows
+- Build: `docker compose -f docker/docker-compose.yml --env-file .env build`
+- Start: `docker compose -f docker/docker-compose.yml --env-file .env up -d`
+- Stop: `docker compose -f docker/docker-compose.yml --env-file .env stop`
+- Logs: `docker compose -f docker/docker-compose.yml --env-file .env logs -f app`
+- Migrations: `docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head`
+- Tests: `pytest` (install `pytest` in your environment if needed)
+- Bootstrap user/event DB + admin: `python scripts/bootstrap_user_event_db.py --admin-username admin --admin-email admin@example.com --admin-password "change-me"`
+- Migrate legacy AWS questions/media: `python scripts/migrate_aws_questions_media.py --source-region eu-central-1 --source-dynamodb-table TriviaQuestions --source-s3-bucket chris-trivia-media-bucket`
 
-### Retrieving Questions
-Questions can be retrieved using their `id` via DynamoDB queries. Additionally, filters can be applied based on topics, tags, or languages.
+## Configuration overview
+- Full list and definitions: `docs/08-environment-variables.md`
+- App: `SECRET_KEY`, `STORE_BACKEND`, `QUESTION_STORE`, `USER_STORE`, `MEDIA_STORE`, `MEDIA_PROXY`, `MEDIA_URL_EXPIRES_SECONDS`, `UPLOAD_FOLDER`, `ALLOWED_EXTENSIONS`
+- Postgres: `POSTGRES_DSN`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_AUTO_CREATE`
+- MinIO: `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_REGION`, `MINIO_SECURE`, `MINIO_AUTO_CREATE_BUCKET`
+- Caddy: `CADDY_DOMAIN`, `CADDY_EMAIL`
+- Legacy AWS adapters (optional): `AWS_REGION`, `AWS_ENDPOINT_URL`, `DYNAMODB_TABLE`, `USERS_TABLE`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE`
 
-This structure ensures scalable and efficient management of trivia questions while allowing the integration of multimedia content stored securely in S3.
-
+## Docs
+- Overview: `docs/00-overview.md`
+- Architecture: `docs/01-architecture.md`
+- Local development: `docs/02-local-development.md`
+- Deployment: `docs/03-deployment.md`
+- Operations: `docs/04-operations.md`
+- Backups and restore: `docs/05-backups-and-restore.md`
+- Migrations: `docs/06-migrations.md`
+- Troubleshooting: `docs/07-troubleshooting.md`
+- Environment variables: `docs/08-environment-variables.md`
+- Interfaces: `docs/interfaces/storage.md`, `docs/interfaces/services.md`
+- Architecture decisions: `docs/adr/`
+- API reference: `backend/api/README.md`

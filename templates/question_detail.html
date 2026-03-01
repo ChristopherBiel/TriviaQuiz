@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Detail</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+    <div class="w-full flex justify-between p-4 absolute top-0 left-0">
+        <a href="/" class="text-white hover:underline text-lg sm:text-sm">Return to Home</a>
+        <a href="/database" class="text-white hover:underline text-lg sm:text-sm">Back to List</a>
+    </div>
+    <div class="w-full max-w-4xl bg-gray-800 p-6 rounded-lg shadow-lg mt-10">
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="flex-1">
+                <h1 id="q-text" class="text-2xl font-bold mb-2"></h1>
+                <p id="q-answer" class="mb-2 text-green-300"></p>
+                <p id="q-topic" class="mb-1 text-gray-300"></p>
+                <p id="q-lang" class="mb-1 text-gray-300"></p>
+                <p id="q-added" class="mb-1 text-gray-300"></p>
+                <p id="q-tags" class="mb-1 text-gray-300"></p>
+                <p id="q-review" class="mb-1 text-gray-300"></p>
+                <p id="q-incorrect" class="mb-1 text-gray-300"></p>
+                <p id="q-stats" class="mb-1 text-gray-300"></p>
+                <p id="q-asource" class="mb-1 text-gray-300"></p>
+                <div id="q-history" class="mb-2 text-gray-300 text-sm"></div>
+            </div>
+            <div class="lg:w-1/3 w-full">
+                <div id="media-container" class="bg-gray-700/40 border border-gray-700 rounded-lg p-3 flex items-center justify-center min-h-[200px] max-h-[320px] overflow-hidden">
+                    <p class="text-sm text-gray-400">No media attached</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+            <button id="approve-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded hidden" onclick="toggleApproval()"></button>
+            <button id="edit-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded hidden" onclick="startEdit()">Edit</button>
+            <button id="delete-btn" class="bg-red-500 hover:bg-red-700 text-white px-3 py-2 rounded hidden" onclick="deleteQuestion()">Delete</button>
+        </div>
+        <div id="edit-panel" class="mt-4 hidden">
+            <input id="edit-question" type="text" class="w-full p-2 mt-2 rounded text-black" placeholder="Question">
+            <input id="edit-answer" type="text" class="w-full p-2 mt-2 rounded text-black" placeholder="Answer">
+            <input id="edit-topic" type="text" class="w-full p-2 mt-2 rounded text-black" placeholder="Topic">
+            <input id="edit-language" type="text" class="w-full p-2 mt-2 rounded text-black" placeholder="Language">
+            <input id="edit-tags" type="text" class="w-full p-2 mt-2 rounded text-black" placeholder="Tags comma separated">
+            <div class="mt-2">
+                <label class="block text-left">Media:</label>
+                <input id="edit-media" type="file" class="w-full p-2 mt-1 bg-gray-700 text-white">
+                <label class="flex items-center gap-2 mt-2"><input id="remove-media" type="checkbox" class="h-5 w-5"> Remove existing media</label>
+            </div>
+            <label class="flex items-center gap-2 mt-2"><input id="edit-reviewed" type="checkbox" class="h-5 w-5"> Reviewed</label>
+            <div class="flex gap-2 mt-3">
+                <button onclick="saveEdit()" class="bg-green-500 hover:bg-green-700 text-white px-3 py-2 rounded">Save</button>
+                <button onclick="cancelEdit()" class="bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded">Cancel</button>
+            </div>
+            <p id="err" class="text-sm text-red-400 mt-2"></p>
+        </div>
+    </div>
+    <script>
+        const parts = window.location.pathname.split("/").filter(Boolean);
+        const questionId = parts[1] || parts[0];
+        let questionData = null;
+
+        async function loadQuestion() {
+            const resp = await fetch(`/questions/${questionId}`, { headers: { "Accept": "application/json" } });
+            if (!resp.ok) {
+                document.getElementById("q-text").textContent = "Question not found";
+                return;
+            }
+            questionData = await resp.json();
+            document.getElementById("q-text").textContent = questionData.question;
+            document.getElementById("q-answer").textContent = `Answer: ${questionData.answer}`;
+            document.getElementById("q-topic").textContent = `Topic: ${questionData.question_topic || "General"}`;
+            document.getElementById("q-lang").textContent = `Language: ${questionData.language || "-"}`;
+            document.getElementById("q-added").textContent = `Added by ${questionData.added_by} on ${questionData.added_at ? new Date(questionData.added_at).toLocaleDateString() : "-"}`;
+            document.getElementById("q-tags").textContent = `Tags: ${(questionData.tags || []).join(", ")}`;
+            document.getElementById("q-review").textContent = `Reviewed: ${questionData.review_status ? "Yes" : "No"}`;
+            document.getElementById("q-incorrect").textContent = `Incorrect answers: ${(questionData.incorrect_answers || []).join(", ") || "-"}`;
+            document.getElementById("q-stats").textContent = `Asked ${questionData.times_asked || 0} times | Correct: ${questionData.times_correct || 0} | Incorrect: ${questionData.times_incorrect || 0}`;
+            document.getElementById("q-asource").textContent = `Answer source: ${questionData.answer_source || "-"}`;
+            const history = questionData.update_history || [];
+            document.getElementById("q-history").textContent = history.length ? `Edits: ${history.length}` : "Edits: none";
+            renderMedia(questionData.media_path);
+            updateApproveButton();
+            document.getElementById("edit-btn").classList.remove("hidden");
+            document.getElementById("delete-btn").classList.remove("hidden");
+            document.getElementById("approve-btn").classList.remove("hidden");
+        }
+
+        function startEdit() {
+            document.getElementById("edit-panel").classList.remove("hidden");
+            document.getElementById("edit-question").value = questionData.question || "";
+            document.getElementById("edit-answer").value = questionData.answer || "";
+            document.getElementById("edit-topic").value = questionData.question_topic || "";
+            document.getElementById("edit-language").value = questionData.language || "";
+            document.getElementById("edit-tags").value = (questionData.tags || []).join(", ");
+            document.getElementById("edit-reviewed").checked = !!questionData.review_status;
+        }
+
+        function cancelEdit() {
+            document.getElementById("edit-panel").classList.add("hidden");
+        }
+
+        async function saveEdit() {
+            const formData = new FormData();
+            formData.append("question", document.getElementById("edit-question").value);
+            formData.append("answer", document.getElementById("edit-answer").value);
+            formData.append("question_topic", document.getElementById("edit-topic").value || "");
+            formData.append("language", document.getElementById("edit-language").value || "");
+            formData.append("tags", document.getElementById("edit-tags").value || "");
+            formData.append("review_status", document.getElementById("edit-reviewed").checked);
+            const fileInput = document.getElementById("edit-media");
+            if (fileInput.files.length > 0) {
+                formData.append("media", fileInput.files[0]);
+            }
+            if (document.getElementById("remove-media").checked) {
+                formData.append("remove_media", "1");
+            }
+            const resp = await fetch(`/questions/${questionId}`, {
+                method: "PUT",
+                body: formData
+            });
+            if (resp.ok) {
+                document.getElementById("err").textContent = "";
+                document.getElementById("edit-panel").classList.add("hidden");
+                loadQuestion();
+            } else {
+                const err = await resp.json().catch(() => ({}));
+                document.getElementById("err").textContent = err.error || "Update failed.";
+            }
+        }
+
+        async function toggleApproval() {
+            const resp = await fetch(`/questions/${questionId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ review_status: !questionData.review_status })
+            });
+            if (resp.ok) {
+                loadQuestion();
+            } else {
+                alert("Approval failed");
+            }
+        }
+
+        function renderMedia(url) {
+            const container = document.getElementById("media-container");
+            if (!container) return;
+            container.innerHTML = "";
+            if (!url) {
+                container.innerHTML = `<p class="text-sm text-gray-400">No media attached</p>`;
+                return;
+            }
+            const clean = url.split("?")[0].toLowerCase();
+            if (clean.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+                container.innerHTML = `<img src="${url}" alt="media" class="max-h-[300px] max-w-full object-contain rounded-lg shadow-md">`;
+            } else if (clean.match(/\.(mp4|webm)$/)) {
+                const ext = clean.endsWith("webm") ? "webm" : "mp4";
+                container.innerHTML = `<video controls class="w-full max-h-[300px] object-contain rounded-lg shadow-md"><source src="${url}" type="video/${ext}"></video>`;
+            } else if (clean.match(/\.(mp3|wav|ogg)$/)) {
+                let mime = "mpeg";
+                if (clean.endsWith("wav")) mime = "wav";
+                if (clean.endsWith("ogg")) mime = "ogg";
+                container.innerHTML = `<audio controls class="w-full"><source src="${url}" type="audio/${mime}"></audio>`;
+            } else {
+                container.innerHTML = `<a class="text-blue-400 underline" href="${url}" target="_blank">View media</a>`;
+            }
+        }
+
+        function updateApproveButton() {
+            const btn = document.getElementById("approve-btn");
+            const approved = !!questionData.review_status;
+            btn.textContent = approved ? "Reject" : "Approve";
+            btn.className = approved
+                ? "bg-blue-500 hover:bg-blue-700 text-white px-3 py-2 rounded"
+                : "bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded";
+        }
+
+        async function deleteQuestion() {
+            const ok = confirm("Delete this question?");
+            if (!ok) return;
+            const resp = await fetch(`/questions/${questionId}`, { method: "DELETE" });
+            if (resp.ok) {
+                window.location.href = "/database";
+            } else {
+                alert("Delete failed.");
+            }
+        }
+
+        loadQuestion();
+    </script>
+</body>
+</html>

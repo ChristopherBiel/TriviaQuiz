@@ -1,0 +1,173 @@
+import pytest
+from flask import Flask
+from unittest.mock import MagicMock
+
+from backend.api.questions import questions_bp
+from backend.api.questions import _serialize_question
+from backend.models.question import QuestionModel
+
+
+class DummyQuestion:
+    def __init__(self, identifier):
+        self.identifier = identifier
+
+    def model_dump(self, mode="json"):
+        return {"id": self.identifier}
+
+
+@pytest.fixture
+def app():
+    app = Flask(__name__)
+    app.secret_key = "test"
+    app.register_blueprint(questions_bp)
+    return app
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+def _login_session(client, role="user"):
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["username"] = "tester"
+        sess["role"] = role
+
+
+def test_list_questions_invalid_limit(client):
+    resp = client.get("/questions/?limit=abc")
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
+
+
+def test_list_questions_pagination_and_filters(client, monkeypatch):
+    mock_get_all = MagicMock(return_value=([DummyQuestion("2"), DummyQuestion("3")], "token-123"))
+    mock_count = MagicMock(return_value=3)
+    monkeypatch.setattr("backend.api.questions.get_all_questions", mock_get_all)
+    monkeypatch.setattr("backend.api.questions.count_questions", mock_count)
+
+    resp = client.get("/questions/?limit=2&offset=1&tags=a,b&review_status=true&language=en")
+
+    assert resp.status_code == 200
+    mock_get_all.assert_called_once_with(
+        {"tags": ["a", "b"], "review_status": True, "language": "en"},
+        limit=2, offset=1, page_token=None, include_token=True,
+    )
+    mock_count.assert_called_once_with({"tags": ["a", "b"], "review_status": True, "language": "en"})
+
+    data = resp.get_json()
+    assert data["pagination"] == {"limit": 2, "offset": 1, "count": 2, "total": 3, "next_page_token": "token-123"}
+    assert [item["id"] for item in data["items"]] == ["2", "3"]
+
+
+def test_create_question_validation(client):
+    _login_session(client)
+    resp = client.post("/questions/", json={"question": "Q", "answer": "A"})
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
+
+
+def test_create_question_success(client, monkeypatch):
+    mock_create = MagicMock(return_value=DummyQuestion("123"))
+    monkeypatch.setattr("backend.api.questions.create_question", mock_create)
+
+    payload = {
+        "question": "Q",
+        "answer": "A",
+        "added_by": "tester",
+        "tags": "tag1, tag2",
+        "incorrect_answers": "x,y",
+        "review_status": "yes",
+    }
+
+    _login_session(client, role="user")
+    resp = client.post("/questions/", json=payload)
+
+    assert resp.status_code == 201
+    mock_create.assert_called_once_with({
+        "question": "Q",
+        "answer": "A",
+        "added_by": "tester",
+        "tags": ["tag1", "tag2"],
+        "incorrect_answers": ["x", "y"],
+        "review_status": True,
+    })
+    assert resp.get_json()["id"] == "123"
+
+
+def test_update_question_invalid_fields(client):
+    _login_session(client)
+    resp = client.put("/questions/any-id", json={"unknown": "value"})
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
+
+
+def test_update_question_rejects_topic_change(client, monkeypatch):
+    _login_session(client)
+    monkeypatch.setattr(
+        "backend.api.questions.update_question",
+        MagicMock(side_effect=ValueError("question_topic cannot be updated after creation"))
+    )
+    resp = client.put("/questions/any-id", json={"question_topic": "New"})
+    assert resp.status_code == 400
+    assert "question_topic" in resp.get_json()["error"]
+
+
+def test_update_requires_auth(client):
+    resp = client.put("/questions/any-id", json={"question": "ok"})
+    assert resp.status_code == 403
+    assert resp.get_json()["error"] == "Unauthorized"
+
+
+def test_update_enforces_owner(client, monkeypatch):
+    mock_update = MagicMock(return_value=None)
+    monkeypatch.setattr("backend.api.questions.update_question", mock_update)
+    _login_session(client, role="user")
+
+    resp = client.put("/questions/any-id", json={"question": "ok"})
+
+    assert resp.status_code == 404
+    assert resp.get_json()["error"] == "Question not found or not permitted"
+    mock_update.assert_called_once_with("any-id", {"question": "ok"}, "tester", "user")
+
+
+def test_delete_requires_admin(client):
+    _login_session(client, role="user")
+    resp = client.delete("/questions/any-id")
+    assert resp.status_code == 403
+    assert resp.get_json()["error"] == "Forbidden"
+
+
+def test_delete_question_authorized(client, monkeypatch):
+    mock_delete = MagicMock(return_value=True)
+    monkeypatch.setattr("backend.api.questions.delete_question", mock_delete)
+    _login_session(client, role="admin")
+
+    resp = client.delete("/questions/any-id")
+
+    assert resp.status_code == 204
+    mock_delete.assert_called_once_with("any-id")
+
+
+def test_random_question_invalid_filters(client):
+    resp = client.post("/questions/random", json={"filters": {"tags": 123}})
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
+
+
+def test_question_metadata_endpoint(client, monkeypatch):
+    monkeypatch.setattr(
+        "backend.api.questions.get_question_metadata",
+        lambda: {"languages": ["en"], "topics": ["general"], "tags": ["history"]}
+    )
+    resp = client.get("/questions/metadata")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"languages": ["en"], "topics": ["general"], "tags": ["history"]}
+
+
+def test_serialize_includes_id_alias():
+    q = QuestionModel(question="Q", answer="A", added_by="tester")
+    data = _serialize_question(q)
+    assert data["question_id"] == q.question_id
+    assert data["id"] == q.question_id
