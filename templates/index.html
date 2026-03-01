@@ -93,9 +93,9 @@
                     const cleanUrl = mediaPath.split("?")[0];
                     const fileType = cleanUrl.split(".").pop().toLowerCase();
                     if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<img src="${mediaPath}" class="max-w-full max-h-full object-contain rounded-xl" />`;
+                        mediaContainer.innerHTML = `<img src="${mediaPath}" class="max-w-full max-h-[280px] object-contain rounded-xl" />`;
                     } else if (["mp4", "webm"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<video controls class="max-w-full max-h-full object-contain rounded-xl"><source src="${mediaPath}" type="video/${fileType}"></video>`;
+                        mediaContainer.innerHTML = `<video controls class="max-w-full max-h-[280px] object-contain rounded-xl"><source src="${mediaPath}" type="video/${fileType}"></video>`;
                     } else if (["mp3", "wav", "ogg"].includes(fileType)) {
                         mediaContainer.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${mediaPath}" type="audio/${fileType === "mp3" ? "mpeg" : fileType}"></audio></div>`;
                     } else {
@@ -242,24 +242,30 @@
     </aside>
 
     <!-- Main content -->
-    <main class="pt-14 md:pt-0 md:pl-64 min-h-[100dvh] flex items-center justify-center px-4 py-6">
+    <main class="pt-14 md:pt-0 md:pl-64 min-h-[100dvh] flex items-center justify-center px-4 pt-6 pb-28">
         <div class="w-full max-w-lg">
             <div class="bg-card border border-border rounded-2xl p-6 md:p-8 flex flex-col gap-5">
                 <div>
                     <p id="question" class="text-xl md:text-2xl font-semibold leading-relaxed">Loading...</p>
                 </div>
-                <div id="media" class="flex justify-center items-center max-h-[280px] overflow-hidden rounded-xl empty:hidden"></div>
+                <div id="media" class="flex justify-center items-center rounded-xl empty:hidden"></div>
                 <div id="answer-zone" class="border border-dashed border-border rounded-xl p-4 text-center transition-all duration-300">
                     <p id="answer-label" class="text-xs text-emerald-500/70 uppercase tracking-wide mb-1 hidden">Answer</p>
                     <p id="answer" class="text-lg text-muted">???</p>
                 </div>
-                <button id="main-btn" onclick="handleMainButton()"
-                    class="w-full py-3.5 rounded-xl font-semibold text-base transition-all duration-200 bg-warning hover:bg-warning-hover text-gray-900">
-                    Reveal Answer
-                </button>
             </div>
         </div>
     </main>
+
+    <!-- Fixed action button -->
+    <div class="fixed bottom-0 left-0 md:left-64 right-0 px-4 pb-6 pt-4 bg-gradient-to-t from-surface to-transparent">
+        <div class="max-w-lg mx-auto">
+            <button id="main-btn" onclick="handleMainButton()"
+                class="w-full py-3.5 rounded-xl font-semibold text-base transition-all duration-200 bg-warning hover:bg-warning-hover text-gray-900">
+                Reveal Answer
+            </button>
+        </div>
+    </div>
 
     <script>
         async function checkLoginStatus() {
