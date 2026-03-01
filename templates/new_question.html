@@ -62,20 +62,28 @@
                 <p class="text-xs text-muted mt-1.5">Comma-separated wrong answers for multiple-choice mode.</p>
             </div>
 
-            <!-- Sources -->
+            <!-- Event + Sources -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Question Source</label>
-                    <input name="question_source" type="text" placeholder="e.g. PubQuiz 01.01.21"
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Event</label>
+                    <select name="event_id" id="event-select"
+                        class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                        <option value="">None</option>
+                    </select>
+                    <p class="text-xs text-muted mt-1.5">Link to an event for replay.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Source Note</label>
+                    <input name="source_note" type="text" placeholder="e.g. PubQuiz 01.01.21"
                         class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
                     <p class="text-xs text-muted mt-1.5">Where you found this question.</p>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Answer Source</label>
-                    <input name="answer_source" type="text" placeholder="e.g. Wikipedia"
-                        class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                    <p class="text-xs text-muted mt-1.5">Where this answer can be verified.</p>
-                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Answer Source</label>
+                <input name="answer_source" type="text" placeholder="e.g. Wikipedia"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <p class="text-xs text-muted mt-1.5">Where this answer can be verified.</p>
             </div>
 
             <!-- Media upload -->
@@ -159,6 +167,21 @@
         }
     });
 
-    document.addEventListener("DOMContentLoaded", initUser);
+    async function loadEvents() {
+        try {
+            const resp = await fetch("/events/?limit=200");
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const sel = document.getElementById("event-select");
+            (data.items || []).forEach(e => {
+                const opt = document.createElement("option");
+                opt.value = e.event_id;
+                opt.textContent = e.name + (e.date ? ` (${e.date})` : "");
+                sel.appendChild(opt);
+            });
+        } catch (e) { console.error("Could not load events", e); }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => { initUser(); loadEvents(); });
 </script>
 {% endblock %}

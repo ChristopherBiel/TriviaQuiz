@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
+import os
 import uuid
 from urllib.parse import quote, urlparse
 
@@ -14,6 +15,11 @@ from backend.storage.base import MediaStore
 
 class MinioMediaStore(MediaStore):
     def __init__(self) -> None:
+        # An empty AWS_PROFILE (e.g. from .env) causes boto3 to crash
+        # with ProfileNotFound. Clear it before creating the S3 client.
+        if os.environ.get("AWS_PROFILE") == "":
+            os.environ.pop("AWS_PROFILE", None)
+
         settings = get_settings()
         endpoint = settings.minio_endpoint
         if endpoint and "://" not in endpoint:

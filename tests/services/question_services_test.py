@@ -187,12 +187,12 @@ def test_update_question_remove_media(mock_stores, sample_question):
     mock_stores.question_store.update.assert_called_once_with(sample_question.question_id, {"media_path": None, "updated_by": "user123"})
 
 def test_delete_question(mock_stores, sample_question):
-    """Test deleting a question."""
-    sample_question_value = sample_question.model_dump()
+    """Test deleting a question returns success dict."""
+    mock_stores.question_store.get_by_id.return_value = sample_question
     mock_stores.question_store.delete.return_value = True
-    success = delete_question(sample_question_value["question_id"])
-    assert success is True
-    mock_stores.question_store.delete.assert_called_once_with(sample_question_value["question_id"])
+    result = delete_question(sample_question.question_id)
+    assert result["success"] is True
+    mock_stores.question_store.delete.assert_called_once_with(sample_question.question_id)
 
 def test_delete_question_with_media(mock_stores, sample_question):
     """Test deleting a question removes its media from S3."""
@@ -200,18 +200,39 @@ def test_delete_question_with_media(mock_stores, sample_question):
     mock_stores.question_store.get_by_id.return_value = sample_question
     mock_stores.question_store.delete.return_value = True
 
-    success = delete_question(sample_question.question_id)
+    result = delete_question(sample_question.question_id)
 
-    assert success is True
+    assert result["success"] is True
     mock_stores.media_store.delete.assert_called_once_with(sample_question.media_path)
     mock_stores.question_store.delete.assert_called_once_with(sample_question.question_id)
 
 def test_delete_question_not_found(mock_stores):
     """Test deleting a question that does not exist."""
-    mock_stores.question_store.delete.return_value = False
-    success = delete_question("nonexistent-id")
-    assert success is False
-    mock_stores.question_store.delete.assert_called_once_with("nonexistent-id")
+    mock_stores.question_store.get_by_id.return_value = None
+    result = delete_question("nonexistent-id")
+    assert result["success"] is False
+
+def test_delete_question_linked_to_event(mock_stores, sample_question):
+    """Test deleting a question linked to an event returns event_id when not confirmed."""
+    sample_question = sample_question.model_copy(update={"event_id": "event-1"})
+    mock_stores.question_store.get_by_id.return_value = sample_question
+    result = delete_question(sample_question.question_id)
+    assert result["success"] is False
+    assert result["linked_event_id"] == "event-1"
+    mock_stores.question_store.delete.assert_not_called()
+
+def test_delete_question_linked_confirmed(mock_stores, sample_question, monkeypatch):
+    """Test deleting a question linked to an event with confirm=True proceeds."""
+    sample_question = sample_question.model_copy(update={"event_id": "event-1"})
+    mock_stores.question_store.get_by_id.return_value = sample_question
+    mock_stores.question_store.delete.return_value = True
+    # Mock the event store used inside delete_question (lazy import from backend.storage)
+    event_store = MagicMock()
+    event_store.get_by_id.return_value = None
+    monkeypatch.setattr("backend.storage.factory.get_event_store", lambda: event_store)
+    monkeypatch.setattr("backend.storage.get_event_store", lambda: event_store)
+    result = delete_question(sample_question.question_id, confirm=True)
+    assert result["success"] is True
 
 def test_get_random_question_filtered(mock_stores, sample_question):
     """Test fetching a random question delegates to store.random_reviewed with correct filters."""

@@ -46,6 +46,28 @@ def get_users():
     users = get_all_users()
     return jsonify(users)
 
+# Serve the events list page (public)
+@routes_bp.route("/events")
+def events_page():
+    return render_template("events.html")
+
+# Serve the event detail page (public)
+@routes_bp.route("/events/<event_id>")
+def event_detail_page(event_id):
+    return render_template("event_detail.html", event_id=event_id)
+
+# Serve the replay page (public)
+@routes_bp.route("/events/<event_id>/replay")
+def replay_event_page(event_id):
+    return render_template("replay_event.html", event_id=event_id)
+
+# Serve the add questions to event page (login required)
+@routes_bp.route("/events/<event_id>/add-questions")
+def event_add_questions_page(event_id):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    return render_template("event_add_questions.html", event_id=event_id)
+
 # Check the login status
 @routes_bp.route("/login-status", methods=["GET"])
 def check_login():

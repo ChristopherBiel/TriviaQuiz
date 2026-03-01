@@ -10,6 +10,7 @@ from backend.models.question import QuestionModel
 class DummyQuestion:
     def __init__(self, identifier):
         self.identifier = identifier
+        self.event_id = None
 
     def model_dump(self, mode="json"):
         return {"id": self.identifier}
@@ -133,22 +134,51 @@ def test_update_enforces_owner(client, monkeypatch):
     mock_update.assert_called_once_with("any-id", {"question": "ok"}, "tester", "user")
 
 
-def test_delete_requires_admin(client):
-    _login_session(client, role="user")
+def test_delete_requires_login(client):
     resp = client.delete("/questions/any-id")
     assert resp.status_code == 403
-    assert resp.get_json()["error"] == "Forbidden"
+    assert resp.get_json()["error"] == "Unauthorized"
 
 
-def test_delete_question_authorized(client, monkeypatch):
-    mock_delete = MagicMock(return_value=True)
-    monkeypatch.setattr("backend.api.questions.delete_question", mock_delete)
+def test_delete_question_by_admin(client, monkeypatch):
+    q = QuestionModel(question_id="any-id", question="Q", answer="A", added_by="someone")
+    monkeypatch.setattr("backend.api.questions.delete_question", MagicMock(return_value={"success": True}))
+    monkeypatch.setattr("backend.api.questions.get_question_by_id", MagicMock(return_value=q))
     _login_session(client, role="admin")
 
     resp = client.delete("/questions/any-id")
-
     assert resp.status_code == 204
-    mock_delete.assert_called_once_with("any-id")
+
+
+def test_delete_question_by_owner(client, monkeypatch):
+    q = QuestionModel(question_id="any-id", question="Q", answer="A", added_by="tester")
+    monkeypatch.setattr("backend.api.questions.delete_question", MagicMock(return_value={"success": True}))
+    monkeypatch.setattr("backend.api.questions.get_question_by_id", MagicMock(return_value=q))
+    _login_session(client, role="user")
+
+    resp = client.delete("/questions/any-id")
+    assert resp.status_code == 204
+
+
+def test_delete_question_forbidden_non_owner(client, monkeypatch):
+    q = QuestionModel(question_id="any-id", question="Q", answer="A", added_by="someone_else")
+    monkeypatch.setattr("backend.api.questions.get_question_by_id", MagicMock(return_value=q))
+    _login_session(client, role="user")
+
+    resp = client.delete("/questions/any-id")
+    assert resp.status_code == 403
+
+
+def test_delete_question_linked_to_event(client, monkeypatch):
+    q = QuestionModel(question_id="any-id", question="Q", answer="A", added_by="tester")
+    monkeypatch.setattr("backend.api.questions.get_question_by_id", MagicMock(return_value=q))
+    monkeypatch.setattr("backend.api.questions.delete_question",
+                        MagicMock(return_value={"success": False, "linked_event_id": "event-1"}))
+    _login_session(client, role="user")
+
+    resp = client.delete("/questions/any-id")
+    assert resp.status_code == 409
+    assert resp.get_json()["event_id"] == "event-1"
 
 
 def test_random_question_invalid_filters(client):

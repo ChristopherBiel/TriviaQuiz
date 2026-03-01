@@ -20,7 +20,8 @@ class QuestionModel(BaseModel):
     added_by: str = Field(..., description="Username of the person who added the question")
     added_at: datetime = Field(default_factory=_utcnow, description="Timestamp when the question was added")
     question_topic: Optional[str] = Field(None, description="Topic/category of the question (for categorization, very broad)")
-    question_source: Optional[str] = Field(None, description="Source of the question (e.g. an event)")
+    event_id: Optional[str] = Field(None, description="Event this question belongs to")
+    source_note: Optional[str] = Field(None, description="Free-text provenance note (e.g. where the question came from)")
     answer_source: Optional[str] = Field(None, description="Source of the answer (e.g. a book or website)")
 
     incorrect_answers: List[str] = Field(default_factory=list, description="List of incorrect answers for the question")

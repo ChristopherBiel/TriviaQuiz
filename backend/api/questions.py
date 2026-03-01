@@ -69,7 +69,8 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
         "answer",
         "added_by",
         "question_topic",
-        "question_source",
+        "event_id",
+        "source_note",
         "answer_source",
         "incorrect_answers",
         "language",
@@ -86,7 +87,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
     for key, value in data.items():
         if key not in allowed_fields:
             continue
-        if key in {"question", "answer", "added_by", "question_topic", "question_source", "answer_source", "language", "media_path"}:
+        if key in {"question", "answer", "added_by", "question_topic", "event_id", "source_note", "answer_source", "language", "media_path"}:
             if value is not None and not isinstance(value, str):
                 return None, f"{key} must be a string"
             sanitized[key] = value.strip() if isinstance(value, str) else value
@@ -186,6 +187,12 @@ def create_new_question():
     new_question = create_question(payload)
     if not new_question:
         return jsonify({"error": "Failed to create question"}), 500
+
+    # Auto-add to event if event_id was provided
+    if new_question.event_id:
+        from backend.services.event_service import add_question_to_event
+        add_question_to_event(new_question.event_id, new_question.question_id)
+
     return jsonify(_serialize_question(new_question)), 201
 
 
@@ -224,13 +231,29 @@ def update_existing_question(question_id):
 
 @questions_bp.route("/<question_id>", methods=["DELETE"])
 def delete_existing_question(question_id):
-    """Delete a question."""
-    auth_error = _require_role(role="admin")
+    """Delete a question. Creator or admin can delete."""
+    auth_error = _require_role()
     if auth_error:
         return auth_error
 
-    success = delete_question(question_id)
-    if success:
+    # Check ownership: creator or admin
+    question = get_question_by_id(question_id)
+    if not question:
+        return jsonify({"error": "Question not found"}), 404
+
+    username = session.get("username")
+    role = session.get("role")
+    if question.added_by != username and role != "admin":
+        return jsonify({"error": "Forbidden"}), 403
+
+    confirm = request.args.get("confirm", "").lower() in ("true", "1", "yes")
+    result = delete_question(question_id, confirm=confirm)
+    if result.get("linked_event_id"):
+        return jsonify({
+            "error": "Question is linked to an event",
+            "event_id": result["linked_event_id"],
+        }), 409
+    if result.get("success"):
         return '', 204
     return jsonify({"error": "Question not found"}), 404
 

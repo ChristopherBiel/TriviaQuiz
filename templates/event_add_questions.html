@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Add Questions to Event{% endblock %}
+{% block mobile_title %}ADD QUESTIONS{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-4xl mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="/events/{{ event_id }}" class="text-muted hover:text-white transition-colors">&larr;</a>
+        <h1 class="text-2xl font-bold">Add Questions to Event</h1>
+    </div>
+
+    <!-- Add existing questions -->
+    <div class="bg-card border border-border rounded-xl p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-3">Add Existing Questions</h2>
+        <div class="flex gap-2 mb-4">
+            <input id="search-q" type="text" placeholder="Search questions..."
+                class="flex-1 bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <button onclick="searchQuestions()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Search</button>
+        </div>
+        <div id="search-results" class="space-y-1"></div>
+    </div>
+
+    <!-- Bulk create new questions -->
+    <div class="bg-card border border-border rounded-xl p-6">
+        <h2 class="text-lg font-semibold mb-3">Create New Questions</h2>
+        <div id="bulk-rows" class="space-y-3">
+            <!-- rows added dynamically -->
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="addRow()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">+ Add Row</button>
+            <button onclick="submitBulk()" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Submit All</button>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const EVENT_ID = "{{ event_id }}";
+    let rowCount = 0;
+
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function addRow() {
+        rowCount++;
+        const container = document.getElementById("bulk-rows");
+        const div = document.createElement("div");
+        div.className = "grid grid-cols-1 sm:grid-cols-12 gap-2 items-start";
+        div.id = `row-${rowCount}`;
+        div.innerHTML = `
+            <input type="text" placeholder="Question *" data-field="question"
+                class="sm:col-span-5 bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input type="text" placeholder="Answer *" data-field="answer"
+                class="sm:col-span-4 bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input type="text" placeholder="Topic" data-field="question_topic"
+                class="sm:col-span-2 bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <button type="button" onclick="this.parentElement.remove()" class="sm:col-span-1 text-danger hover:text-danger-hover text-sm py-2.5 transition-colors">Remove</button>
+        `;
+        container.appendChild(div);
+    }
+
+    async function submitBulk() {
+        const rows = document.querySelectorAll("[id^='row-']");
+        const created = [];
+        for (const row of rows) {
+            const q = row.querySelector("[data-field='question']").value.trim();
+            const a = row.querySelector("[data-field='answer']").value.trim();
+            const t = row.querySelector("[data-field='question_topic']").value.trim();
+            if (!q || !a) continue;
+
+            const body = { question: q, answer: a, event_id: EVENT_ID };
+            if (t) body.question_topic = t;
+
+            const resp = await fetch("/questions/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                created.push(data.question_id || data.id);
+                row.remove();
+            }
+        }
+
+        if (created.length) {
+            alert(`${created.length} question(s) created and added to event.`);
+        } else {
+            alert("No questions created. Fill in at least question and answer.");
+        }
+    }
+
+    async function searchQuestions() {
+        const q = document.getElementById("search-q").value.trim();
+        const params = new URLSearchParams({ limit: 20, review_status: true });
+        const resp = await fetch(`/questions/?${params.toString()}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        let items = data.items || [];
+        if (q) {
+            items = items.filter(i => (i.question || "").toLowerCase().includes(q.toLowerCase()));
+        }
+        const container = document.getElementById("search-results");
+        if (!items.length) {
+            container.innerHTML = '<p class="text-sm text-muted">No matching questions found.</p>';
+            return;
+        }
+        container.innerHTML = items.map(i => {
+            const id = i.question_id || i.id;
+            return `<div class="flex items-center justify-between bg-card-alt border border-border rounded-lg px-3 py-2">
+                <span class="text-sm text-gray-300 truncate mr-3">${escHtml(i.question)} &mdash; <span class="text-muted">${escHtml(i.answer)}</span></span>
+                <button onclick="addExisting('${id}', this)" class="shrink-0 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-medium px-3 py-1.5 rounded-md transition-colors">Add</button>
+            </div>`;
+        }).join("");
+    }
+
+    async function addExisting(qid, btn) {
+        const resp = await fetch(`/events/${EVENT_ID}/questions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question_ids: [qid] }),
+        });
+        if (resp.ok) {
+            btn.textContent = "Added";
+            btn.disabled = true;
+            btn.classList.replace("text-primary", "text-success");
+        } else {
+            alert("Failed to add question.");
+        }
+    }
+
+    // Start with 3 empty rows
+    addRow(); addRow(); addRow();
+</script>
+{% endblock %}

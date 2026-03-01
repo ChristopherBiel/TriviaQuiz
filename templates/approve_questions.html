@@ -54,7 +54,10 @@
             <input id="edit-answer" type="text" placeholder="Answer" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
             <input id="edit-added-by" type="text" placeholder="Added by" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
             <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-            <input id="edit-qsource" type="text" placeholder="Question Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <select id="edit-event" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <option value="">Event (optional)</option>
+            </select>
+            <input id="edit-source-note" type="text" placeholder="Source Note (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-asource" type="text" placeholder="Answer Source (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
@@ -201,7 +204,8 @@
         document.getElementById("edit-answer").value = q.answer || "";
         document.getElementById("edit-added-by").value = q.added_by || "";
         document.getElementById("edit-topic").value = q.question_topic || "";
-        document.getElementById("edit-qsource").value = q.question_source || "";
+        document.getElementById("edit-event").value = q.event_id || "";
+        document.getElementById("edit-source-note").value = q.source_note || "";
         document.getElementById("edit-asource").value = q.answer_source || "";
         document.getElementById("edit-incorrect").value = (q.incorrect_answers || []).join(", ");
         document.getElementById("edit-tags").value = (q.tags || []).join(", ");
@@ -223,7 +227,8 @@
             answer: document.getElementById("edit-answer").value,
             added_by: document.getElementById("edit-added-by").value,
             question_topic: document.getElementById("edit-topic").value || null,
-            question_source: document.getElementById("edit-qsource").value || null,
+            event_id: document.getElementById("edit-event").value || null,
+            source_note: document.getElementById("edit-source-note").value || null,
             answer_source: document.getElementById("edit-asource").value || null,
             incorrect_answers: document.getElementById("edit-incorrect").value.split(",").map(s => s.trim()).filter(Boolean),
             tags: document.getElementById("edit-tags").value.split(",").map(s => s.trim()).filter(Boolean),
@@ -271,6 +276,22 @@
         });
     }
 
+    async function loadEventOptions() {
+        try {
+            const resp = await fetch("/events/?limit=200");
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const sel = document.getElementById("edit-event");
+            (data.items || []).forEach(e => {
+                const opt = document.createElement("option");
+                opt.value = e.event_id;
+                opt.textContent = e.name;
+                sel.appendChild(opt);
+            });
+        } catch (e) {}
+    }
+
+    loadEventOptions();
     loadQuestions();
 </script>
 {% endblock %}

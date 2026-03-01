@@ -10,12 +10,15 @@ def _utcnow() -> datetime:
 from sqlalchemy import (
     Boolean,
     Column,
+    Date as sa_Date,
     DateTime,
+    Float,
     Index,
     Integer,
     String,
     Text,
     create_engine,
+    desc,
     func,
     or_,
     select,
@@ -27,9 +30,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import JSONB
 
 from backend.core.settings import get_settings
+from backend.models.event import EventModel
 from backend.models.question import QuestionModel
+from backend.models.replay import ReplayAttemptModel
 from backend.models.user import UserModel
-from backend.storage.base import QuestionStore, UserStore
+from backend.storage.base import EventStore, QuestionStore, ReplayStore, UserStore
 
 Base = declarative_base()
 
@@ -43,7 +48,8 @@ class QuestionRecord(Base):
     added_by = Column(String, nullable=False)
     added_at = Column(DateTime, nullable=False, default=_utcnow)
     question_topic = Column(String)
-    question_source = Column(String)
+    event_id = Column(String)
+    source_note = Column(String)
     answer_source = Column(String)
 
     incorrect_answers = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
@@ -84,6 +90,41 @@ class UserRecord(Base):
     updated_at = Column(DateTime, nullable=False, default=_utcnow)
     last_login_at = Column(DateTime)
     last_login_ip = Column(String)
+
+
+class EventRecord(Base):
+    __tablename__ = "events"
+
+    event_id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    date = Column(sa_Date)
+    location = Column(String)
+    team_score = Column(Float)
+    best_score = Column(Float)
+    max_score = Column(Float)
+    description = Column(Text)
+    question_ids = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        Index("ix_events_name", "name"),
+        Index("ix_events_created_by", "created_by"),
+    )
+
+
+class ReplayRecord(Base):
+    __tablename__ = "event_replays"
+
+    replay_id = Column(String, primary_key=True)
+    event_id = Column(String, nullable=False)
+    user_id = Column(String, nullable=True)
+    display_name = Column(String, nullable=True)
+    score = Column(Integer, nullable=False)
+    total = Column(Integer, nullable=False)
+    answers = Column(JSONB, nullable=False)
+    completed_at = Column(DateTime, nullable=False, default=_utcnow)
 
 
 def _build_url() -> URL | str:
@@ -145,7 +186,8 @@ def _question_from_record(record: QuestionRecord) -> QuestionModel:
         added_by=record.added_by,
         added_at=record.added_at,
         question_topic=record.question_topic,
-        question_source=record.question_source,
+        event_id=record.event_id,
+        source_note=record.source_note,
         answer_source=record.answer_source,
         incorrect_answers=list(record.incorrect_answers or []),
         times_asked=record.times_asked,
@@ -217,7 +259,8 @@ class PostgresQuestionStore(QuestionStore):
             added_by=question.added_by,
             added_at=question.added_at,
             question_topic=question.question_topic,
-            question_source=question.question_source,
+            event_id=question.event_id,
+            source_note=question.source_note,
             answer_source=question.answer_source,
             incorrect_answers=list(question.incorrect_answers or []),
             times_asked=question.times_asked,
@@ -401,3 +444,185 @@ class PostgresUserStore(UserStore):
             query = select(UserRecord).where(UserRecord.reset_token == token)
             record = session.execute(query).scalars().first()
             return _user_from_record(record) if record else None
+
+
+# ---------------------------------------------------------------------------
+# Event helpers
+# ---------------------------------------------------------------------------
+
+def _event_from_record(record: EventRecord) -> EventModel:
+    return EventModel(
+        event_id=record.event_id,
+        name=record.name,
+        date=record.date,
+        location=record.location,
+        team_score=record.team_score,
+        best_score=record.best_score,
+        max_score=record.max_score,
+        description=record.description,
+        question_ids=list(record.question_ids or []),
+        created_by=record.created_by,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _replay_from_record(record: ReplayRecord) -> ReplayAttemptModel:
+    return ReplayAttemptModel(
+        replay_id=record.replay_id,
+        event_id=record.event_id,
+        user_id=record.user_id,
+        display_name=record.display_name,
+        score=record.score,
+        total=record.total,
+        answers=list(record.answers or []),
+        completed_at=record.completed_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PostgresEventStore
+# ---------------------------------------------------------------------------
+
+class PostgresEventStore(EventStore):
+    def add(self, event: EventModel) -> bool:
+        record = EventRecord(
+            event_id=event.event_id,
+            name=event.name,
+            date=event.date,
+            location=event.location,
+            team_score=event.team_score,
+            best_score=event.best_score,
+            max_score=event.max_score,
+            description=event.description,
+            question_ids=list(event.question_ids or []),
+            created_by=event.created_by,
+            created_at=event.created_at,
+            updated_at=event.updated_at,
+        )
+        with session_scope() as session:
+            session.add(record)
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                return False
+
+    def get_by_id(self, event_id: str) -> EventModel | None:
+        with session_scope() as session:
+            record = session.get(EventRecord, event_id)
+            return _event_from_record(record) if record else None
+
+    def list(
+        self,
+        filters: dict | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[EventModel], int]:
+        with session_scope() as session:
+            query = select(EventRecord)
+            count_query = select(func.count(EventRecord.event_id))
+
+            if filters:
+                for key, value in filters.items():
+                    if value is None:
+                        continue
+                    col = getattr(EventRecord, key, None)
+                    if col is not None:
+                        query = query.filter(col == value)
+                        count_query = count_query.filter(col == value)
+
+            total = session.execute(count_query).scalar() or 0
+            query = query.order_by(EventRecord.created_at.desc(), EventRecord.event_id)
+            query = query.offset(offset).limit(limit)
+            records = session.execute(query).scalars().all()
+            return [_event_from_record(r) for r in records], total
+
+    def update(self, event_id: str, updates: dict) -> EventModel | None:
+        with session_scope(commit=True) as session:
+            record = session.get(EventRecord, event_id)
+            if not record:
+                return None
+            for key, value in updates.items():
+                if hasattr(record, key):
+                    setattr(record, key, value)
+            record.updated_at = _utcnow()
+            session.add(record)
+            return _event_from_record(record)
+
+    def delete(self, event_id: str) -> bool:
+        with session_scope(commit=True) as session:
+            record = session.get(EventRecord, event_id)
+            if not record:
+                return False
+            session.delete(record)
+            return True
+
+
+# ---------------------------------------------------------------------------
+# PostgresReplayStore
+# ---------------------------------------------------------------------------
+
+class PostgresReplayStore(ReplayStore):
+    def save(self, replay: ReplayAttemptModel) -> bool:
+        record = ReplayRecord(
+            replay_id=replay.replay_id,
+            event_id=replay.event_id,
+            user_id=replay.user_id,
+            display_name=replay.display_name,
+            score=replay.score,
+            total=replay.total,
+            answers=list(replay.answers or []),
+            completed_at=replay.completed_at,
+        )
+        with session_scope() as session:
+            session.add(record)
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                return False
+
+    def get_by_id(self, replay_id: str) -> ReplayAttemptModel | None:
+        with session_scope() as session:
+            record = session.get(ReplayRecord, replay_id)
+            return _replay_from_record(record) if record else None
+
+    def list_by_event(
+        self, event_id: str, limit: int = 50, offset: int = 0
+    ) -> list[ReplayAttemptModel]:
+        with session_scope() as session:
+            query = (
+                select(ReplayRecord)
+                .where(ReplayRecord.event_id == event_id)
+                .order_by(desc(ReplayRecord.score), ReplayRecord.completed_at)
+                .offset(offset)
+                .limit(limit)
+            )
+            records = session.execute(query).scalars().all()
+            return [_replay_from_record(r) for r in records]
+
+    def list_by_user(self, user_id: str) -> list[ReplayAttemptModel]:
+        with session_scope() as session:
+            query = (
+                select(ReplayRecord)
+                .where(ReplayRecord.user_id == user_id)
+                .order_by(ReplayRecord.completed_at.desc())
+            )
+            records = session.execute(query).scalars().all()
+            return [_replay_from_record(r) for r in records]
+
+    def get_leaderboard(
+        self, event_id: str, limit: int = 10
+    ) -> list[ReplayAttemptModel]:
+        with session_scope() as session:
+            query = (
+                select(ReplayRecord)
+                .where(ReplayRecord.event_id == event_id)
+                .order_by(desc(ReplayRecord.score), ReplayRecord.completed_at)
+                .limit(limit)
+            )
+            records = session.execute(query).scalars().all()
+            return [_replay_from_record(r) for r in records]

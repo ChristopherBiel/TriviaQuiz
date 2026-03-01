@@ -1,21 +1,215 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Replay Event</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<!--Have the user select an event from a dropdown menu, then press start to replay the event -->
-<body>
-    <h1 class="text-4xl font-bold mb-6">Replay Event</h1>
-    <div class="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white text-center p-4">
-        <form id="replay-form" class="max-w-2xl w-full bg-gray-800 p-6 rounded-lg shadow-lg">
-            <label for="event-select" class="text-gray-400 mt-2 block text-left">Select Event:</label>
-            <select id="event-select" name="event" class="w-full p-2 mt-2 rounded text-black">
-                <!-- Options will be populated by JavaScript -->
-            </select>
-            <button type="submit" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Start Replay</button>
-        </form>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Replay Event{% endblock %}
+{% block mobile_title %}REPLAY{% endblock %}
+
+{% block content %}
+<main class="min-h-[calc(100dvh-3.5rem)] md:min-h-screen flex items-center justify-center px-4 py-10">
+    <div id="app" class="w-full max-w-2xl">
+        <p class="text-center text-muted">Loading...</p>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const EVENT_ID = "{{ event_id }}";
+    let replayData = null;
+    let currentIdx = 0;
+    let userAnswers = [];
+
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    const app = document.getElementById("app");
+
+    async function init() {
+        // Start replay — get event info + questions (without answers)
+        const resp = await fetch(`/events/${EVENT_ID}/replay`, { method: "POST" });
+        if (!resp.ok) {
+            app.innerHTML = '<p class="text-danger text-center">Event not found.</p>';
+            return;
+        }
+        replayData = await resp.json();
+        userAnswers = replayData.questions.map(q => ({ question_id: q.question_id, answer: "" }));
+        showStart();
+    }
+
+    function showStart() {
+        app.innerHTML = `
+            <div class="bg-card border border-border rounded-2xl p-8 text-center">
+                <h1 class="text-2xl font-bold mb-2">${escHtml(replayData.name)}</h1>
+                ${replayData.description ? `<p class="text-sm text-gray-300 mb-4">${escHtml(replayData.description)}</p>` : ""}
+                <p class="text-muted mb-6">${replayData.total} question${replayData.total !== 1 ? "s" : ""}</p>
+                <button onclick="showQuestion(0)" class="bg-success hover:bg-success-hover text-gray-900 font-semibold py-3 px-8 rounded-xl transition-colors">
+                    Begin
+                </button>
+            </div>`;
+    }
+
+    function showQuestion(idx) {
+        currentIdx = idx;
+        const q = replayData.questions[idx];
+        const isLast = idx === replayData.questions.length - 1;
+        app.innerHTML = `
+            <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs text-muted">Question ${idx + 1} of ${replayData.total}</span>
+                    <div class="w-full max-w-[200px] ml-4 bg-card-alt rounded-full h-1.5">
+                        <div class="bg-primary h-1.5 rounded-full transition-all" style="width: ${((idx + 1) / replayData.total) * 100}%"></div>
+                    </div>
+                </div>
+                <h2 class="text-lg font-semibold mb-4">${escHtml(q.question)}</h2>
+                ${q.media_path ? `<img src="${escHtml(q.media_path)}" class="max-h-48 rounded-lg mb-4" alt="Question media">` : ""}
+                <input id="answer-input" type="text" placeholder="Your answer..." autofocus
+                    value="${escHtml(userAnswers[idx].answer)}"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm mb-4"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();${isLast ? 'goToReview()' : `nextQuestion(${idx})`}}">
+                <div class="flex justify-between">
+                    ${idx > 0 ? `<button onclick="saveAndGo(${idx}, ${idx - 1})" class="text-sm text-muted hover:text-white transition-colors">Previous</button>` : '<div></div>'}
+                    ${isLast
+                        ? `<button onclick="goToReview()" class="bg-primary hover:bg-primary-hover text-white font-medium py-2 px-6 rounded-lg transition-colors text-sm">Review Answers</button>`
+                        : `<button onclick="nextQuestion(${idx})" class="bg-primary hover:bg-primary-hover text-white font-medium py-2 px-6 rounded-lg transition-colors text-sm">Next</button>`
+                    }
+                </div>
+            </div>`;
+        document.getElementById("answer-input").focus();
+    }
+
+    function nextQuestion(fromIdx) {
+        saveAndGo(fromIdx, fromIdx + 1);
+    }
+
+    function saveAndGo(fromIdx, toIdx) {
+        userAnswers[fromIdx].answer = document.getElementById("answer-input").value;
+        showQuestion(toIdx);
+    }
+
+    function goToReview() {
+        userAnswers[currentIdx].answer = document.getElementById("answer-input").value;
+        showReview();
+    }
+
+    function showReview() {
+        const rows = replayData.questions.map((q, i) => `
+            <tr class="border-b border-border/50">
+                <td class="px-4 py-3 text-muted text-xs">${i + 1}</td>
+                <td class="px-4 py-3 text-sm">${escHtml(q.question)}</td>
+                <td class="px-4 py-3 text-sm">
+                    <input type="text" value="${escHtml(userAnswers[i].answer)}" data-idx="${i}"
+                        class="w-full bg-card-alt border border-border text-white rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        onchange="userAnswers[${i}].answer = this.value">
+                </td>
+            </tr>
+        `).join("");
+
+        app.innerHTML = `
+            <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
+                <h2 class="text-lg font-semibold mb-4">Review Your Answers</h2>
+                <div class="overflow-x-auto mb-4">
+                    <table class="w-full text-left text-sm">
+                        <thead><tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                            <th class="px-4 py-2 w-8">#</th>
+                            <th class="px-4 py-2">Question</th>
+                            <th class="px-4 py-2">Your Answer</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <div class="flex justify-between">
+                    <button onclick="showQuestion(${replayData.questions.length - 1})" class="text-sm text-muted hover:text-white transition-colors">Back</button>
+                    <button onclick="submitAnswers()" class="bg-success hover:bg-success-hover text-gray-900 font-semibold py-2 px-6 rounded-lg transition-colors text-sm">
+                        Submit
+                    </button>
+                </div>
+            </div>`;
+    }
+
+    async function submitAnswers() {
+        const body = { answers: userAnswers };
+        const resp = await fetch(`/events/${EVENT_ID}/replay/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+            alert("Failed to submit answers.");
+            return;
+        }
+        const result = await resp.json();
+        showResults(result);
+    }
+
+    function showResults(result) {
+        const answers = result.answers || [];
+        const rows = answers.map((a, i) => {
+            const bgClass = a.is_correct ? "bg-success/5" : "bg-danger/5";
+            const icon = a.is_correct ? '<span class="text-success font-bold">&#10003;</span>' : '<span class="text-danger font-bold">&#10007;</span>';
+            const overrideBtn = a.is_correct
+                ? `<button onclick="overrideAnswer(${i}, false)" class="text-xs text-danger hover:underline">Mark wrong</button>`
+                : `<button onclick="overrideAnswer(${i}, true)" class="text-xs text-success hover:underline">Mark correct</button>`;
+            return `<tr class="border-b border-border/50 ${bgClass}">
+                <td class="px-4 py-3 text-xs text-muted">${i + 1}</td>
+                <td class="px-4 py-3 text-sm">${escHtml(replayData.questions[i]?.question || "")}</td>
+                <td class="px-4 py-3 text-sm">${escHtml(a.user_answer)}</td>
+                <td class="px-4 py-3 text-sm text-muted">${escHtml(a.correct_answer)}</td>
+                <td class="px-4 py-3">${icon}</td>
+                <td class="px-4 py-3">${overrideBtn}</td>
+            </tr>`;
+        }).join("");
+
+        app.innerHTML = `
+            <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold mb-1">Score: ${result.score} / ${result.total}</h2>
+                    <p class="text-sm text-muted">${Math.round((result.score / Math.max(result.total, 1)) * 100)}% correct</p>
+                </div>
+                <div class="overflow-x-auto mb-4">
+                    <table class="w-full text-left text-sm">
+                        <thead><tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                            <th class="px-4 py-2 w-8">#</th>
+                            <th class="px-4 py-2">Question</th>
+                            <th class="px-4 py-2">Your Answer</th>
+                            <th class="px-4 py-2">Correct Answer</th>
+                            <th class="px-4 py-2 w-8"></th>
+                            <th class="px-4 py-2 w-20"></th>
+                        </tr></thead>
+                        <tbody id="results-body">${rows}</tbody>
+                    </table>
+                </div>
+                <div id="override-notice" class="hidden text-center mb-4">
+                    <button onclick="resubmitWithOverrides()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                        Re-submit with overrides
+                    </button>
+                </div>
+                <div class="flex justify-center gap-3">
+                    <a href="/events/${EVENT_ID}" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Back to Event</a>
+                    <a href="/events/${EVENT_ID}/replay" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Play Again</a>
+                </div>
+            </div>`;
+
+        // Store latest result for overrides
+        window._lastResult = result;
+    }
+
+    function overrideAnswer(idx, isCorrect) {
+        userAnswers[idx].override = isCorrect;
+        document.getElementById("override-notice").classList.remove("hidden");
+    }
+
+    async function resubmitWithOverrides() {
+        const body = { answers: userAnswers };
+        const resp = await fetch(`/events/${EVENT_ID}/replay/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) { alert("Failed to re-submit."); return; }
+        const result = await resp.json();
+        showResults(result);
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+</script>
+{% endblock %}

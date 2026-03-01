@@ -107,16 +107,38 @@ def update_question(question_id: str, updates: dict, user: str | None = None, ro
         updates["updated_by"] = user  # Track who made the update when available
     return question_store.update(question_id, updates)
 
-def delete_question(question_id: str) -> bool:
+def delete_question(question_id: str, confirm: bool = False) -> dict:
+    """Delete a question. Returns a result dict with 'success' and optionally 'event_id'.
+
+    If the question is linked to an event and confirm is False, returns
+    {"success": False, "linked_event_id": "..."} so the caller can warn the user.
+    """
     question_store = get_question_store()
     media_store = get_media_store()
     question = question_store.get_by_id(question_id)
-    media_path = getattr(question, "media_path", None) if question else None
 
+    if not question:
+        return {"success": False}
+
+    # Check if linked to an event
+    if question.event_id and not confirm:
+        return {"success": False, "linked_event_id": question.event_id}
+
+    # If linked, remove from event's question_ids list
+    if question.event_id:
+        from backend.storage import get_event_store
+        event_store = get_event_store()
+        event = event_store.get_by_id(question.event_id)
+        if event and question_id in event.question_ids:
+            new_ids = [qid for qid in event.question_ids if qid != question_id]
+            event_store.update(question.event_id, {"question_ids": new_ids})
+
+    media_path = getattr(question, "media_path", None)
     if media_path:
         media_store.delete(media_path)
 
-    return question_store.delete(question_id)
+    deleted = question_store.delete(question_id)
+    return {"success": deleted}
 
 def count_questions(filters: dict | None = None) -> int:
     """Return total question count matching filters."""

@@ -73,7 +73,8 @@
                 <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-3">Play</p>
                 {% set play_active = request.path == '/' %}
                 <a href="/" class="block py-2 px-3 rounded-lg text-sm font-medium {{ 'bg-primary/10 text-primary' if play_active else 'text-gray-300 hover:bg-card-alt hover:text-white transition-colors' }}">Normal</a>
-                <a class="block py-2 px-3 rounded-lg text-muted/60 text-sm cursor-default">Replay Event</a>
+                {% set events_active = request.path.startswith('/events') %}
+                <a href="/events" class="block py-2 px-3 rounded-lg text-sm font-medium {{ 'bg-primary/10 text-primary' if events_active else 'text-gray-300 hover:bg-card-alt hover:text-white transition-colors' }}">Events</a>
             </div>
 
             {% block sidebar_extra %}{% endblock %}

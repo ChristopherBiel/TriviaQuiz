@@ -12,9 +12,9 @@ Session-backed JSON endpoints served by Flask blueprints. Use the `/login` route
 - `GET /questions/` — list questions with filters + pagination. Response: `{"items":[...],"pagination":{"limit":n,"offset":n,"count":n,"total":n,"next_page_token":str|null}}`.
 - `GET /questions/<question_id>` — fetch a question; 404 if missing; renders HTML when `Accept` prefers text/html.
 - `GET /questions/metadata` — fetch distinct `languages`, `topics`, and `tags` for reviewed questions.
-- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `question_source`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required. If `question_topic` is omitted, it defaults to `General`.
+- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `event_id`, `source_note`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required. If `question_topic` is omitted, it defaults to `General`. If `event_id` is provided, the question is automatically added to that event.
 - `PUT /questions/<question_id>` — partial update. Auth required; only owner or admin can update. Accepts JSON or multipart with `media`. `question_topic` cannot be updated after creation.
-- `DELETE /questions/<question_id>` — delete a question (and associated S3 media). Admin-only.
+- `DELETE /questions/<question_id>` — delete a question (and associated S3 media). Creator or admin only. Returns 409 if question is linked to an event; add `?confirm=true` to force deletion.
 - `POST /questions/random` — returns one unseen question matching filters; body: `{"seen":[...],"filters":{...}}`; 404 when none available.
 
 Example: list and create
@@ -36,5 +36,16 @@ curl -b cookiejar -H "Content-Type: application/json" \
 ### HTML rendering
 `GET /questions/<question_id>` will render `question_detail.html` when the `Accept` header prefers HTML. Otherwise it returns JSON.
 
-### Event replay (roadmap)
-The event replay API is stubbed in `backend/api/events.py` and is not yet registered in the app.
+### Event endpoints (base `/events`)
+- `GET /events/` — list events with pagination. Optional filter: `created_by`.
+- `GET /events/<id>` — event detail including a leaderboard preview.
+- `POST /events/` — create an event. Required: `name`. Optional: `date`, `location`, `team_score`, `max_score`, `description`. Auth required.
+- `PUT /events/<id>` — update event fields. Auth required; creator or admin only.
+- `DELETE /events/<id>` — delete event. Auth required; creator or admin only. Add `?delete_questions=true` to also delete linked questions.
+- `GET /events/<id>/questions` — ordered list of questions in the event.
+- `POST /events/<id>/questions` — add questions to an event; body: `{"question_ids": [...]}`. Auth required.
+- `DELETE /events/<id>/questions/<qid>` — remove a question from the event. Auth required.
+- `PUT /events/<id>/questions/order` — reorder questions; body: `{"question_ids": [...]}`. Auth required.
+- `POST /events/<id>/replay` — start a replay (returns questions without answers).
+- `POST /events/<id>/replay/submit` — submit answers and get scores; body: `{"answers": [{question_id, answer, override?}], "display_name"?}`. Logged-in users get persistent scores.
+- `GET /events/<id>/leaderboard` — full leaderboard for the event.

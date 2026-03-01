@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from backend.core.settings import get_settings
-from backend.storage.base import MediaStore, QuestionStore, UserStore
+from backend.storage.base import EventStore, MediaStore, QuestionStore, ReplayStore, UserStore
 
 
 def _normalize_backend(value: str, default: str = "aws") -> str:
@@ -72,7 +72,23 @@ def get_media_store() -> MediaStore:
     raise RuntimeError(f"Unsupported media store backend: {backend}")
 
 
+@lru_cache()
+def get_event_store() -> EventStore:
+    from backend.storage.postgres import PostgresEventStore
+
+    return PostgresEventStore()
+
+
+@lru_cache()
+def get_replay_store() -> ReplayStore:
+    from backend.storage.postgres import PostgresReplayStore
+
+    return PostgresReplayStore()
+
+
 def reset_store_cache() -> None:
     get_question_store.cache_clear()
     get_user_store.cache_clear()
     get_media_store.cache_clear()
+    get_event_store.cache_clear()
+    get_replay_store.cache_clear()

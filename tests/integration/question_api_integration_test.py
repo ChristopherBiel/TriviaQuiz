@@ -31,8 +31,17 @@ def app(monkeypatch):
         store[qid] = store[qid].model_copy(update=updates)
         return store[qid]
 
-    def fake_delete(qid):
-        return bool(store.pop(qid, None))
+    def fake_get_by_id(qid):
+        return store.get(qid)
+
+    def fake_delete(qid, confirm=False):
+        q = store.get(qid)
+        if not q:
+            return {"success": False}
+        if q.event_id and not confirm:
+            return {"success": False, "linked_event_id": q.event_id}
+        store.pop(qid, None)
+        return {"success": True}
 
     def fake_random(seen, filters):
         for q in store.values():
@@ -51,6 +60,7 @@ def app(monkeypatch):
     monkeypatch.setattr("backend.api.questions.count_questions", fake_count)
     monkeypatch.setattr("backend.api.questions.update_question", fake_update)
     monkeypatch.setattr("backend.api.questions.delete_question", fake_delete)
+    monkeypatch.setattr("backend.api.questions.get_question_by_id", fake_get_by_id)
     monkeypatch.setattr("backend.api.questions.get_random_question_filtered", fake_random)
 
     init_api_routes(app)

@@ -4,7 +4,9 @@ import random as _random
 from abc import ABC, abstractmethod
 from typing import Optional, IO
 
+from backend.models.event import EventModel
 from backend.models.question import QuestionModel
+from backend.models.replay import ReplayAttemptModel
 from backend.models.user import UserModel
 
 
@@ -98,6 +100,59 @@ class UserStore(ABC):
             if u.reset_token == token:
                 return u
         return None
+
+
+class EventStore(ABC):
+    @abstractmethod
+    def add(self, event: EventModel) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_id(self, event_id: str) -> Optional[EventModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list(
+        self,
+        filters: dict | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[EventModel], int]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(self, event_id: str, updates: dict) -> Optional[EventModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, event_id: str) -> bool:
+        raise NotImplementedError
+
+
+class ReplayStore(ABC):
+    @abstractmethod
+    def save(self, replay: ReplayAttemptModel) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_by_id(self, replay_id: str) -> Optional[ReplayAttemptModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_by_event(
+        self, event_id: str, limit: int = 50, offset: int = 0
+    ) -> list[ReplayAttemptModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_by_user(self, user_id: str) -> list[ReplayAttemptModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_leaderboard(
+        self, event_id: str, limit: int = 10
+    ) -> list[ReplayAttemptModel]:
+        raise NotImplementedError
 
 
 class MediaStore(ABC):

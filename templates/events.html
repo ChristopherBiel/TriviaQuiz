@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Events{% endblock %}
+{% block mobile_title %}EVENTS{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold">Events</h1>
+        <button id="create-event-btn" onclick="showCreateForm()" class="hidden bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            Create Event
+        </button>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-6">
+        <input id="search-input" type="text" placeholder="Search events..."
+            class="w-full max-w-md bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            oninput="filterEvents()">
+    </div>
+
+    <!-- Create Form (hidden by default) -->
+    <div id="create-form" class="bg-card border border-border rounded-xl p-6 mb-6 hidden">
+        <h2 class="text-lg font-semibold mb-4">Create New Event</h2>
+        <form onsubmit="createEvent(event)" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input id="new-name" type="text" placeholder="Event name *" required
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="new-date" type="date"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="new-location" type="text" placeholder="Location"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="new-team-score" type="number" step="0.5" placeholder="Team score"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="new-max-score" type="number" step="0.5" placeholder="Max possible score"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <textarea id="new-description" placeholder="Description" rows="2"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm md:col-span-2"></textarea>
+            <div class="md:col-span-2 flex gap-2 justify-end">
+                <button type="button" onclick="hideCreateForm()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Cancel</button>
+                <button type="submit" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Create</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Event cards -->
+    <div id="events-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-muted col-span-full text-center py-8">Loading events...</p>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let allEvents = [];
+    let isLoggedIn = false;
+
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    async function init() {
+        const status = await fetch("/login-status").then(r => r.json()).catch(() => ({}));
+        isLoggedIn = !!status.logged_in;
+        if (isLoggedIn) document.getElementById("create-event-btn").classList.remove("hidden");
+        await loadEvents();
+    }
+
+    async function loadEvents() {
+        const resp = await fetch("/events/?limit=200");
+        if (!resp.ok) { renderEmpty(); return; }
+        const data = await resp.json();
+        allEvents = data.items || [];
+        renderEvents(allEvents);
+    }
+
+    function filterEvents() {
+        const q = document.getElementById("search-input").value.toLowerCase();
+        const filtered = allEvents.filter(e =>
+            (e.name || "").toLowerCase().includes(q) ||
+            (e.location || "").toLowerCase().includes(q) ||
+            (e.description || "").toLowerCase().includes(q)
+        );
+        renderEvents(filtered);
+    }
+
+    function renderEvents(events) {
+        const grid = document.getElementById("events-grid");
+        if (!events.length) { renderEmpty(); return; }
+
+        grid.innerHTML = events.map(e => {
+            const qCount = (e.question_ids || []).length;
+            const dateStr = e.date ? new Date(e.date).toLocaleDateString() : "";
+            return `<a href="/events/${e.event_id}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors block">
+                <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}</h3>
+                ${dateStr ? `<p class="text-xs text-muted mb-1">${escHtml(dateStr)}</p>` : ""}
+                ${e.location ? `<p class="text-xs text-muted mb-2">${escHtml(e.location)}</p>` : ""}
+                <div class="flex items-center gap-3 text-xs text-muted mt-3">
+                    <span>${qCount} question${qCount !== 1 ? "s" : ""}</span>
+                    ${e.team_score != null ? `<span>Team: ${e.team_score}</span>` : ""}
+                    ${e.best_score != null ? `<span>Best: ${e.best_score}</span>` : ""}
+                </div>
+            </a>`;
+        }).join("");
+    }
+
+    function renderEmpty() {
+        document.getElementById("events-grid").innerHTML = '<p class="text-muted col-span-full text-center py-8">No events found.</p>';
+    }
+
+    function showCreateForm() { document.getElementById("create-form").classList.remove("hidden"); }
+    function hideCreateForm() { document.getElementById("create-form").classList.add("hidden"); }
+
+    async function createEvent(e) {
+        e.preventDefault();
+        const body = { name: document.getElementById("new-name").value };
+        const date = document.getElementById("new-date").value;
+        const location = document.getElementById("new-location").value;
+        const teamScore = document.getElementById("new-team-score").value;
+        const maxScore = document.getElementById("new-max-score").value;
+        const description = document.getElementById("new-description").value;
+        if (date) body.date = date;
+        if (location) body.location = location;
+        if (teamScore) body.team_score = parseFloat(teamScore);
+        if (maxScore) body.max_score = parseFloat(maxScore);
+        if (description) body.description = description;
+
+        const resp = await fetch("/events/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (resp.ok) {
+            const created = await resp.json();
+            window.location.href = `/events/${created.event_id}`;
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            alert(err.error || "Failed to create event");
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+</script>
+{% endblock %}

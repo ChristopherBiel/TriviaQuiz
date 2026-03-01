@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# An empty AWS_PROFILE causes boto3 to raise ProfileNotFound.
+# This commonly happens when .env contains AWS_PROFILE= with no value.
+if os.environ.get("AWS_PROFILE") == "":
+    del os.environ["AWS_PROFILE"]
+
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
