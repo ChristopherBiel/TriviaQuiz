@@ -5,7 +5,7 @@ import sys
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine, engine_from_config, pool
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -42,12 +42,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    config.set_main_option("sqlalchemy.url", _get_url())
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_engine(_build_url(), poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(
