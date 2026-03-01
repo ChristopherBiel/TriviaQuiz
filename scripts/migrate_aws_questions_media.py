@@ -7,6 +7,8 @@ import mimetypes
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -248,9 +250,18 @@ def _question_from_source_item(item: dict[str, Any], fallback_added_by: str) -> 
 
 
 def _source_session(profile_name: str | None):
-    if profile_name:
-        return boto3.session.Session(profile_name=profile_name)
-    return boto3.session.Session()
+    resolved = profile_name or os.environ.get("SOURCE_AWS_PROFILE") or None
+    if resolved:
+        return boto3.session.Session(profile_name=resolved)
+    # Create session without a profile. Temporarily remove AWS_PROFILE from the
+    # environment if it is set to an empty string, because botocore treats any
+    # non-None value (including "") as a profile name and raises ProfileNotFound.
+    stashed = os.environ.pop("AWS_PROFILE", None)
+    try:
+        return boto3.session.Session()
+    finally:
+        if stashed is not None:
+            os.environ["AWS_PROFILE"] = stashed
 
 
 def main() -> int:
