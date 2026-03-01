@@ -1,4 +1,5 @@
-![Deployment to EC2](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
+![Deployment to VPS](https://github.com/ChristopherBiel/TriviaQuiz/actions/workflows/deploy.yml/badge.svg)
+![Version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FChristopherBiel%2FTriviaQuiz%2Fmain%2FVERSION&search=%5E(.%2B)%24&label=version&color=7c6aef)
 
 # TriviaQuiz
 TriviaQuiz is a Flask-powered trivia game with session-based authentication, HTML pages for gameplay/moderation, and JSON APIs for question and user workflows. The current architecture targets a single VPS deployment with Docker Compose, using Caddy, Postgres, and MinIO.

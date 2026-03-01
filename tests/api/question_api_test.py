@@ -63,7 +63,8 @@ def test_list_questions_pagination_and_filters(client, monkeypatch):
 
 def test_create_question_validation(client):
     _login_session(client)
-    resp = client.post("/questions/", json={"question": "Q", "answer": "A"})
+    # added_by is auto-filled from the session, so omit `question` to trigger validation failure
+    resp = client.post("/questions/", json={"answer": "A"})
     assert resp.status_code == 400
     assert "error" in resp.get_json()
 
