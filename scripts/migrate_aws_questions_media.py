@@ -267,8 +267,8 @@ def _source_session(profile_name: str | None):
 def main() -> int:
     args = _parse_args()
 
-    source_dynamodb_endpoint = args.source_dynamodb_endpoint_url or args.source_endpoint_url
-    source_s3_endpoint = args.source_s3_endpoint_url or args.source_endpoint_url
+    source_dynamodb_endpoint = args.source_dynamodb_endpoint_url or args.source_endpoint_url or None
+    source_s3_endpoint = args.source_s3_endpoint_url or args.source_endpoint_url or None
 
     session = _source_session(args.source_profile)
     dynamodb = session.resource(
