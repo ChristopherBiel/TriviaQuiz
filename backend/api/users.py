@@ -11,6 +11,7 @@ from backend.services.user_service import (
     reset_password,
 )
 from backend.utils.email_stub import send_email
+from backend.core.settings import get_settings
 
 users_bp = Blueprint("users", __name__, url_prefix="/users")
 
@@ -26,13 +27,32 @@ def _require_admin():
 @users_bp.route("/signup", methods=["POST"])
 def users_signup():
     data = request.get_json(silent=True) or {}
-    user = create_user(data, acting_role="user")
+    settings = get_settings()
+
+    referral_code = data.get("referral_code", "")
+    create_data = {
+        "username": data.get("username"),
+        "email": data.get("email"),
+        "password": data.get("password"),
+    }
+
+    if settings.signup_referral_code:
+        if referral_code != settings.signup_referral_code:
+            return jsonify({"status": "error", "message": "Invalid referral code"}), 403
+        create_data["is_verified"] = True
+        create_data["is_approved"] = True
+
+    user = create_user(create_data, acting_role="user")
     if not user:
-        return jsonify({"error": "Failed to create user"}), 400
-    issued = issue_verification(user)
-    if issued:
-        send_email(user.email, "Verify your account", f"Token: {issued.verification_token}")
-    return jsonify(user.model_dump(mode="json")), 201
+        return jsonify({"status": "error", "message": "Signup failed. Username may already be taken."}), 400
+
+    if not settings.signup_referral_code:
+        issued = issue_verification(user)
+        if issued:
+            send_email(user.email, "Verify your account", f"Token: {issued.verification_token}")
+        return jsonify({"status": "success", "message": "Signup successful. Check your email to verify your account."}), 201
+
+    return jsonify({"status": "success", "message": "Signup successful. You can now log in."}), 201
 
 
 @users_bp.route("/verify", methods=["POST"])

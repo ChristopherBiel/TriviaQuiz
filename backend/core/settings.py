@@ -62,6 +62,8 @@ class Settings:
     minio_secure: bool
     minio_auto_create_bucket: bool
 
+    signup_referral_code: str
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -101,4 +103,5 @@ def get_settings() -> Settings:
         minio_region=os.getenv("MINIO_REGION", "us-east-1"),
         minio_secure=_as_bool(os.getenv("MINIO_SECURE"), False),
         minio_auto_create_bucket=_as_bool(os.getenv("MINIO_AUTO_CREATE_BUCKET"), True),
+        signup_referral_code=os.getenv("SIGNUP_REFERRAL_CODE", ""),
     )
