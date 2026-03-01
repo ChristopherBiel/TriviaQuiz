@@ -53,6 +53,8 @@ def _normalize_filters(raw_filters: dict):
         if tags is None:
             return None, "tags must be a comma-separated string or list of strings"
         filters["tags"] = tags
+    if "language" in filters and isinstance(filters["language"], str):
+        filters["language"] = filters["language"].lower()
     if "review_status" in filters:
         filters["review_status"] = _parse_bool(filters["review_status"])
 
