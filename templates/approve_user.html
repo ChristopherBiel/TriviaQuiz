@@ -57,8 +57,7 @@
                         <tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
                             <th class="px-4 py-3 font-medium">Username</th>
                             <th class="px-4 py-3 font-medium">Email</th>
-                            <th class="px-4 py-3 font-medium">Verified</th>
-                            <th class="px-4 py-3 font-medium">Approved</th>
+                            <th class="px-4 py-3 font-medium">Status</th>
                             <th class="px-4 py-3 font-medium">Created</th>
                             <th class="px-4 py-3 font-medium">Actions</th>
                         </tr>
@@ -74,6 +73,11 @@
             return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
         }
 
+        function statusIcon(active, path, activeClass, label) {
+            const cls = active ? activeClass : 'text-muted opacity-25';
+            return `<span title="${label}" class="${cls}"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${path}"/></svg></span>`;
+        }
+
         async function loadUserbase() {
             try {
                 const response = await fetch('/users/');
@@ -84,7 +88,7 @@
                 userList.innerHTML = '';
 
                 if (users.length === 0) {
-                    userList.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-muted">No users found.</td></tr>`;
+                    userList.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-muted">No users found.</td></tr>`;
                     return;
                 }
 
@@ -94,8 +98,13 @@
                     row.innerHTML = `
                         <td class="px-4 py-3 font-medium">${escHtml(user.username)}</td>
                         <td class="px-4 py-3 text-gray-300">${escHtml(user.email)}</td>
-                        <td class="px-4 py-3">${user.is_verified ? '<span class="text-success text-xs font-medium">Yes</span>' : '<span class="text-muted text-xs">No</span>'}</td>
-                        <td class="px-4 py-3">${user.is_approved ? '<span class="text-success text-xs font-medium">Yes</span>' : '<span class="text-muted text-xs">No</span>'}</td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                ${statusIcon(user.is_verified, 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'text-success', 'Verified')}
+                                ${statusIcon(user.is_approved, 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', 'text-primary', 'Approved')}
+                                ${statusIcon(user.role === 'admin', 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', 'text-warning', 'Admin')}
+                            </div>
+                        </td>
                         <td class="px-4 py-3 text-muted">${user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
                         <td class="px-4 py-3">
                             <div class="flex gap-1.5 flex-wrap">
