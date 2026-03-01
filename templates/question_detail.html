@@ -188,10 +188,10 @@
             if (!url) { container.innerHTML = `<p class="text-sm text-muted">No media attached</p>`; return; }
             const clean = url.split("?")[0].toLowerCase();
             if (clean.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
-                container.innerHTML = `<img src="${url}" alt="media" class="max-h-[300px] max-w-full object-contain rounded-lg">`;
+                container.innerHTML = `<img src="${url}" alt="media" class="max-h-[300px] max-w-full object-contain rounded-lg cursor-zoom-in" onclick="openLightbox('${url}', 'image')" title="Click to enlarge">`;
             } else if (clean.match(/\.(mp4|webm)$/)) {
                 const ext = clean.endsWith("webm") ? "webm" : "mp4";
-                container.innerHTML = `<video controls class="w-full max-h-[300px] object-contain rounded-lg"><source src="${url}" type="video/${ext}"></video>`;
+                container.innerHTML = `<div class="relative w-full"><video controls class="w-full max-h-[300px] object-contain rounded-lg"><source src="${url}" type="video/${ext}"></video><button onclick="openLightbox('${url}', 'video')" class="absolute top-1 right-1 bg-black/60 hover:bg-black/90 text-white rounded-full p-1.5 transition-colors" title="Expand"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg></button></div>`;
             } else if (clean.match(/\.(mp3|wav|ogg)$/)) {
                 let mime = "mpeg"; if (clean.endsWith("wav")) mime = "wav"; if (clean.endsWith("ogg")) mime = "ogg";
                 container.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${url}" type="audio/${mime}"></audio></div>`;
@@ -216,6 +216,34 @@
         }
 
         loadQuestion();
+
+        function openLightbox(src, type) {
+            const content = document.getElementById("lightbox-content");
+            if (type === "image") {
+                content.innerHTML = `<img src="${src}" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
+            } else {
+                const ext = src.split("?")[0].split(".").pop().toLowerCase();
+                content.innerHTML = `<video controls autoplay class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"><source src="${src}" type="video/${ext}"></video>`;
+            }
+            document.getElementById("lightbox").classList.remove("hidden");
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeLightbox() {
+            document.getElementById("lightbox-content").innerHTML = "";
+            document.getElementById("lightbox").classList.add("hidden");
+            document.body.style.overflow = "";
+        }
+
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
     </script>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out hidden" onclick="closeLightbox()">
+        <button class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10 cursor-pointer" onclick="closeLightbox()">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+        <div id="lightbox-content" class="flex items-center justify-center cursor-default" onclick="event.stopPropagation()"></div>
+    </div>
 </body>
 </html>
