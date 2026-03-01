@@ -160,15 +160,28 @@ def get_question(question_id):
 
 @questions_bp.route("/", methods=["POST"])
 def create_new_question():
-    """Create a new question."""
+    """Create a new question. Accepts JSON or multipart/form-data (for media upload)."""
     auth_error = _require_role()
     if auth_error:
         return auth_error
 
-    data = request.get_json(silent=True)
+    media_file = None
+    if request.files or request.form:
+        media_file = request.files.get("media")
+        data = request.form.to_dict()
+    else:
+        data = request.get_json(silent=True)
+
+    # Auto-fill added_by from the logged-in session if the client didn't send it
+    if isinstance(data, dict) and not data.get("added_by"):
+        data["added_by"] = session.get("username", "")
+
     payload, error = _validate_question_payload(data, partial=False)
     if error:
         return jsonify({"error": error}), 400
+
+    if media_file:
+        payload["media_file"] = media_file
 
     new_question = create_question(payload)
     if not new_question:

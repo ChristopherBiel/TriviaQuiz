@@ -194,7 +194,7 @@
                 container.innerHTML = `<video controls class="w-full max-h-[300px] object-contain rounded-lg"><source src="${url}" type="video/${ext}"></video>`;
             } else if (clean.match(/\.(mp3|wav|ogg)$/)) {
                 let mime = "mpeg"; if (clean.endsWith("wav")) mime = "wav"; if (clean.endsWith("ogg")) mime = "ogg";
-                container.innerHTML = `<audio controls class="w-full"><source src="${url}" type="audio/${mime}"></audio>`;
+                container.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${url}" type="audio/${mime}"></audio></div>`;
             } else {
                 container.innerHTML = `<a class="text-primary hover:text-primary-hover underline" href="${url}" target="_blank">View media</a>`;
             }

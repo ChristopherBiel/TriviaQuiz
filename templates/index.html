@@ -97,7 +97,7 @@
                     } else if (["mp4", "webm"].includes(fileType)) {
                         mediaContainer.innerHTML = `<video controls class="max-w-full max-h-full object-contain rounded-xl"><source src="${mediaPath}" type="video/${fileType}"></video>`;
                     } else if (["mp3", "wav", "ogg"].includes(fileType)) {
-                        mediaContainer.innerHTML = `<audio controls class="w-full"><source src="${mediaPath}" type="audio/${fileType === "mp3" ? "mpeg" : fileType}"></audio>`;
+                        mediaContainer.innerHTML = `<div class="w-full bg-card-alt rounded-xl p-3"><audio controls class="w-full" style="color-scheme:dark"><source src="${mediaPath}" type="audio/${fileType === "mp3" ? "mpeg" : fileType}"></audio></div>`;
                     } else {
                         mediaContainer.innerHTML = `<a class="text-primary hover:text-primary-hover underline" href="${mediaPath}" target="_blank">View media</a>`;
                     }
