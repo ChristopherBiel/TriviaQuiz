@@ -44,10 +44,10 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest
 
       - name: Run tests
-        run: pytest --ignore=tests/services/user_services_test.py
+        run: python -m pytest --ignore=tests/services/user_services_test.py
 
   deploy:
     needs: test
