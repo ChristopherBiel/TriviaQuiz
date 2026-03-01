@@ -61,15 +61,29 @@ jobs:
         run: |
           echo "${{ secrets.VPS_SSH_KEY }}" > private_key
           chmod 600 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key $VPS_USER@$VPS_HOST << 'EOF'
+          RC=1
+          for attempt in 1 2 3; do
+            echo "SSH attempt $attempt/3..."
+            ssh -o StrictHostKeyChecking=no \
+                -o ConnectTimeout=15 \
+                -o ServerAliveInterval=60 \
+                -o ServerAliveCountMax=3 \
+                -i private_key \
+                "$VPS_USER@$VPS_HOST" << 'ENDSSH' && RC=0 && break || RC=$?
             set -e
             cd ~/TriviaQuiz
             git pull origin main
             docker compose -f docker/docker-compose.yml --env-file .env build app
             docker compose -f docker/docker-compose.yml --env-file .env up -d
             docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
-          EOF
+          ENDSSH
+            if [ $RC -ne 0 ] && [ $attempt -lt 3 ]; then
+              echo "Attempt $attempt failed (exit $RC), retrying in 20s..."
+              sleep 20
+            fi
+          done
           rm -f private_key
+          exit $RC
 
   bump-version:
     needs: deploy
