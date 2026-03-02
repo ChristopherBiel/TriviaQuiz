@@ -1,5 +1,5 @@
 from backend.models.replay import ReplayAttemptModel
-from backend.storage import get_event_store, get_question_store, get_replay_store
+from backend.storage import get_event_store, get_media_store, get_question_store, get_replay_store
 from backend.utils.answer_eval import SimpleEvaluator
 
 
@@ -12,14 +12,16 @@ def start_replay(event_id: str) -> dict | None:
         return None
 
     question_store = get_question_store()
+    media_store = get_media_store()
     questions = []
     for qid in event.question_ids:
         q = question_store.get_by_id(qid)
         if q:
+            media_url = media_store.get_url(q.media_path) if q.media_path else None
             questions.append({
                 "question_id": q.question_id,
                 "question": q.question,
-                "media_path": q.media_path,
+                "media_path": media_url,
             })
 
     return {
