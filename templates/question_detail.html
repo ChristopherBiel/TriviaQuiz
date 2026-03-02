@@ -125,16 +125,45 @@
     function cancelEdit() { document.getElementById("edit-panel").classList.add("hidden"); }
 
     async function saveEdit() {
+        const current = {
+            question: document.getElementById("edit-question").value,
+            answer: document.getElementById("edit-answer").value,
+            question_topic: document.getElementById("edit-topic").value || "",
+            language: document.getElementById("edit-language").value || "",
+            tags: document.getElementById("edit-tags").value || "",
+            review_status: document.getElementById("edit-reviewed").checked,
+        };
+        const original = {
+            question: questionData.question || "",
+            answer: questionData.answer || "",
+            question_topic: questionData.question_topic || "",
+            language: questionData.language || "",
+            tags: (questionData.tags || []).join(", "),
+            review_status: !!questionData.review_status,
+        };
+
+        if (current.question_topic !== original.question_topic) {
+            document.getElementById("err").textContent = "Topic cannot be changed after creation.";
+            return;
+        }
+
         const formData = new FormData();
-        formData.append("question", document.getElementById("edit-question").value);
-        formData.append("answer", document.getElementById("edit-answer").value);
-        formData.append("question_topic", document.getElementById("edit-topic").value || "");
-        formData.append("language", document.getElementById("edit-language").value || "");
-        formData.append("tags", document.getElementById("edit-tags").value || "");
-        formData.append("review_status", document.getElementById("edit-reviewed").checked);
+        let hasChanges = false;
+        for (const key of ["question", "answer", "language", "tags", "review_status"]) {
+            if (String(current[key]) !== String(original[key])) {
+                formData.append(key, current[key]);
+                hasChanges = true;
+            }
+        }
         const fileInput = document.getElementById("edit-media");
-        if (fileInput.files.length > 0) formData.append("media", fileInput.files[0]);
-        if (document.getElementById("remove-media").checked) formData.append("remove_media", "1");
+        if (fileInput.files.length > 0) { formData.append("media", fileInput.files[0]); hasChanges = true; }
+        if (document.getElementById("remove-media").checked) { formData.append("remove_media", "1"); hasChanges = true; }
+
+        if (!hasChanges) {
+            document.getElementById("edit-panel").classList.add("hidden");
+            return;
+        }
+
         const resp = await fetch(`/questions/${questionId}`, { method: "PUT", body: formData });
         if (resp.ok) {
             document.getElementById("err").textContent = "";
