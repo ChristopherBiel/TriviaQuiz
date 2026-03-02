@@ -22,7 +22,7 @@
     <!-- Create Form (hidden by default) -->
     <div id="create-form" class="bg-card border border-border rounded-xl p-6 mb-6 hidden">
         <h2 class="text-lg font-semibold mb-4">Create New Event</h2>
-        <form onsubmit="createEvent(event)" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <form onsubmit="submitNewEvent(event)" class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input id="new-name" type="text" placeholder="Event name *" required
                 class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="new-date" type="date"
@@ -110,7 +110,7 @@
     function showCreateForm() { document.getElementById("create-form").classList.remove("hidden"); }
     function hideCreateForm() { document.getElementById("create-form").classList.add("hidden"); }
 
-    async function createEvent(e) {
+    async function submitNewEvent(e) {
         e.preventDefault();
         const body = { name: document.getElementById("new-name").value };
         const date = document.getElementById("new-date").value;
@@ -130,8 +130,14 @@
             body: JSON.stringify(body),
         });
         if (resp.ok) {
-            const created = await resp.json();
-            window.location.href = `/events/${created.event_id}`;
+            hideCreateForm();
+            document.getElementById("new-name").value = "";
+            document.getElementById("new-date").value = "";
+            document.getElementById("new-location").value = "";
+            document.getElementById("new-team-score").value = "";
+            document.getElementById("new-max-score").value = "";
+            document.getElementById("new-description").value = "";
+            await loadEvents();
         } else {
             const err = await resp.json().catch(() => ({}));
             alert(err.error || "Failed to create event");
