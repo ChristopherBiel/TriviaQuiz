@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Trivia Quiz{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -44,7 +46,7 @@
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <span class="text-sm font-semibold tracking-wide text-gray-300">{% block mobile_title %}TRIVIA QUIZ{% endblock %}</span>
-        <div class="w-10"></div>
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="TriviaB Logo" class="w-8 h-8">
     </header>
 
     <!-- Backdrop (mobile only) -->
@@ -63,7 +65,8 @@
         </div>
 
         <!-- Brand (desktop) -->
-        <div class="hidden md:block px-5 py-5 border-b border-border/50 shrink-0">
+        <div class="hidden md:flex items-center gap-3 px-5 py-5 border-b border-border/50 shrink-0">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="TriviaB Logo" class="w-8 h-8">
             <h1 class="text-lg font-bold tracking-tight">Trivia Quiz</h1>
         </div>
 

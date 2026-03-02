@@ -7,7 +7,10 @@ import os
 from pathlib import Path
 
 def create_app():
-    app = Flask(__name__, template_folder=os.path.abspath("templates"))
+    app = Flask(__name__,
+                template_folder=os.path.abspath("templates"),
+                static_folder=os.path.abspath("static"),
+                static_url_path="/static")
     app.config.from_object(Config)
 
     _version_file = Path(__file__).parent.parent / "VERSION"
