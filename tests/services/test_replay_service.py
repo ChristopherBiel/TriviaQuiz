@@ -35,10 +35,13 @@ def mock_stores(monkeypatch):
     event_store = MagicMock()
     question_store = MagicMock()
     replay_store = MagicMock()
+    media_store = MagicMock()
+    media_store.get_url.return_value = None
     monkeypatch.setattr("backend.services.replay_service.get_event_store", lambda: event_store)
     monkeypatch.setattr("backend.services.replay_service.get_question_store", lambda: question_store)
     monkeypatch.setattr("backend.services.replay_service.get_replay_store", lambda: replay_store)
-    return SimpleNamespace(event_store=event_store, question_store=question_store, replay_store=replay_store)
+    monkeypatch.setattr("backend.services.replay_service.get_media_store", lambda: media_store)
+    return SimpleNamespace(event_store=event_store, question_store=question_store, replay_store=replay_store, media_store=media_store)
 
 
 def test_start_replay(mock_stores, sample_event, sample_questions):
