@@ -204,7 +204,7 @@ def update_existing_question(question_id):
         return auth_error
 
     media_file = None
-    if request.files:
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
         media_file = request.files.get("media")
         raw = request.form.to_dict()
         if raw.get("remove_media"):
