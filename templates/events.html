@@ -106,7 +106,7 @@
                         ${e.team_score != null ? `<span>Team: ${e.team_score}</span>` : ""}
                         ${e.best_score != null ? `<span>Best: ${e.best_score}</span>` : ""}
                     </div>
-                    ${qCount > 0 ? `<a href="/events/${e.event_id}/replay" onclick="event.stopPropagation()" class="bg-primary hover:bg-primary-hover text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Replay</a>` : ""}
+                    ${qCount > 0 ? `<button onclick="event.preventDefault(); window.location.href='/events/${e.event_id}/replay'" class="bg-primary hover:bg-primary-hover text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Replay</button>` : ""}
                 </div>
             </a>`;
         }).join("");
