@@ -91,10 +91,10 @@
 
     async function init() {
         try {
-            const resp = await fetch("/auth/status");
+            const resp = await fetch("/login-status");
             if (resp.ok) {
                 const data = await resp.json();
-                currentUsername = data.username;
+                if (data.logged_in) currentUsername = data.username;
             }
         } catch (e) {}
         if (!currentUsername) {
