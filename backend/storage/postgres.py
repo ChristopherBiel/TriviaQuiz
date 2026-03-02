@@ -103,6 +103,7 @@ class EventRecord(Base):
     best_score = Column(Float)
     max_score = Column(Float)
     description = Column(Text)
+    language = Column(String)
     question_ids = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -460,6 +461,7 @@ def _event_from_record(record: EventRecord) -> EventModel:
         best_score=record.best_score,
         max_score=record.max_score,
         description=record.description,
+        language=record.language,
         question_ids=list(record.question_ids or []),
         created_by=record.created_by,
         created_at=record.created_at,
@@ -495,6 +497,7 @@ class PostgresEventStore(EventStore):
             best_score=event.best_score,
             max_score=event.max_score,
             description=event.description,
+            language=event.language,
             question_ids=list(event.question_ids or []),
             created_by=event.created_by,
             created_at=event.created_at,

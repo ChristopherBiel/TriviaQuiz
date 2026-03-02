@@ -25,6 +25,7 @@ class EventModel(BaseModel):
     best_score: Optional[float] = Field(None, description="Best replay score")
     max_score: Optional[float] = Field(None, description="Maximum possible score")
     description: Optional[str] = Field(None, description="Description of the event")
+    language: Optional[str] = Field(None, description="Default language for questions in this event")
     question_ids: list[str] = Field(
         default_factory=list,
         description="Ordered list of question UUIDs belonging to this event",

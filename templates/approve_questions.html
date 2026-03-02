@@ -53,7 +53,7 @@
             <input id="edit-question" type="text" placeholder="Question" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
             <input id="edit-answer" type="text" placeholder="Answer" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
             <input id="edit-added-by" type="text" placeholder="Added by" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
-            <input id="edit-topic" type="text" placeholder="Topic (Optional)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-topic" type="text" placeholder="Topic" class="bg-card-alt border border-border text-white/60 rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none text-sm cursor-not-allowed" readonly title="Topic cannot be changed after creation">
             <select id="edit-event" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
                 <option value="">Event (optional)</option>
             </select>
@@ -62,7 +62,6 @@
             <input id="edit-incorrect" type="text" placeholder="Incorrect Answers (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-tags" type="text" placeholder="Tags (comma-separated)" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <select id="edit-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-                <option value="">Language (optional)</option>
                 <option value="English">English</option>
                 <option value="German">German</option>
                 <option value="French">French</option>
@@ -226,7 +225,6 @@
             question: document.getElementById("edit-question").value,
             answer: document.getElementById("edit-answer").value,
             added_by: document.getElementById("edit-added-by").value,
-            question_topic: document.getElementById("edit-topic").value || null,
             event_id: document.getElementById("edit-event").value || null,
             source_note: document.getElementById("edit-source-note").value || null,
             answer_source: document.getElementById("edit-asource").value || null,

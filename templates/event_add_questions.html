@@ -39,6 +39,7 @@
 <script>
     const EVENT_ID = "{{ event_id }}";
     let rowCount = 0;
+    let eventLanguage = "English";
 
     function escHtml(str) {
         return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -71,7 +72,7 @@
             const t = row.querySelector("[data-field='question_topic']").value.trim();
             if (!q || !a) continue;
 
-            const body = { question: q, answer: a, event_id: EVENT_ID };
+            const body = { question: q, answer: a, event_id: EVENT_ID, language: eventLanguage };
             if (t) body.question_topic = t;
 
             const resp = await fetch("/questions/", {
@@ -132,7 +133,18 @@
         }
     }
 
+    async function loadEventLanguage() {
+        try {
+            const resp = await fetch(`/api/events/${EVENT_ID}`);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.language) eventLanguage = data.language;
+            }
+        } catch (e) {}
+    }
+
     // Start with 3 empty rows
+    loadEventLanguage();
     addRow(); addRow(); addRow();
 </script>
 {% endblock %}
