@@ -13,6 +13,7 @@ from backend.services.event_service import (
 )
 from backend.services.replay_service import (
     get_leaderboard,
+    has_played_event,
     start_replay,
     submit_replay,
 )
@@ -131,8 +132,25 @@ def get_event_questions_endpoint(event_id):
     if not event:
         return jsonify({"error": "Event not found"}), 404
 
+    logged_in = session.get("logged_in", False)
+    user_id = session.get("user_id")
+    username = session.get("username")
+    role = session.get("role", "user")
+
+    is_owner_or_admin = logged_in and (username == event.created_by or role == "admin")
+    answers_visible = is_owner_or_admin or (
+        logged_in and bool(user_id) and has_played_event(event_id, user_id)
+    )
+
     questions = get_event_questions(event_id)
-    return jsonify({"items": [_serialize_question(q) for q in questions]}), 200
+    serialized = []
+    for q in questions:
+        data = _serialize_question(q)
+        if not answers_visible:
+            data["answer"] = None
+        serialized.append(data)
+
+    return jsonify({"items": serialized, "answers_visible": answers_visible}), 200
 
 
 @events_bp.route("/<event_id>/questions", methods=["POST"])

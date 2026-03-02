@@ -626,3 +626,12 @@ class PostgresReplayStore(ReplayStore):
             )
             records = session.execute(query).scalars().all()
             return [_replay_from_record(r) for r in records]
+
+    def has_user_played(self, event_id: str, user_id: str) -> bool:
+        with session_scope() as session:
+            query = (
+                select(ReplayRecord.replay_id)
+                .where(ReplayRecord.event_id == event_id, ReplayRecord.user_id == user_id)
+                .limit(1)
+            )
+            return session.execute(query).scalar() is not None

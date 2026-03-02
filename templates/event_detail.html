@@ -127,12 +127,17 @@
         if (!resp.ok) return;
         const data = await resp.json();
         const items = data.items || [];
+        const answersVisible = data.answers_visible === true;
         const container = document.getElementById("questions-list");
 
         if (!items.length) {
             container.innerHTML = '<p class="px-4 py-6 text-muted text-center text-sm">No questions yet.</p>';
             return;
         }
+
+        const answerCell = answersVisible
+            ? (q) => `<td class="px-4 py-3 text-muted">${escHtml(q.answer)}</td>`
+            : () => `<td class="px-4 py-3 text-muted italic text-xs">Play to reveal</td>`;
 
         container.innerHTML = `<table class="w-full text-left text-sm">
             <thead><tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
@@ -144,7 +149,7 @@
             <tbody>${items.map((q, i) => `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
                 <td class="px-4 py-3 text-muted">${i + 1}</td>
                 <td class="px-4 py-3">${escHtml(q.question)}</td>
-                <td class="px-4 py-3 text-muted">${escHtml(q.answer)}</td>
+                ${answerCell(q)}
                 ${isOwnerOrAdmin ? `<td class="px-4 py-3"><button onclick="removeQuestion('${q.question_id || q.id}')" class="text-xs text-danger hover:text-danger-hover transition-colors">Remove</button></td>` : ''}
             </tr>`).join("")}</tbody>
         </table>`;

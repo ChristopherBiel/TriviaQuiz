@@ -116,6 +116,10 @@ def get_leaderboard(event_id: str, limit: int = 10) -> list[dict]:
     ]
 
 
+def has_played_event(event_id: str, user_id: str) -> bool:
+    return get_replay_store().has_user_played(event_id, user_id)
+
+
 def get_user_replays(user_id: str) -> list[dict]:
     replays = get_replay_store().list_by_user(user_id)
     return [

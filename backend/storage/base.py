@@ -154,6 +154,10 @@ class ReplayStore(ABC):
     ) -> list[ReplayAttemptModel]:
         raise NotImplementedError
 
+    @abstractmethod
+    def has_user_played(self, event_id: str, user_id: str) -> bool:
+        raise NotImplementedError
+
 
 class MediaStore(ABC):
     @abstractmethod
