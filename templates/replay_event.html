@@ -26,7 +26,7 @@
 
     async function init() {
         // Start replay — get event info + questions (without answers)
-        const resp = await fetch(`/events/${EVENT_ID}/replay`, { method: "POST" });
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay`, { method: "POST" });
         if (!resp.ok) {
             app.innerHTML = '<p class="text-danger text-center">Event not found.</p>';
             return;
@@ -128,7 +128,7 @@
 
     async function submitAnswers() {
         const body = { answers: userAnswers };
-        const resp = await fetch(`/events/${EVENT_ID}/replay/submit`, {
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/submit`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -200,7 +200,7 @@
 
     async function resubmitWithOverrides() {
         const body = { answers: userAnswers };
-        const resp = await fetch(`/events/${EVENT_ID}/replay/submit`, {
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/submit`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

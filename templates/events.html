@@ -66,7 +66,7 @@
     }
 
     async function loadEvents() {
-        const resp = await fetch("/events/?limit=200");
+        const resp = await fetch("/api/events/?limit=200");
         if (!resp.ok) { renderEmpty(); return; }
         const data = await resp.json();
         allEvents = data.items || [];
@@ -124,7 +124,7 @@
         if (maxScore) body.max_score = parseFloat(maxScore);
         if (description) body.description = description;
 
-        const resp = await fetch("/events/", {
+        const resp = await fetch("/api/events/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

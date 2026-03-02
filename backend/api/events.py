@@ -18,7 +18,7 @@ from backend.services.replay_service import (
 )
 from backend.storage import get_media_store
 
-events_bp = Blueprint("events", __name__, url_prefix="/events")
+events_bp = Blueprint("events", __name__, url_prefix="/api/events")
 
 
 def _require_auth():

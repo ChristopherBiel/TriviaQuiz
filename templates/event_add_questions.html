@@ -118,7 +118,7 @@
     }
 
     async function addExisting(qid, btn) {
-        const resp = await fetch(`/events/${EVENT_ID}/questions`, {
+        const resp = await fetch(`/api/events/${EVENT_ID}/questions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question_ids: [qid] }),

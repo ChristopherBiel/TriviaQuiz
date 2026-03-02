@@ -172,17 +172,17 @@ class TestFullReplayFlow:
         qids, questions = _seed_questions(stores["question"])
 
         # 1. Create event
-        resp = client.post("/events/", json={"name": "Quiz Night", "location": "The Pub"})
+        resp = client.post("/api/events/", json={"name": "Quiz Night", "location": "The Pub"})
         assert resp.status_code == 201
         event_id = resp.get_json()["event_id"]
 
         # 2. Add questions
-        resp = client.post(f"/events/{event_id}/questions", json={"question_ids": qids})
+        resp = client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids})
         assert resp.status_code == 200
         assert resp.get_json()["added"] == qids
 
         # 3. Start replay — answers must NOT be included
-        resp = client.post(f"/events/{event_id}/replay")
+        resp = client.post(f"/api/events/{event_id}/replay")
         assert resp.status_code == 200
         replay_data = resp.get_json()
         assert replay_data["total"] == 3
@@ -192,7 +192,7 @@ class TestFullReplayFlow:
             assert "question_id" in q
 
         # 4. Submit answers using the "answer" key (what the frontend sends)
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris"},        # exact match
                 {"question_id": qids[1], "answer": "Da Vinci"},     # fuzzy — below threshold
@@ -211,7 +211,7 @@ class TestFullReplayFlow:
         assert result["answers"][2]["is_correct"] is True
 
         # 5. Leaderboard should include this replay
-        resp = client.get(f"/events/{event_id}/leaderboard")
+        resp = client.get(f"/api/events/{event_id}/leaderboard")
         assert resp.status_code == 200
         lb = resp.get_json()["items"]
         assert len(lb) == 1
@@ -222,11 +222,11 @@ class TestFullReplayFlow:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Alt-Key Test"})
+        resp = client.post("/api/events/", json={"name": "Alt-Key Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "user_answer": "Paris"},
                 {"question_id": qids[1], "user_answer": "Leonardo da Vinci"},
@@ -243,11 +243,11 @@ class TestFullReplayFlow:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Empty Answers"})
+        resp = client.post("/api/events/", json={"name": "Empty Answers"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": ""},
                 {"question_id": qids[1], "answer": ""},
@@ -265,11 +265,11 @@ class TestReplayOverrides:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Override Test"})
+        resp = client.post("/api/events/", json={"name": "Override Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "London", "override": True},
             ],
@@ -284,11 +284,11 @@ class TestReplayOverrides:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Override Test 2"})
+        resp = client.post("/api/events/", json={"name": "Override Test 2"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris", "override": False},
             ],
@@ -306,11 +306,11 @@ class TestFuzzyMatching:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Fuzzy Test"})
+        resp = client.post("/api/events/", json={"name": "Fuzzy Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [{"question_id": qids[0], "answer": "PARIS"}],
         })
         assert resp.status_code == 201
@@ -321,12 +321,12 @@ class TestFuzzyMatching:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Fuzzy Close"})
+        resp = client.post("/api/events/", json={"name": "Fuzzy Close"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
         # "Parris" is close to "Paris" (ratio ~0.91, above 0.85)
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [{"question_id": qids[0], "answer": "Parris"}],
         })
         assert resp.status_code == 201
@@ -337,11 +337,11 @@ class TestFuzzyMatching:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Fuzzy Distant"})
+        resp = client.post("/api/events/", json={"name": "Fuzzy Distant"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [{"question_id": qids[0], "answer": "London"}],
         })
         assert resp.status_code == 201
@@ -355,11 +355,11 @@ class TestQuestionStatsUpdated:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Stats Test"})
+        resp = client.post("/api/events/", json={"name": "Stats Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:2]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:2]})
 
-        client.post(f"/events/{event_id}/replay/submit", json={
+        client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris"},
                 {"question_id": qids[1], "answer": "wrong"},
@@ -383,12 +383,12 @@ class TestBestScoreTracking:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Best Score"})
+        resp = client.post("/api/events/", json={"name": "Best Score"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids})
 
         # First replay: 1/3
-        client.post(f"/events/{event_id}/replay/submit", json={
+        client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris"},
                 {"question_id": qids[1], "answer": "wrong"},
@@ -399,7 +399,7 @@ class TestBestScoreTracking:
         assert event.best_score == 1.0
 
         # Second replay: 3/3 — best_score should increase
-        client.post(f"/events/{event_id}/replay/submit", json={
+        client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris"},
                 {"question_id": qids[1], "answer": "Leonardo da Vinci"},
@@ -410,7 +410,7 @@ class TestBestScoreTracking:
         assert event.best_score == 3.0
 
         # Third replay: 2/3 — best_score should NOT decrease
-        client.post(f"/events/{event_id}/replay/submit", json={
+        client.post(f"/api/events/{event_id}/replay/submit", json={
             "answers": [
                 {"question_id": qids[0], "answer": "Paris"},
                 {"question_id": qids[1], "answer": "Leonardo da Vinci"},
@@ -428,9 +428,9 @@ class TestLeaderboardOrdering:
         _login(client)
         qids, _ = _seed_questions(stores["question"])
 
-        resp = client.post("/events/", json={"name": "Leaderboard Test"})
+        resp = client.post("/api/events/", json={"name": "Leaderboard Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids})
 
         # Submit 3 replays with different scores
         for answers, name in [
@@ -438,7 +438,7 @@ class TestLeaderboardOrdering:
             ([("Paris", "Leonardo da Vinci", "Au")], "High"),
             ([("Paris", "wrong", "wrong")], "Mid"),
         ]:
-            client.post(f"/events/{event_id}/replay/submit", json={
+            client.post(f"/api/events/{event_id}/replay/submit", json={
                 "display_name": name,
                 "answers": [
                     {"question_id": qids[i], "answer": answers[0][i]}
@@ -446,7 +446,7 @@ class TestLeaderboardOrdering:
                 ],
             })
 
-        resp = client.get(f"/events/{event_id}/leaderboard")
+        resp = client.get(f"/api/events/{event_id}/leaderboard")
         assert resp.status_code == 200
         lb = resp.get_json()["items"]
         assert len(lb) == 3
@@ -465,16 +465,16 @@ class TestAnonymousReplay:
         # Login to create event and add questions
         _login(client)
         qids, _ = _seed_questions(stores["question"])
-        resp = client.post("/events/", json={"name": "Anon Test"})
+        resp = client.post("/api/events/", json={"name": "Anon Test"})
         event_id = resp.get_json()["event_id"]
-        client.post(f"/events/{event_id}/questions", json={"question_ids": qids[:1]})
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
         # Logout
         with client.session_transaction() as sess:
             sess.clear()
 
         # Submit as anonymous with display_name
-        resp = client.post(f"/events/{event_id}/replay/submit", json={
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
             "display_name": "Guest Player",
             "answers": [{"question_id": qids[0], "answer": "Paris"}],
         })

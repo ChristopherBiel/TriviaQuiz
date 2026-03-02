@@ -278,7 +278,7 @@
 
     async function loadEventOptions() {
         try {
-            const resp = await fetch("/events/?limit=200");
+            const resp = await fetch("/api/events/?limit=200");
             if (!resp.ok) return;
             const data = await resp.json();
             const sel = document.getElementById("edit-event");
