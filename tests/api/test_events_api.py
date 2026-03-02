@@ -164,13 +164,33 @@ def test_start_replay_not_found(client, monkeypatch):
     assert resp.status_code == 404
 
 
+def test_submit_replay_requires_auth(client, monkeypatch):
+    monkeypatch.setattr("backend.api.events.submit_replay", MagicMock())
+    resp = client.post("/api/events/e1/replay/submit", json={
+        "answers": [{"question_id": "q1", "answer": "A"}],
+    })
+    assert resp.status_code == 403
+
+
 def test_submit_replay(client, monkeypatch):
+    _login_session(client)
     replay = ReplayAttemptModel(event_id="e1", score=2, total=3, answers=[])
     monkeypatch.setattr("backend.api.events.submit_replay", MagicMock(return_value=replay))
     resp = client.post("/api/events/e1/replay/submit", json={
         "answers": [{"question_id": "q1", "answer": "A"}],
     })
     assert resp.status_code == 201
+    assert resp.get_json()["score"] == 2
+
+
+def test_evaluate_replay(client, monkeypatch):
+    monkeypatch.setattr("backend.api.events.evaluate_replay", MagicMock(return_value={
+        "score": 2, "total": 3, "answers": [],
+    }))
+    resp = client.post("/api/events/e1/replay/evaluate", json={
+        "answers": [{"question_id": "q1", "answer": "A"}],
+    })
+    assert resp.status_code == 200
     assert resp.get_json()["score"] == 2
 
 

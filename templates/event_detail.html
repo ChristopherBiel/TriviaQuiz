@@ -162,20 +162,50 @@
             return;
         }
 
+        const isAdmin = currentUser.logged_in && currentUser.role === "admin";
+
         container.innerHTML = `<table class="w-full text-left text-sm">
             <thead><tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
                 <th class="px-4 py-3 font-medium w-8">#</th>
                 <th class="px-4 py-3 font-medium">Player</th>
                 <th class="px-4 py-3 font-medium">Score</th>
                 <th class="px-4 py-3 font-medium">Date</th>
+                ${isAdmin ? '<th class="px-4 py-3 font-medium w-12"></th>' : ''}
             </tr></thead>
-            <tbody>${items.map((r, i) => `<tr class="border-b border-border/50">
-                <td class="px-4 py-3 text-muted">${i + 1}</td>
-                <td class="px-4 py-3">${escHtml(r.display_name)}</td>
-                <td class="px-4 py-3 font-semibold">${r.score}/${r.total}</td>
-                <td class="px-4 py-3 text-muted text-xs">${r.completed_at ? new Date(r.completed_at).toLocaleDateString() : "-"}</td>
-            </tr>`).join("")}</tbody>
+            <tbody>${items.map((r, i) => {
+                const canView = r.user_id && currentUser.logged_in;
+                const nameCell = canView
+                    ? `<a href="/events/${EVENT_ID}/replay/${r.replay_id}" class="text-primary hover:underline">${escHtml(r.display_name)}</a>`
+                    : escHtml(r.display_name);
+                const deleteBtn = isAdmin
+                    ? `<td class="px-4 py-3"><button onclick="deleteReplay('${r.replay_id}')" class="text-danger hover:text-danger-hover transition-colors" title="Delete replay">&#128465;</button></td>`
+                    : '';
+                return `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
+                    <td class="px-4 py-3 text-muted">${i + 1}</td>
+                    <td class="px-4 py-3">${nameCell}</td>
+                    <td class="px-4 py-3 font-semibold">${r.score}/${r.total}</td>
+                    <td class="px-4 py-3 text-muted text-xs">${r.completed_at ? new Date(r.completed_at).toLocaleDateString() : "-"}</td>
+                    ${deleteBtn}
+                </tr>`;
+            }).join("")}</tbody>
         </table>`;
+    }
+
+    async function deleteReplay(replayId) {
+        if (!confirm("Delete this replay from the leaderboard?")) return;
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/${replayId}`, { method: "DELETE" });
+        if (resp.ok) {
+            // Reload event data to get updated leaderboard
+            const eventResp = await fetch(`/api/events/${EVENT_ID}`);
+            if (eventResp.ok) {
+                eventData = await eventResp.json();
+                renderHeader();
+                renderLeaderboard(eventData.leaderboard || []);
+            }
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            alert(err.error || "Failed to delete replay.");
+        }
     }
 
     async function removeQuestion(qid) {

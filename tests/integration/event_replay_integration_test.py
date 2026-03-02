@@ -459,9 +459,9 @@ class TestLeaderboardOrdering:
 
 
 class TestAnonymousReplay:
-    """Anonymous users can replay but user_id is None."""
+    """Anonymous users can evaluate but not save to leaderboard."""
 
-    def test_anonymous_replay(self, client, stores):
+    def test_anonymous_evaluate_allowed(self, client, stores):
         # Login to create event and add questions
         _login(client)
         qids, _ = _seed_questions(stores["question"])
@@ -473,13 +473,28 @@ class TestAnonymousReplay:
         with client.session_transaction() as sess:
             sess.clear()
 
-        # Submit as anonymous with display_name
-        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
-            "display_name": "Guest Player",
+        # Evaluate as anonymous — should work
+        resp = client.post(f"/api/events/{event_id}/replay/evaluate", json={
             "answers": [{"question_id": qids[0], "answer": "Paris"}],
         })
-        assert resp.status_code == 201
+        assert resp.status_code == 200
         result = resp.get_json()
-        assert result["user_id"] is None
-        assert result["display_name"] == "Guest Player"
         assert result["score"] == 1
+
+    def test_anonymous_submit_blocked(self, client, stores):
+        # Login to create event and add questions
+        _login(client)
+        qids, _ = _seed_questions(stores["question"])
+        resp = client.post("/api/events/", json={"name": "Anon Block Test"})
+        event_id = resp.get_json()["event_id"]
+        client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
+
+        # Logout
+        with client.session_transaction() as sess:
+            sess.clear()
+
+        # Submit as anonymous — should be blocked
+        resp = client.post(f"/api/events/{event_id}/replay/submit", json={
+            "answers": [{"question_id": qids[0], "answer": "Paris"}],
+        })
+        assert resp.status_code == 403

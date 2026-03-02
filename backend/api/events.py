@@ -12,7 +12,10 @@ from backend.services.event_service import (
     update_event,
 )
 from backend.services.replay_service import (
+    delete_replay,
+    evaluate_replay,
     get_leaderboard,
+    get_replay_detail,
     has_played_event,
     start_replay,
     submit_replay,
@@ -213,21 +216,75 @@ def start_replay_endpoint(event_id):
     return jsonify(data), 200
 
 
-@events_bp.route("/<event_id>/replay/submit", methods=["POST"])
-def submit_replay_endpoint(event_id):
+@events_bp.route("/<event_id>/replay/evaluate", methods=["POST"])
+def evaluate_replay_endpoint(event_id):
+    """Evaluate answers without saving — anyone can call this."""
     data = request.get_json(silent=True) or {}
     user_answers = data.get("answers", [])
-    display_name = data.get("display_name")
 
-    user_id = session.get("user_id") if session.get("logged_in") else None
-    if not display_name and session.get("logged_in"):
-        display_name = session.get("username")
+    result = evaluate_replay(event_id, user_answers)
+    if result is None:
+        return jsonify({"error": "Event not found"}), 404
+
+    return jsonify(result), 200
+
+
+@events_bp.route("/<event_id>/replay/submit", methods=["POST"])
+def submit_replay_endpoint(event_id):
+    """Submit and save replay — requires login."""
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
+
+    data = request.get_json(silent=True) or {}
+    user_answers = data.get("answers", [])
+    display_name = data.get("display_name") or session.get("username")
+    user_id = session.get("user_id")
 
     replay = submit_replay(event_id, user_answers, user_id=user_id, display_name=display_name)
     if not replay:
         return jsonify({"error": "Event not found"}), 404
 
     return jsonify(replay.model_dump(mode="json")), 201
+
+
+@events_bp.route("/<event_id>/replay/<replay_id>", methods=["GET"])
+def get_replay_endpoint(event_id, replay_id):
+    """Return full replay details. Accessible to replay owner, event owner, or admin."""
+    detail = get_replay_detail(replay_id)
+    if not detail or detail["event_id"] != event_id:
+        return jsonify({"error": "Replay not found"}), 404
+
+    logged_in = session.get("logged_in", False)
+    user_id = session.get("user_id")
+    role = session.get("role", "user")
+
+    # Check access: replay owner, event owner, or admin
+    is_admin = role == "admin"
+    is_replay_owner = logged_in and user_id and detail.get("user_id") == user_id
+    if not is_admin and not is_replay_owner:
+        from backend.services.event_service import get_event
+        event = get_event(event_id)
+        is_event_owner = logged_in and event and session.get("username") == event.created_by
+        if not is_event_owner:
+            return jsonify({"error": "Forbidden"}), 403
+
+    return jsonify(detail), 200
+
+
+@events_bp.route("/<event_id>/replay/<replay_id>", methods=["DELETE"])
+def delete_replay_endpoint(event_id, replay_id):
+    """Delete a replay record — admin only."""
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
+
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin required"}), 403
+
+    if delete_replay(replay_id, event_id):
+        return "", 204
+    return jsonify({"error": "Replay not found"}), 404
 
 
 @events_bp.route("/<event_id>/leaderboard", methods=["GET"])

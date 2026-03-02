@@ -17,6 +17,8 @@
     let replayData = null;
     let currentIdx = 0;
     let userAnswers = [];
+    let loginStatus = { logged_in: false };
+    let savedToLeaderboard = false;
 
     function escHtml(str) {
         return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -25,13 +27,18 @@
     const app = document.getElementById("app");
 
     async function init() {
-        // Start replay — get event info + questions (without answers)
-        const resp = await fetch(`/api/events/${EVENT_ID}/replay`, { method: "POST" });
-        if (!resp.ok) {
+        const [statusResp, replayResp] = await Promise.all([
+            fetch("/login-status").then(r => r.json()).catch(() => ({ logged_in: false })),
+            fetch(`/api/events/${EVENT_ID}/replay`, { method: "POST" }),
+        ]);
+
+        loginStatus = statusResp;
+
+        if (!replayResp.ok) {
             app.innerHTML = '<p class="text-danger text-center">Event not found.</p>';
             return;
         }
-        replayData = await resp.json();
+        replayData = await replayResp.json();
         userAnswers = replayData.questions.map(q => ({ question_id: q.question_id, answer: "" }));
         showStart();
     }
@@ -127,16 +134,18 @@
     }
 
     async function submitAnswers() {
+        // Phase 1: evaluate only (no DB save)
         const body = { answers: userAnswers };
-        const resp = await fetch(`/api/events/${EVENT_ID}/replay/submit`, {
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/evaluate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
         });
         if (!resp.ok) {
-            alert("Failed to submit answers.");
+            alert("Failed to evaluate answers.");
             return;
         }
+        savedToLeaderboard = false;
         const result = await resp.json();
         showResults(result);
     }
@@ -159,6 +168,27 @@
             </tr>`;
         }).join("");
 
+        // Save-to-leaderboard section
+        let saveSection = "";
+        if (loginStatus.logged_in && !savedToLeaderboard) {
+            saveSection = `
+                <div id="save-section" class="text-center mb-4">
+                    <button id="save-btn" onclick="saveToLeaderboard()" class="bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
+                        Save to Leaderboard
+                    </button>
+                </div>`;
+        } else if (savedToLeaderboard) {
+            saveSection = `
+                <div class="text-center mb-4">
+                    <p class="text-success text-sm font-medium">Score saved to leaderboard!</p>
+                </div>`;
+        } else {
+            saveSection = `
+                <div class="text-center mb-4">
+                    <p class="text-muted text-xs">Log in to save your score to the leaderboard</p>
+                </div>`;
+        }
+
         app.innerHTML = `
             <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
                 <div class="text-center mb-6">
@@ -180,32 +210,60 @@
                 </div>
                 <div id="override-notice" class="hidden text-center mb-4">
                     <button onclick="resubmitWithOverrides()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                        Re-submit with overrides
+                        Re-evaluate with overrides
                     </button>
                 </div>
+                ${saveSection}
                 <div class="flex justify-center gap-3">
                     <a href="/events/${EVENT_ID}" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Back to Event</a>
                     <a href="/events/${EVENT_ID}/replay" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Play Again</a>
                 </div>
             </div>`;
 
-        // Store latest result for overrides
         window._lastResult = result;
     }
 
     function overrideAnswer(idx, isCorrect) {
         userAnswers[idx].override = isCorrect;
         document.getElementById("override-notice").classList.remove("hidden");
+        // Hide save button when overrides change (need to re-evaluate first)
+        const saveSection = document.getElementById("save-section");
+        if (saveSection) saveSection.classList.add("hidden");
     }
 
     async function resubmitWithOverrides() {
+        // Re-evaluate with overrides (no DB save)
+        const body = { answers: userAnswers };
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/evaluate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) { alert("Failed to re-evaluate."); return; }
+        savedToLeaderboard = false;
+        const result = await resp.json();
+        showResults(result);
+    }
+
+    async function saveToLeaderboard() {
+        const btn = document.getElementById("save-btn");
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+
         const body = { answers: userAnswers };
         const resp = await fetch(`/api/events/${EVENT_ID}/replay/submit`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
         });
-        if (!resp.ok) { alert("Failed to re-submit."); return; }
+        if (!resp.ok) {
+            btn.disabled = false;
+            btn.textContent = "Save to Leaderboard";
+            const err = await resp.json().catch(() => ({}));
+            alert(err.error || "Failed to save score.");
+            return;
+        }
+        savedToLeaderboard = true;
         const result = await resp.json();
         showResults(result);
     }

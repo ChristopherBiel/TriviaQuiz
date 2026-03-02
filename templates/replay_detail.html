@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Replay Detail{% endblock %}
+{% block mobile_title %}REPLAY{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-4xl mx-auto">
+    <div id="replay-detail">
+        <p class="text-muted text-center">Loading...</p>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const EVENT_ID = "{{ event_id }}";
+    const REPLAY_ID = "{{ replay_id }}";
+
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    async function init() {
+        const container = document.getElementById("replay-detail");
+        const resp = await fetch(`/api/events/${EVENT_ID}/replay/${REPLAY_ID}`);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            container.innerHTML = `<p class="text-danger text-center">${escHtml(err.error || "Replay not found.")}</p>`;
+            return;
+        }
+        const data = await resp.json();
+        render(data);
+    }
+
+    function render(data) {
+        const answers = data.answers || [];
+        const rows = answers.map((a, i) => {
+            const bgClass = a.is_correct ? "bg-success/5" : "bg-danger/5";
+            const icon = a.is_correct
+                ? '<span class="text-success font-bold">&#10003;</span>'
+                : '<span class="text-danger font-bold">&#10007;</span>';
+            return `<tr class="border-b border-border/50 ${bgClass}">
+                <td class="px-4 py-3 text-xs text-muted">${i + 1}</td>
+                <td class="px-4 py-3 text-sm">${escHtml(a.user_answer)}</td>
+                <td class="px-4 py-3 text-sm text-muted">${escHtml(a.correct_answer)}</td>
+                <td class="px-4 py-3 text-center">${icon}</td>
+            </tr>`;
+        }).join("");
+
+        const dateStr = data.completed_at ? new Date(data.completed_at).toLocaleString() : "-";
+        const pct = Math.round((data.score / Math.max(data.total, 1)) * 100);
+
+        document.getElementById("replay-detail").innerHTML = `
+            <a href="/events/${EVENT_ID}" class="text-sm text-muted hover:text-white transition-colors mb-4 inline-block">&larr; Back to Event</a>
+            <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
+                <div class="text-center mb-6">
+                    <h1 class="text-2xl font-bold mb-1">${escHtml(data.display_name)}</h1>
+                    <p class="text-3xl font-bold mb-1">${data.score} / ${data.total}</p>
+                    <p class="text-sm text-muted">${pct}% correct &middot; ${dateStr}</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead><tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                            <th class="px-4 py-2 w-8">#</th>
+                            <th class="px-4 py-2">Player Answer</th>
+                            <th class="px-4 py-2">Correct Answer</th>
+                            <th class="px-4 py-2 w-8 text-center"></th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+    }
+
+    document.addEventListener("DOMContentLoaded", init);
+</script>
+{% endblock %}

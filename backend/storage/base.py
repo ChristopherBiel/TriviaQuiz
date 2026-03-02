@@ -158,6 +158,10 @@ class ReplayStore(ABC):
     def has_user_played(self, event_id: str, user_id: str) -> bool:
         raise NotImplementedError
 
+    @abstractmethod
+    def delete(self, replay_id: str) -> bool:
+        raise NotImplementedError
+
 
 class MediaStore(ABC):
     @abstractmethod

@@ -635,3 +635,11 @@ class PostgresReplayStore(ReplayStore):
                 .limit(1)
             )
             return session.execute(query).scalar() is not None
+
+    def delete(self, replay_id: str) -> bool:
+        with session_scope(commit=True) as session:
+            record = session.get(ReplayRecord, replay_id)
+            if not record:
+                return False
+            session.delete(record)
+            return True

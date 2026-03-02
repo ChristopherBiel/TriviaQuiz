@@ -70,6 +70,13 @@ def event_detail_page(event_id):
 def replay_event_page(event_id):
     return render_template("replay_event.html", event_id=event_id)
 
+# Serve the replay detail page (login required — access checked by API)
+@routes_bp.route("/events/<event_id>/replay/<replay_id>")
+def replay_detail_page(event_id, replay_id):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    return render_template("replay_detail.html", event_id=event_id, replay_id=replay_id)
+
 # Serve the add questions to event page (login required)
 @routes_bp.route("/events/<event_id>/add-questions")
 def event_add_questions_page(event_id):
