@@ -24,6 +24,13 @@ def new_question():
         return redirect(url_for("auth.login"))
     return render_template("new_question.html")
 
+# Serve the manage own questions page (for logged-in users)
+@routes_bp.route("/my_questions")
+def my_questions():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    return render_template("my_questions.html")
+
 # Serve the approve questions page (only for admins)
 @routes_bp.route("/approve_question")
 def approve_question():
