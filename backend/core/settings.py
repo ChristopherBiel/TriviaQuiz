@@ -69,6 +69,10 @@ class Settings:
 
     signup_referral_code: str
 
+    llm_eval_enabled: bool
+    llm_eval_api_key: str
+    llm_eval_model: str
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -109,4 +113,7 @@ def get_settings() -> Settings:
         minio_secure=_as_bool(os.getenv("MINIO_SECURE"), False),
         minio_auto_create_bucket=_as_bool(os.getenv("MINIO_AUTO_CREATE_BUCKET"), True),
         signup_referral_code=os.getenv("SIGNUP_REFERRAL_CODE", ""),
+        llm_eval_enabled=_as_bool(os.getenv("LLM_EVAL_ENABLED"), False),
+        llm_eval_api_key=os.getenv("LLM_EVAL_API_KEY", ""),
+        llm_eval_model=os.getenv("LLM_EVAL_MODEL", "claude-haiku-4-5-20251001"),
     )

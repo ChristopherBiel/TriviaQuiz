@@ -1,9 +1,9 @@
 from backend.models.replay import ReplayAttemptModel
 from backend.storage import get_event_store, get_media_store, get_question_store, get_replay_store
-from backend.utils.answer_eval import SimpleEvaluator
+from backend.utils.answer_eval import HybridEvaluator
 
 
-_evaluator = SimpleEvaluator()
+_evaluator = HybridEvaluator()
 
 
 def start_replay(event_id: str) -> dict | None:

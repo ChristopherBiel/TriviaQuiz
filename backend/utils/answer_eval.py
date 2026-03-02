@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+import json
+import logging
 import re
 import string
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,6 +53,108 @@ class SimpleEvaluator(AnswerEvaluator):
         return text
 
 
+_LLM_SYSTEM_PROMPT = (
+    "You are a trivia quiz answer evaluator. Given a question, the reference answer, "
+    "and a user's answer, determine if the user's answer is correct.\n\n"
+    "Be lenient like a fair quizmaster:\n"
+    "- Accept partial names (e.g. last name only when the full name is in the reference)\n"
+    "- Accept alternative phrasings and synonyms\n"
+    "- If the reference answer lists multiple options (e.g. comma-separated), accept "
+    "any single valid option from the list\n"
+    "- Accept common abbreviations and title variations (Prof./Professor, Dr./Doctor)\n"
+    "- However, if the question specifically requires a precise detail (e.g. a first name), "
+    "do require it\n\n"
+    "Respond with ONLY a JSON object, no other text:\n"
+    '{\"correct\": true, \"explanation\": \"brief reason\"}'
+)
+
+
 class LLMEvaluator(AnswerEvaluator):
+    """Evaluates answers using an LLM (Claude API) for semantic understanding."""
+
+    def __init__(self, api_key: str, model: str = "claude-haiku-4-5-20251001"):
+        import anthropic
+
+        self._client = anthropic.Anthropic(api_key=api_key)
+        self._model = model
+
     def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
-        raise NotImplementedError("LLM-based evaluation is not yet implemented")
+        user_msg = (
+            f"Question: {question}\n"
+            f"Reference answer: {correct_answer}\n"
+            f"User's answer: {user_answer}"
+        )
+
+        try:
+            response = self._client.messages.create(
+                model=self._model,
+                max_tokens=100,
+                system=_LLM_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+
+            text = response.content[0].text.strip()
+            parsed = json.loads(text)
+            is_correct = bool(parsed.get("correct", False))
+            explanation = parsed.get("explanation", "")
+
+            return EvalResult(
+                is_correct=is_correct,
+                confidence=0.95 if is_correct else 0.95,
+                explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
+            )
+        except (json.JSONDecodeError, KeyError, IndexError) as exc:
+            logger.warning("LLM evaluator failed to parse response: %s", exc)
+            return None
+        except Exception as exc:
+            logger.warning("LLM evaluator API error: %s", exc)
+            return None
+
+
+class HybridEvaluator(AnswerEvaluator):
+    """Runs SimpleEvaluator first; falls back to LLM for answers marked wrong."""
+
+    def __init__(self):
+        self._simple = SimpleEvaluator()
+        self._llm: LLMEvaluator | None = None
+        self._llm_init_attempted = False
+
+    def _get_llm(self) -> LLMEvaluator | None:
+        if self._llm_init_attempted:
+            return self._llm
+
+        self._llm_init_attempted = True
+        try:
+            from backend.core.settings import get_settings
+
+            settings = get_settings()
+            if settings.llm_eval_enabled and settings.llm_eval_api_key:
+                self._llm = LLMEvaluator(
+                    api_key=settings.llm_eval_api_key,
+                    model=settings.llm_eval_model,
+                )
+                logger.info("LLM answer evaluator enabled (model=%s)", settings.llm_eval_model)
+            else:
+                logger.debug("LLM answer evaluator disabled")
+        except Exception as exc:
+            logger.warning("Failed to initialise LLM evaluator: %s", exc)
+        return self._llm
+
+    def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+        simple_result = self._simple.evaluate(question, correct_answer, user_answer)
+
+        # Simple match succeeded — no need to call the LLM
+        if simple_result.is_correct:
+            return simple_result
+
+        # Simple match failed — try LLM if available
+        llm = self._get_llm()
+        if llm is None:
+            return simple_result
+
+        llm_result = llm.evaluate(question, correct_answer, user_answer)
+        if llm_result is None:
+            # LLM call failed; fall back to simple result
+            return simple_result
+
+        return llm_result
