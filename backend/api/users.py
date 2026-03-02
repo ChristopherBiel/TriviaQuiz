@@ -15,6 +15,13 @@ from backend.core.settings import get_settings
 
 users_bp = Blueprint("users", __name__, url_prefix="/users")
 
+_SENSITIVE_FIELDS = {"password_hash", "reset_token", "reset_expires_at",
+                     "verification_token", "verification_expires_at"}
+
+
+def _safe_dump(user) -> dict:
+    return user.model_dump(mode="json", exclude=_SENSITIVE_FIELDS)
+
 
 def _require_admin():
     if not session.get("logged_in"):
@@ -63,7 +70,7 @@ def users_verify():
     user = verify_user(token)
     if not user:
         return jsonify({"error": "Invalid or expired token"}), 400
-    return jsonify(user.model_dump(mode="json")), 200
+    return jsonify(_safe_dump(user)), 200
 
 
 @users_bp.route("/request-reset", methods=["POST"])
@@ -114,7 +121,7 @@ def users_list():
     if auth_error:
         return auth_error
     users = list_users()
-    return jsonify([u.model_dump(mode="json") for u in users]), 200
+    return jsonify([_safe_dump(u) for u in users]), 200
 
 
 @users_bp.route("/<username>", methods=["GET"])
@@ -125,7 +132,7 @@ def users_get(username):
     user = get_user(username)
     if not user:
         return jsonify({"error": "User not found"}), 404
-    return jsonify(user.model_dump(mode="json")), 200
+    return jsonify(_safe_dump(user)), 200
 
 
 @users_bp.route("/", methods=["POST"])
@@ -137,7 +144,7 @@ def users_create():
     user = create_user(data, acting_role=session.get("role"))
     if not user:
         return jsonify({"error": "Failed to create user"}), 400
-    return jsonify(user.model_dump(mode="json")), 201
+    return jsonify(_safe_dump(user)), 201
 
 
 @users_bp.route("/<username>", methods=["PUT"])
@@ -149,7 +156,7 @@ def users_update(username):
     updated = update_user(username, data, acting_role=session.get("role"), acting_username=session.get("username"))
     if not updated:
         return jsonify({"error": "User not found or no changes"}), 404
-    return jsonify(updated.model_dump(mode="json")), 200
+    return jsonify(_safe_dump(updated)), 200
 
 
 @users_bp.route("/<username>", methods=["DELETE"])

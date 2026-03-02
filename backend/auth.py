@@ -13,16 +13,21 @@ from backend.utils.password_utils import hash_password, verify_password
 from backend.utils.email_stub import send_email
 
 auth_bp = Blueprint("auth", __name__)
+
+_SENSITIVE_USER_FIELDS = {"password_hash", "reset_token", "reset_expires_at",
+                          "verification_token", "verification_expires_at"}
     
 @auth_bp.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "GET":
         return render_template("signup.html")
 
-    # Accept data from HTML form and sanitize it
-    username = escape(request.form.get("username", "").strip())
-    email = escape(request.form.get("email", "").strip())
-    password = request.form.get("password", "")
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "error", "message": "Missing signup data"}), 400
+    username = escape(str(data.get("username", "")).strip())
+    email = escape(str(data.get("email", "")).strip())
+    password = data.get("password", "")
 
     if not username or not email or not password:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
@@ -48,17 +53,11 @@ def login():
     if request.method == "GET":
         return render_template("login.html")
 
-    # Try form data first
-    username = request.form.get("username")
-    password = request.form.get("password")
-
-    # Fallback to JSON if form data is empty
-    if not username or not password:
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Missing login data"}), 400
-        username = data.get("username")
-        password = data.get("password")
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Missing login data"}), 400
+    username = data.get("username")
+    password = data.get("password")
 
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
@@ -75,7 +74,7 @@ def login():
 
     update_user(user.username, {"last_login_at": datetime.now(timezone.utc).replace(tzinfo=None), "last_login_ip": request.remote_addr}, acting_role="admin")
 
-    # Set session variables
+    session.clear()
     session["logged_in"] = True
     session["username"] = user.username
     session["email"] = user.email
@@ -105,7 +104,7 @@ def get_all_users():
     """Fetch all users."""
     try:
         from backend.services.user_service import list_users
-        return [u.model_dump(mode="json") for u in list_users()]
+        return [u.model_dump(mode="json", exclude=_SENSITIVE_USER_FIELDS) for u in list_users()]
     except Exception as e:
         print(f"Error fetching users: {e}")
         return []

@@ -156,3 +156,20 @@ def test_get_user_replays(mock_stores):
     result = get_user_replays("u1")
     assert len(result) == 1
     assert result[0]["event_id"] == "e1"
+
+
+def test_submit_replay_user_answer_key(mock_stores, sample_event, sample_questions):
+    """The service must accept 'user_answer' as an alternative to 'answer'."""
+    mock_stores.event_store.get_by_id.return_value = sample_event
+    mock_stores.question_store.get_by_id.side_effect = lambda qid: sample_questions.get(qid)
+    mock_stores.replay_store.save.return_value = True
+    mock_stores.question_store.update.return_value = None
+
+    answers = [
+        {"question_id": "q1", "user_answer": "Paris"},
+        {"question_id": "q2", "user_answer": "4"},
+    ]
+    replay = submit_replay(sample_event.event_id, answers)
+    assert replay.score == 2
+    assert replay.answers[0]["user_answer"] == "Paris"
+    assert replay.answers[1]["user_answer"] == "4"
