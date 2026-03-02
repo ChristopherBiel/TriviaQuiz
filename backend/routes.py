@@ -46,6 +46,15 @@ def get_users():
     users = get_all_users()
     return jsonify(users)
 
+# Serve the manage events page (only for admins)
+@routes_bp.route("/manage_events")
+def manage_events():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+    return render_template("manage_events.html")
+
 # Serve the events list page (public)
 @routes_bp.route("/events")
 def events_page():

@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Events{% endblock %}
+{% block mobile_title %}MANAGE EVENTS{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Manage Events</h1>
+
+    <!-- Filter bar -->
+    <div class="bg-card border border-border rounded-xl p-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <input id="filter-name" type="text" placeholder="Search by name"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="filter-location" type="text" placeholder="Location"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="filter-creator" type="text" placeholder="Created by"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="filter-date" type="date" placeholder="Date"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+        </div>
+        <div class="flex gap-2 mt-3">
+            <button onclick="loadEvents()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Apply</button>
+            <button onclick="clearFilters()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Clear</button>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-card border border-border rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm min-w-[900px]">
+                <thead>
+                    <tr class="border-b border-border text-muted uppercase text-xs tracking-wider">
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('name')">Name <span id="sort-name"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('date')">Date <span id="sort-date"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('location')">Location <span id="sort-location"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('questions')">Questions <span id="sort-questions"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('team_score')">Team Score <span id="sort-team_score"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('best_score')">Best Score <span id="sort-best_score"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('created_by')">Created By <span id="sort-created_by"></span></th>
+                        <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('created_at')">Created <span id="sort-created_at"></span></th>
+                        <th class="px-4 py-3 font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="event-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit Panel -->
+    <div id="edit-panel" class="bg-card border border-border rounded-xl p-6 mt-6 hidden">
+        <h2 class="text-lg font-semibold mb-4">Edit Event</h2>
+        <form id="edit-form" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input id="edit-name" type="text" placeholder="Event name" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
+            <input id="edit-date" type="date" placeholder="Date" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-location" type="text" placeholder="Location" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-team-score" type="number" step="any" placeholder="Team score" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <input id="edit-max-score" type="number" step="any" placeholder="Max score" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <textarea id="edit-description" placeholder="Description" rows="2" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm md:col-span-2"></textarea>
+            <div class="col-span-full flex gap-2 justify-end mt-2">
+                <button type="button" onclick="hideEdit()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-4 py-2 rounded-lg border border-border transition-colors">Cancel</button>
+                <button type="submit" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-4 py-2 rounded-lg transition-colors">Save</button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let allEvents = [];
+    let eventCache = {};
+    let editingId = null;
+    let sortField = null;
+    let sortAsc = true;
+    let currentPage = 1;
+    const pageSize = 20;
+
+    function escHtml(str) {
+        return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    async function loadEvents() {
+        const name = document.getElementById("filter-name").value.trim().toLowerCase();
+        const location = document.getElementById("filter-location").value.trim().toLowerCase();
+        const creator = document.getElementById("filter-creator").value.trim().toLowerCase();
+        const date = document.getElementById("filter-date").value;
+
+        const params = new URLSearchParams({ limit: 200, offset: 0 });
+        if (creator) params.set("created_by", creator);
+
+        try {
+            const response = await fetch(`/api/events/?${params.toString()}`);
+            if (!response.ok) { allEvents = []; renderPage(); return; }
+            const payload = await response.json();
+            allEvents = payload.items || [];
+        } catch (e) {
+            allEvents = [];
+        }
+
+        // Client-side filters
+        if (name) {
+            allEvents = allEvents.filter(ev => (ev.name || "").toLowerCase().includes(name));
+        }
+        if (location) {
+            allEvents = allEvents.filter(ev => (ev.location || "").toLowerCase().includes(location));
+        }
+        if (date) {
+            allEvents = allEvents.filter(ev => ev.date === date);
+        }
+
+        applySort();
+        currentPage = 1;
+        renderPage();
+        updateSortIndicators();
+    }
+
+    function formatScore(score, maxScore) {
+        if (score == null) return "-";
+        if (maxScore != null) return `${score} / ${maxScore}`;
+        return String(score);
+    }
+
+    function renderPage() {
+        const eventList = document.getElementById("event-list");
+        eventList.innerHTML = "";
+        eventCache = {};
+
+        const start = (currentPage - 1) * pageSize;
+        const slice = allEvents.slice(start, start + pageSize);
+
+        if (slice.length === 0) {
+            eventList.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-muted">No events found.</td></tr>`;
+            return;
+        }
+
+        slice.forEach(ev => {
+            const id = ev.event_id || ev.id;
+            eventCache[id] = ev;
+            const qCount = (ev.question_ids || []).length;
+            const dateStr = ev.date || "-";
+            const createdStr = ev.created_at ? new Date(ev.created_at).toLocaleDateString() : "-";
+
+            eventList.innerHTML += `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
+                <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/events/${id}">${escHtml(ev.name)}</a></td>
+                <td class="px-4 py-3">${escHtml(dateStr)}</td>
+                <td class="px-4 py-3">${escHtml(ev.location || "-")}</td>
+                <td class="px-4 py-3">${qCount}</td>
+                <td class="px-4 py-3">${formatScore(ev.team_score, ev.max_score)}</td>
+                <td class="px-4 py-3">${ev.best_score != null ? ev.best_score : "-"}</td>
+                <td class="px-4 py-3">${escHtml(ev.created_by)}</td>
+                <td class="px-4 py-3 text-muted">${createdStr}</td>
+                <td class="px-4 py-3">
+                    <div class="flex gap-1.5">
+                        <button onclick='startEdit("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors">Edit</button>
+                        <button onclick='deleteEvent("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>
+                    </div>
+                </td>
+            </tr>`;
+        });
+
+        renderPagination();
+    }
+
+    function renderPagination() {
+        const totalPages = Math.max(1, Math.ceil(allEvents.length / pageSize));
+        const eventList = document.getElementById("event-list");
+        const pager = document.createElement("tr");
+        pager.innerHTML = `<td colspan="9" class="px-4 py-3">
+            <div class="flex items-center justify-center gap-3 text-sm">
+                <button ${currentPage===1?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
+                <span class="text-muted">Page ${currentPage} / ${totalPages}</span>
+                <button ${currentPage===totalPages?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.min(totalPages,currentPage+1)})">Next</button>
+            </div>
+        </td>`;
+        eventList.appendChild(pager);
+    }
+
+    function gotoPage(page) {
+        const totalPages = Math.max(1, Math.ceil(allEvents.length / pageSize));
+        currentPage = Math.min(Math.max(1, page), totalPages);
+        renderPage();
+    }
+
+    async function deleteEvent(id) {
+        const ev = eventCache[id];
+        if (!ev) return;
+        const qCount = (ev.question_ids || []).length;
+
+        if (!confirm(`Delete event "${ev.name}"?`)) return;
+
+        let deleteQuestions = false;
+        if (qCount > 0) {
+            deleteQuestions = confirm(`This event has ${qCount} question(s). Delete the questions too?\n\nOK = Delete questions\nCancel = Keep questions (unlink only)`);
+        }
+
+        const params = deleteQuestions ? "?delete_questions=true" : "";
+        const response = await fetch(`/api/events/${id}${params}`, { method: "DELETE" });
+        if (response.ok || response.status === 204) {
+            loadEvents();
+        } else {
+            const err = await response.json().catch(() => ({}));
+            alert(err.error || "Error deleting event.");
+        }
+    }
+
+    function startEdit(id) {
+        const ev = eventCache[id];
+        if (!ev) return;
+        editingId = id;
+        document.getElementById("edit-name").value = ev.name || "";
+        document.getElementById("edit-date").value = ev.date || "";
+        document.getElementById("edit-location").value = ev.location || "";
+        document.getElementById("edit-team-score").value = ev.team_score ?? "";
+        document.getElementById("edit-max-score").value = ev.max_score ?? "";
+        document.getElementById("edit-description").value = ev.description || "";
+        document.getElementById("edit-panel").classList.remove("hidden");
+        document.getElementById("edit-panel").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function hideEdit() {
+        editingId = null;
+        document.getElementById("edit-panel").classList.add("hidden");
+    }
+
+    document.getElementById("edit-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!editingId) return;
+        const payload = {
+            name: document.getElementById("edit-name").value,
+            date: document.getElementById("edit-date").value || null,
+            location: document.getElementById("edit-location").value || null,
+            team_score: document.getElementById("edit-team-score").value ? parseFloat(document.getElementById("edit-team-score").value) : null,
+            max_score: document.getElementById("edit-max-score").value ? parseFloat(document.getElementById("edit-max-score").value) : null,
+            description: document.getElementById("edit-description").value || null,
+        };
+        const response = await fetch(`/api/events/${editingId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (response.ok) { hideEdit(); loadEvents(); }
+        else { const err = await response.json().catch(() => ({})); alert(err.error || "Error updating event."); }
+    });
+
+    function clearFilters() {
+        document.getElementById("filter-name").value = "";
+        document.getElementById("filter-location").value = "";
+        document.getElementById("filter-creator").value = "";
+        document.getElementById("filter-date").value = "";
+        sortField = null;
+        sortAsc = true;
+        loadEvents();
+    }
+
+    function sortBy(field) {
+        if (sortField === field) { sortAsc = !sortAsc; } else { sortField = field; sortAsc = true; }
+        applySort(); renderPage(); updateSortIndicators();
+    }
+
+    function applySort() {
+        if (!sortField) return;
+        allEvents.sort((a, b) => {
+            let va, vb;
+            if (sortField === "questions") {
+                va = (a.question_ids || []).length;
+                vb = (b.question_ids || []).length;
+            } else {
+                va = (a[sortField] ?? "").toString().toLowerCase();
+                vb = (b[sortField] ?? "").toString().toLowerCase();
+            }
+            if (va < vb) return sortAsc ? -1 : 1;
+            if (va > vb) return sortAsc ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function updateSortIndicators() {
+        ["name","date","location","questions","team_score","best_score","created_by","created_at"].forEach(f => {
+            const el = document.getElementById(`sort-${f}`);
+            if (!el) return;
+            el.textContent = f === sortField ? (sortAsc ? "▲" : "▼") : "";
+        });
+    }
+
+    loadEvents();
+</script>
+{% endblock %}
