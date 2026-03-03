@@ -5,7 +5,7 @@
 
 {% block content %}
 <main class="min-h-[calc(100dvh-3.5rem)] md:min-h-screen flex items-center justify-center px-4 py-10">
-    <div id="app" class="w-full max-w-2xl">
+    <div id="app" class="w-full max-w-2xl transition-all">
         <p class="text-center text-muted">Loading...</p>
     </div>
 </main>
@@ -43,7 +43,13 @@
         showStart();
     }
 
+    function setWide(wide) {
+        app.classList.toggle("max-w-2xl", !wide);
+        app.classList.toggle("max-w-5xl", wide);
+    }
+
     function showStart() {
+        setWide(false);
         app.innerHTML = `
             <div class="bg-card border border-border rounded-2xl p-8 text-center">
                 <h1 class="text-2xl font-bold mb-2">${escHtml(replayData.name)}</h1>
@@ -56,6 +62,7 @@
     }
 
     function showQuestion(idx) {
+        setWide(false);
         currentIdx = idx;
         const q = replayData.questions[idx];
         const isLast = idx === replayData.questions.length - 1;
@@ -99,6 +106,7 @@
     }
 
     function showReview() {
+        setWide(true);
         const rows = replayData.questions.map((q, i) => `
             <tr class="border-b border-border/50">
                 <td class="px-4 py-3 text-muted text-xs">${i + 1}</td>
@@ -133,7 +141,22 @@
             </div>`;
     }
 
+    function showEvaluating() {
+        app.innerHTML = `
+            <div class="bg-card border border-border rounded-2xl p-8 text-center">
+                <div class="inline-block mb-4">
+                    <svg class="animate-spin h-8 w-8 text-primary mx-auto" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold mb-2">Evaluating your answers...</h2>
+                <p class="text-sm text-muted">This may take a moment</p>
+            </div>`;
+    }
+
     async function submitAnswers() {
+        showEvaluating();
         // Phase 1: evaluate only (no DB save)
         const body = { answers: userAnswers };
         const resp = await fetch(`/api/events/${EVENT_ID}/replay/evaluate`, {
@@ -143,6 +166,7 @@
         });
         if (!resp.ok) {
             alert("Failed to evaluate answers.");
+            showReview();
             return;
         }
         savedToLeaderboard = false;
@@ -151,6 +175,7 @@
     }
 
     function showResults(result) {
+        setWide(true);
         const answers = result.answers || [];
         const rows = answers.map((a, i) => {
             const bgClass = a.is_correct ? "bg-success/5" : "bg-danger/5";
@@ -254,6 +279,7 @@
     }
 
     async function resubmitWithOverrides() {
+        showEvaluating();
         // Re-evaluate with overrides (no DB save)
         const body = { answers: userAnswers };
         const resp = await fetch(`/api/events/${EVENT_ID}/replay/evaluate`, {

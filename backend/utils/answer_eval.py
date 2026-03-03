@@ -61,13 +61,15 @@ _LLM_SYSTEM_PROMPT = (
     "You are a trivia quiz answer evaluator. Given a question, the reference answer, "
     "and a user's answer, determine if the user's answer is correct.\n\n"
     "Be lenient like a fair quizmaster:\n"
-    "- Accept partial names (e.g. last name only when the full name is in the reference)\n"
+    "- Accept answers which show the user knew the correct answer, but might have mistyped"
+    " or has a different formulation, but has provided the core essence of the answer)\n"
     "- Accept alternative phrasings and synonyms\n"
     "- If the reference answer lists multiple options (e.g. comma-separated), accept "
     "any single valid option from the list\n"
     "- Accept common abbreviations and title variations (Prof./Professor, Dr./Doctor)\n"
     "- However, if the question specifically requires a precise detail (e.g. a first name), "
-    "do require it\n\n"
+    "do require it\n"
+    "- Accept answers which provide one of multiple correct option (e.g. Q: Name one of the Beatles. A: John Lennon)\n\n"
     "Respond with ONLY a JSON object, no other text:\n"
     '{\"correct\": true, \"explanation\": \"brief reason\"}'
 )
