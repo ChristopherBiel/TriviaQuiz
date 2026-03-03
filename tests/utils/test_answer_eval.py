@@ -60,6 +60,16 @@ class TestSimpleEvaluator:
     def test_completely_different(self, evaluator):
         result = evaluator.evaluate("Q", "Photosynthesis", "42")
         assert result.is_correct is False
+        assert "No match" in result.explanation
+
+    def test_exact_match_explanation(self, evaluator):
+        result = evaluator.evaluate("Q", "Paris", "Paris")
+        assert result.explanation == "Exact match"
+
+    def test_wrong_answer_shows_similarity(self, evaluator):
+        result = evaluator.evaluate("Q", "Paris", "London")
+        assert result.is_correct is False
+        assert "similarity" in result.explanation
 
 
 # ---------------------------------------------------------------------------

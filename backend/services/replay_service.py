@@ -58,21 +58,26 @@ def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
             })
             continue
 
+        explanation = None
         if override is not None:
             is_correct = bool(override)
         else:
             result = _evaluator.evaluate(question.question, question.answer, user_answer)
             is_correct = result.is_correct
+            explanation = result.explanation
 
         if is_correct:
             score += 1
 
-        answers_detail.append({
+        detail = {
             "question_id": qid,
             "user_answer": user_answer,
             "correct_answer": question.answer,
             "is_correct": is_correct,
-        })
+        }
+        if explanation:
+            detail["explanation"] = explanation
+        answers_detail.append(detail)
 
     total = len(event.question_ids)
     return {
@@ -111,11 +116,13 @@ def submit_replay(
             })
             continue
 
+        explanation = None
         if override is not None:
             is_correct = bool(override)
         else:
             result = _evaluator.evaluate(question.question, question.answer, user_answer)
             is_correct = result.is_correct
+            explanation = result.explanation
 
         # Update question stats
         question_store.update(qid, {
@@ -126,12 +133,15 @@ def submit_replay(
         if is_correct:
             score += 1
 
-        answers_detail.append({
+        detail = {
             "question_id": qid,
             "user_answer": user_answer,
             "correct_answer": question.answer,
             "is_correct": is_correct,
-        })
+        }
+        if explanation:
+            detail["explanation"] = explanation
+        answers_detail.append(detail)
 
     total = len(event.question_ids)
     replay = ReplayAttemptModel(

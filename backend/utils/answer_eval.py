@@ -33,7 +33,7 @@ class SimpleEvaluator(AnswerEvaluator):
             return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided")
 
         if norm_correct == norm_user:
-            return EvalResult(is_correct=True, confidence=1.0)
+            return EvalResult(is_correct=True, confidence=1.0, explanation="Exact match")
 
         ratio = SequenceMatcher(None, norm_correct, norm_user).ratio()
         if ratio >= self.FUZZY_THRESHOLD:
@@ -43,7 +43,11 @@ class SimpleEvaluator(AnswerEvaluator):
                 explanation=f"Fuzzy match ({ratio:.0%} similarity)",
             )
 
-        return EvalResult(is_correct=False, confidence=round(1.0 - ratio, 3))
+        return EvalResult(
+            is_correct=False,
+            confidence=round(1.0 - ratio, 3),
+            explanation=f"No match ({ratio:.0%} similarity)",
+        )
 
     @staticmethod
     def _normalize(text: str) -> str:
