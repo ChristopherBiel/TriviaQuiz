@@ -160,7 +160,8 @@ class HybridEvaluator(AnswerEvaluator):
 
         llm_result = llm.evaluate(question, correct_answer, user_answer)
         if llm_result is None:
-            # LLM call failed; fall back to simple result
+            # LLM call failed; fall back to simple result with note
+            simple_result.explanation = (simple_result.explanation or "") + " (LLM fallback: call failed)"
             return simple_result
 
         return llm_result
