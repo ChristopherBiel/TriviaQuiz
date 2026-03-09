@@ -70,7 +70,7 @@ _LLM_SYSTEM_PROMPT = (
     "- However, if the question specifically requires a precise detail (e.g. a first name), "
     "do require it\n"
     "- Accept answers which provide one of multiple correct option (e.g. Q: Name one of the Beatles. A: John Lennon)\n\n"
-    "Respond with ONLY a JSON object, no other text:\n"
+    "Respond with ONLY a raw JSON object. No markdown, no code fences, no extra text:\n"
     '{\"correct\": true, \"explanation\": \"brief reason\"}'
 )
 
@@ -103,6 +103,9 @@ class LLMEvaluator(AnswerEvaluator):
             if not text:
                 logger.warning("LLM evaluator received empty response (stop_reason=%s) | prompt: %s", response.stop_reason, user_msg)
                 return None
+            if text.startswith("```"):
+                text = re.sub(r"^```[a-z]*\n?", "", text)
+                text = re.sub(r"\n?```$", "", text).strip()
             parsed = json.loads(text)
             is_correct = bool(parsed.get("correct", False))
             explanation = parsed.get("explanation", "")
