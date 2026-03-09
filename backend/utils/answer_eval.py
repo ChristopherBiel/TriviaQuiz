@@ -153,6 +153,10 @@ class HybridEvaluator(AnswerEvaluator):
         return self._llm
 
     def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+        # Empty answer is always wrong — skip LLM entirely
+        if not user_answer or not user_answer.strip():
+            return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided")
+
         simple_result = self._simple.evaluate(question, correct_answer, user_answer)
 
         # Simple match succeeded — no need to call the LLM
