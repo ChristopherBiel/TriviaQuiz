@@ -96,10 +96,12 @@
         grid.innerHTML = events.map(e => {
             const qCount = (e.question_ids || []).length;
             const dateStr = e.date ? new Date(e.date).toLocaleDateString() : "";
-            return `<a href="/events/${e.event_id}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors block">
-                <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}</h3>
-                ${dateStr ? `<p class="text-xs text-muted mb-1">${escHtml(dateStr)}</p>` : ""}
-                ${e.location ? `<p class="text-xs text-muted mb-2">${escHtml(e.location)}</p>` : ""}
+            return `<a href="/events/${e.event_id}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors flex flex-col">
+                <div class="flex-1">
+                    <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}</h3>
+                    ${dateStr ? `<p class="text-xs text-muted mb-1">${escHtml(dateStr)}</p>` : ""}
+                    ${e.location ? `<p class="text-xs text-muted mb-2">${escHtml(e.location)}</p>` : ""}
+                </div>
                 <div class="flex items-center justify-between mt-3">
                     <div class="flex items-center gap-3 text-xs text-muted">
                         <span>${qCount} question${qCount !== 1 ? "s" : ""}</span>
