@@ -94,12 +94,15 @@ class LLMEvaluator(AnswerEvaluator):
         try:
             response = self._client.messages.create(
                 model=self._model,
-                max_tokens=100,
+                max_tokens=256,
                 system=_LLM_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
 
             text = response.content[0].text.strip()
+            if not text:
+                logger.warning("LLM evaluator received empty response (stop_reason=%s)", response.stop_reason)
+                return None
             parsed = json.loads(text)
             is_correct = bool(parsed.get("correct", False))
             explanation = parsed.get("explanation", "")
