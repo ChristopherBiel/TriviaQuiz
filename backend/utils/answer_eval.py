@@ -21,6 +21,12 @@ class AnswerEvaluator(ABC):
     def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
         raise NotImplementedError
 
+    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
+        """Evaluate multiple (question, correct_answer, user_answer) tuples.
+        Default implementation calls evaluate() in a loop; subclasses may override for efficiency.
+        """
+        return [self.evaluate(q, ca, ua) for q, ca, ua in items]
+
 
 class SimpleEvaluator(AnswerEvaluator):
     FUZZY_THRESHOLD = 0.85
@@ -74,6 +80,19 @@ _LLM_SYSTEM_PROMPT = (
     '{\"correct\": true, \"explanation\": \"brief reason\"}'
 )
 
+_LLM_SYSTEM_PROMPT_BATCH = (
+    "You are a trivia quiz answer evaluator. Evaluate each answer below.\n\n"
+    "Be lenient like a fair quizmaster:\n"
+    "- Accept answers that show the user knew the correct answer, even with different formulations or minor typos\n"
+    "- Accept alternative phrasings and synonyms\n"
+    "- If the reference answer lists multiple options, accept any single valid option\n"
+    "- Accept common abbreviations and title variations (Prof./Professor, Dr./Doctor)\n"
+    "- However, if the question requires a precise detail (e.g. a first name), require it\n"
+    "- Accept answers that provide one of multiple correct options\n\n"
+    "Respond with ONLY a raw JSON array, one object per answer in the same order. No markdown, no code fences:\n"
+    '[{"correct": true, "explanation": "brief reason"}, ...]'
+)
+
 
 class LLMEvaluator(AnswerEvaluator):
     """Evaluates answers using an LLM (Claude API) for semantic understanding."""
@@ -85,6 +104,68 @@ class LLMEvaluator(AnswerEvaluator):
         self._model = model
 
     def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+        results = self.evaluate_batch([(question, correct_answer, user_answer)])
+        return results[0]
+
+    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
+        if not items:
+            return []
+
+        if len(items) == 1:
+            q, ca, ua = items[0]
+            result = self._evaluate_single(q, ca, ua)
+            return [result] if result is not None else [None]
+
+        parts = [
+            f"Answer {i}:\nQuestion: {q}\nReference: {ca}\nUser: {ua}"
+            for i, (q, ca, ua) in enumerate(items, 1)
+        ]
+        user_msg = "\n\n".join(parts)
+
+        try:
+            response = self._client.messages.create(
+                model=self._model,
+                max_tokens=min(80 * len(items), 4096),
+                system=_LLM_SYSTEM_PROMPT_BATCH,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+
+            text = response.content[0].text.strip()
+            if not text:
+                logger.warning("LLM batch evaluator received empty response")
+                return [None] * len(items)
+            if text.startswith("```"):
+                text = re.sub(r"^```[a-z]*\n?", "", text)
+                text = re.sub(r"\n?```$", "", text).strip()
+
+            parsed = json.loads(text)
+            if not isinstance(parsed, list) or len(parsed) != len(items):
+                logger.warning(
+                    "LLM batch evaluator returned %d results for %d items",
+                    len(parsed) if isinstance(parsed, list) else -1,
+                    len(items),
+                )
+                return [None] * len(items)
+
+            results = []
+            for entry in parsed:
+                is_correct = bool(entry.get("correct", False))
+                explanation = entry.get("explanation", "")
+                results.append(EvalResult(
+                    is_correct=is_correct,
+                    confidence=0.95,
+                    explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
+                ))
+            return results
+
+        except (json.JSONDecodeError, KeyError, IndexError) as exc:
+            logger.warning("LLM batch evaluator failed to parse response: %s | raw text: %r", exc, locals().get("text", "<not set>"))
+            return [None] * len(items)
+        except Exception as exc:
+            logger.warning("LLM batch evaluator API error: %s", exc, exc_info=True)
+            return [None] * len(items)
+
+    def _evaluate_single(self, question: str, correct_answer: str, user_answer: str) -> EvalResult | None:
         user_msg = (
             f"Question: {question}\n"
             f"Reference answer: {correct_answer}\n"
@@ -94,7 +175,7 @@ class LLMEvaluator(AnswerEvaluator):
         try:
             response = self._client.messages.create(
                 model=self._model,
-                max_tokens=256,
+                max_tokens=100,
                 system=_LLM_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -112,7 +193,7 @@ class LLMEvaluator(AnswerEvaluator):
 
             return EvalResult(
                 is_correct=is_correct,
-                confidence=0.95 if is_correct else 0.95,
+                confidence=0.95,
                 explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
             )
         except (json.JSONDecodeError, KeyError, IndexError) as exc:
@@ -168,10 +249,44 @@ class HybridEvaluator(AnswerEvaluator):
         if llm is None:
             return simple_result
 
-        llm_result = llm.evaluate(question, correct_answer, user_answer)
+        llm_result = llm._evaluate_single(question, correct_answer, user_answer)
         if llm_result is None:
             # LLM call failed; fall back to simple result with note
             simple_result.explanation = (simple_result.explanation or "") + " (LLM fallback: call failed)"
             return simple_result
 
         return llm_result
+
+    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
+        if not items:
+            return []
+
+        # Run simple evaluator on all items
+        results: list[EvalResult] = [self._simple.evaluate(q, ca, ua) for q, ca, ua in items]
+
+        # Find indices that failed simple matching and have a non-empty answer
+        llm_needed = [
+            i for i, ((_, _, ua), r) in enumerate(zip(items, results))
+            if not r.is_correct and ua.strip()
+        ]
+
+        if not llm_needed:
+            return results
+
+        llm = self._get_llm()
+        if llm is None:
+            return results
+
+        llm_items = [items[i] for i in llm_needed]
+        llm_results = llm.evaluate_batch(llm_items)
+
+        if len(llm_results) == len(llm_needed):
+            for idx, llm_result in zip(llm_needed, llm_results):
+                if llm_result is not None:
+                    results[idx] = llm_result
+                else:
+                    results[idx].explanation = (results[idx].explanation or "") + " (LLM fallback: call failed)"
+        else:
+            logger.warning("LLM batch returned unexpected length %d (expected %d); keeping simple results", len(llm_results), len(llm_needed))
+
+        return results

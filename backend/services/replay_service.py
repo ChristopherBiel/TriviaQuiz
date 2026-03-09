@@ -33,6 +33,37 @@ def start_replay(event_id: str) -> dict | None:
     }
 
 
+def _load_questions(question_store, user_answers: list[dict]) -> dict:
+    """Pre-load all referenced questions into a dict keyed by question_id."""
+    questions = {}
+    for entry in user_answers:
+        qid = entry.get("question_id", "")
+        if qid and qid not in questions:
+            q = question_store.get_by_id(qid)
+            if q:
+                questions[qid] = q
+    return questions
+
+
+def _batch_evaluate(user_answers: list[dict], questions: dict) -> list:
+    """Run evaluate_batch for all entries that need it (no override, question exists).
+    Returns a list of EvalResult|None aligned with user_answers indices."""
+    eval_indices = []
+    eval_items = []
+    for i, entry in enumerate(user_answers):
+        qid = entry.get("question_id", "")
+        override = entry.get("override")
+        q = questions.get(qid)
+        if override is None and q:
+            user_answer = entry.get("user_answer") or entry.get("answer", "")
+            eval_indices.append(i)
+            eval_items.append((q.question, q.answer, user_answer))
+
+    batch_results = _evaluator.evaluate_batch(eval_items) if eval_items else []
+    result_map = {idx: result for idx, result in zip(eval_indices, batch_results)}
+    return result_map
+
+
 def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
     """Evaluate answers without saving to DB. Returns score and per-question details."""
     event = get_event_store().get_by_id(event_id)
@@ -40,15 +71,18 @@ def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
         return None
 
     question_store = get_question_store()
+    questions = _load_questions(question_store, user_answers)
+    result_map = _batch_evaluate(user_answers, questions)
+
     answers_detail = []
     score = 0
 
-    for entry in user_answers:
+    for i, entry in enumerate(user_answers):
         qid = entry.get("question_id", "")
         user_answer = entry.get("user_answer") or entry.get("answer", "")
         override = entry.get("override")
+        question = questions.get(qid)
 
-        question = question_store.get_by_id(qid)
         if not question:
             answers_detail.append({
                 "question_id": qid,
@@ -62,7 +96,7 @@ def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
         if override is not None:
             is_correct = bool(override)
         else:
-            result = _evaluator.evaluate(question.question, question.answer, user_answer)
+            result = result_map[i]
             is_correct = result.is_correct
             explanation = result.explanation
 
@@ -98,15 +132,18 @@ def submit_replay(
         return None
 
     question_store = get_question_store()
+    questions = _load_questions(question_store, user_answers)
+    result_map = _batch_evaluate(user_answers, questions)
+
     answers_detail = []
     score = 0
 
-    for entry in user_answers:
+    for i, entry in enumerate(user_answers):
         qid = entry.get("question_id", "")
         user_answer = entry.get("user_answer") or entry.get("answer", "")
-        override = entry.get("override")  # True/False/None
+        override = entry.get("override")
+        question = questions.get(qid)
 
-        question = question_store.get_by_id(qid)
         if not question:
             answers_detail.append({
                 "question_id": qid,
@@ -120,7 +157,7 @@ def submit_replay(
         if override is not None:
             is_correct = bool(override)
         else:
-            result = _evaluator.evaluate(question.question, question.answer, user_answer)
+            result = result_map[i]
             is_correct = result.is_correct
             explanation = result.explanation
 
