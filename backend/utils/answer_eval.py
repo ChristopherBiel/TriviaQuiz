@@ -101,7 +101,7 @@ class LLMEvaluator(AnswerEvaluator):
 
             text = response.content[0].text.strip()
             if not text:
-                logger.warning("LLM evaluator received empty response (stop_reason=%s)", response.stop_reason)
+                logger.warning("LLM evaluator received empty response (stop_reason=%s) | prompt: %s", response.stop_reason, user_msg)
                 return None
             parsed = json.loads(text)
             is_correct = bool(parsed.get("correct", False))
@@ -113,10 +113,10 @@ class LLMEvaluator(AnswerEvaluator):
                 explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
             )
         except (json.JSONDecodeError, KeyError, IndexError) as exc:
-            logger.warning("LLM evaluator failed to parse response: %s", exc)
+            logger.warning("LLM evaluator failed to parse response: %s | raw text: %r | prompt: %s", exc, locals().get("text", "<not set>"), user_msg)
             return None
         except Exception as exc:
-            logger.warning("LLM evaluator API error: %s", exc)
+            logger.warning("LLM evaluator API error: %s | prompt: %s", exc, user_msg, exc_info=True)
             return None
 
 
