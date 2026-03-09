@@ -1,3 +1,5 @@
+name: triviaquiz
+
 services:
   app:
     build:
@@ -65,24 +67,6 @@ services:
     volumes:
       - minio_data:/data
 
-  caddy:
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - CADDY_DOMAIN=${CADDY_DOMAIN:-localhost}
-      - CADDY_EMAIL=${CADDY_EMAIL:-}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      app:
-        condition: service_healthy
-
 volumes:
   postgres_data:
   minio_data:
-  caddy_data:
-  caddy_config:
