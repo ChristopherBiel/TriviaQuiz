@@ -181,8 +181,8 @@
             const bgClass = a.is_correct ? "bg-success/5" : "bg-danger/5";
             const icon = a.is_correct ? '<span class="text-success font-bold">&#10003;</span>' : '<span class="text-danger font-bold">&#10007;</span>';
             const overrideBtn = a.is_correct
-                ? `<button onclick="overrideAnswer(${i}, false)" class="text-xs text-danger hover:underline">Mark wrong</button>`
-                : `<button onclick="overrideAnswer(${i}, true)" class="text-xs text-success hover:underline">Mark correct</button>`;
+                ? `<button id="override-btn-${i}" onclick="overrideAnswer(${i}, false)" class="text-xs text-danger hover:underline">Mark wrong</button>`
+                : `<button id="override-btn-${i}" onclick="overrideAnswer(${i}, true)" class="text-xs text-success hover:underline">Mark correct</button>`;
             const infoBtn = a.explanation
                 ? `<button onclick="toggleExplanation(this)" class="text-muted hover:text-white transition-colors" title="${escHtml(a.explanation)}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -195,12 +195,12 @@
                     </td>
                   </tr>`
                 : "";
-            return `<tr class="border-b border-border/50 ${bgClass}">
+            return `<tr id="answer-row-${i}" class="border-b border-border/50 ${bgClass}">
                 <td class="px-4 py-3 text-xs text-muted">${i + 1}</td>
                 <td class="px-4 py-3 text-sm">${escHtml(replayData.questions[i]?.question || "")}</td>
                 <td class="px-4 py-3 text-sm">${escHtml(a.user_answer)}</td>
                 <td class="px-4 py-3 text-sm text-muted">${escHtml(a.correct_answer)}</td>
-                <td class="px-4 py-3">${icon}</td>
+                <td id="answer-icon-${i}" class="px-4 py-3">${icon}</td>
                 <td class="px-4 py-3">${infoBtn}</td>
                 <td class="px-4 py-3">${overrideBtn}</td>
             </tr>${explanationRow}`;
@@ -230,8 +230,8 @@
         app.innerHTML = `
             <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
                 <div class="text-center mb-6">
-                    <h2 class="text-2xl font-bold mb-1">Score: ${result.score} / ${result.total}</h2>
-                    <p class="text-sm text-muted">${Math.round((result.score / Math.max(result.total, 1)) * 100)}% correct</p>
+                    <h2 id="score-display" class="text-2xl font-bold mb-1">Score: ${result.score} / ${result.total}</h2>
+                    <p id="pct-display" class="text-sm text-muted">${Math.round((result.score / Math.max(result.total, 1)) * 100)}% correct</p>
                 </div>
                 <div class="overflow-x-auto mb-4">
                     <table class="w-full text-left text-sm">
@@ -246,11 +246,6 @@
                         </tr></thead>
                         <tbody id="results-body">${rows}</tbody>
                     </table>
-                </div>
-                <div id="override-notice" class="hidden text-center mb-4">
-                    <button onclick="resubmitWithOverrides()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                        Re-evaluate with overrides
-                    </button>
                 </div>
                 ${saveSection}
                 <div class="flex justify-center gap-3">
@@ -272,10 +267,61 @@
 
     function overrideAnswer(idx, isCorrect) {
         userAnswers[idx].override = isCorrect;
-        document.getElementById("override-notice").classList.remove("hidden");
-        // Hide save button when overrides change (need to re-evaluate first)
+
+        // Update stored result
+        if (window._lastResult && window._lastResult.answers[idx]) {
+            window._lastResult.answers[idx].is_correct = isCorrect;
+        }
+
+        // Update row background
+        const row = document.getElementById(`answer-row-${idx}`);
+        if (row) {
+            row.classList.toggle("bg-success/5", isCorrect);
+            row.classList.toggle("bg-danger/5", !isCorrect);
+            // Also update explanation row if present
+            const next = row.nextElementSibling;
+            if (next && next.classList.contains("explanation-row")) {
+                next.classList.toggle("bg-success/5", isCorrect);
+                next.classList.toggle("bg-danger/5", !isCorrect);
+            }
+        }
+
+        // Update icon
+        const iconCell = document.getElementById(`answer-icon-${idx}`);
+        if (iconCell) {
+            iconCell.innerHTML = isCorrect
+                ? '<span class="text-success font-bold">&#10003;</span>'
+                : '<span class="text-danger font-bold">&#10007;</span>';
+        }
+
+        // Flip override button
+        const btn = document.getElementById(`override-btn-${idx}`);
+        if (btn) {
+            if (isCorrect) {
+                btn.textContent = "Mark wrong";
+                btn.className = "text-xs text-danger hover:underline";
+                btn.onclick = () => overrideAnswer(idx, false);
+            } else {
+                btn.textContent = "Mark correct";
+                btn.className = "text-xs text-success hover:underline";
+                btn.onclick = () => overrideAnswer(idx, true);
+            }
+        }
+
+        // Recalculate and update score display
+        if (window._lastResult) {
+            const newScore = window._lastResult.answers.filter(a => a.is_correct).length;
+            const total = window._lastResult.total;
+            window._lastResult.score = newScore;
+            const scoreEl = document.getElementById("score-display");
+            if (scoreEl) scoreEl.textContent = `Score: ${newScore} / ${total}`;
+            const pctEl = document.getElementById("pct-display");
+            if (pctEl) pctEl.textContent = `${Math.round((newScore / Math.max(total, 1)) * 100)}% correct`;
+        }
+
+        // Re-show save section (overrides are applied in-memory; saveToLeaderboard already uses userAnswers)
         const saveSection = document.getElementById("save-section");
-        if (saveSection) saveSection.classList.add("hidden");
+        if (saveSection) saveSection.classList.remove("hidden");
     }
 
     async function resubmitWithOverrides() {

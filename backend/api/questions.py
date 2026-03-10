@@ -57,6 +57,8 @@ def _normalize_filters(raw_filters: dict):
         filters["language"] = filters["language"].lower()
     if "review_status" in filters:
         filters["review_status"] = _parse_bool(filters["review_status"])
+    if "no_incorrect_answers" in filters:
+        filters["no_incorrect_answers"] = _parse_bool(filters["no_incorrect_answers"])
 
     return filters, None
 

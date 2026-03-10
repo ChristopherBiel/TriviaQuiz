@@ -137,7 +137,7 @@
             const id = q.id || q.question_id;
             questionCache[id] = q;
             questionList.innerHTML += `<tr class="border-b border-border/50 hover:bg-card-alt/50 transition-colors">
-                <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/questions/${id}" target="_blank">${escHtml(q.question)}</a></td>
+                <td class="px-4 py-3 max-w-[200px] truncate"><a class="text-primary hover:text-primary-hover transition-colors" href="/questions/${id}">${escHtml(q.question)}</a></td>
                 <td class="px-4 py-3 max-w-[150px] truncate">${escHtml(q.answer)}</td>
                 <td class="px-4 py-3">${escHtml(q.question_topic || "General")}</td>
                 <td class="px-4 py-3">${escHtml(q.added_by)}</td>

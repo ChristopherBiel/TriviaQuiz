@@ -5,7 +5,7 @@
 
 {% block content %}
 <main class="pt-8 pb-10 px-4 sm:px-6 max-w-4xl mx-auto">
-    <a href="/database" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-white transition-colors mb-6">
+    <a id="back-link" href="/my_questions" class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-white transition-colors mb-6">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         Back to list
     </a>
@@ -53,6 +53,7 @@
                 <input id="edit-language" type="text" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Language">
             </div>
             <input id="edit-tags" type="text" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Tags (comma-separated)">
+            <input id="edit-answer-source" type="text" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Answer source (e.g. Wikipedia link)">
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Media</label>
                 <input id="edit-media" type="file" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm file:mr-3 file:bg-card file:border-0 file:text-gray-300 file:rounded file:px-2 file:py-1 file:text-xs">
@@ -89,6 +90,20 @@
     const questionId = parts[1] || parts[0];
     let questionData = null;
 
+    // Set back link: use referrer if from same origin, otherwise pick based on role
+    (async () => {
+        const ref = document.referrer;
+        const sameOrigin = ref && new URL(ref).origin === window.location.origin;
+        if (sameOrigin) {
+            document.getElementById("back-link").href = ref;
+        } else {
+            try {
+                const status = await fetch("/login-status").then(r => r.json());
+                document.getElementById("back-link").href = status.role === "admin" ? "/database" : "/my_questions";
+            } catch {}
+        }
+    })();
+
     async function loadQuestion() {
         const resp = await fetch(`/questions/${questionId}`, { headers: { "Accept": "application/json" } });
         if (!resp.ok) { document.getElementById("q-text").textContent = "Question not found"; return; }
@@ -119,6 +134,7 @@
         document.getElementById("edit-topic").value = questionData.question_topic || "";
         document.getElementById("edit-language").value = questionData.language || "";
         document.getElementById("edit-tags").value = (questionData.tags || []).join(", ");
+        document.getElementById("edit-answer-source").value = questionData.answer_source || "";
         document.getElementById("edit-reviewed").checked = !!questionData.review_status;
     }
 
@@ -131,6 +147,7 @@
             question_topic: document.getElementById("edit-topic").value || "",
             language: document.getElementById("edit-language").value || "",
             tags: document.getElementById("edit-tags").value || "",
+            answer_source: document.getElementById("edit-answer-source").value || "",
             review_status: document.getElementById("edit-reviewed").checked,
         };
         const original = {
@@ -139,6 +156,7 @@
             question_topic: questionData.question_topic || "",
             language: questionData.language || "",
             tags: (questionData.tags || []).join(", "),
+            answer_source: questionData.answer_source || "",
             review_status: !!questionData.review_status,
         };
 
@@ -149,7 +167,7 @@
 
         const formData = new FormData();
         let hasChanges = false;
-        for (const key of ["question", "answer", "language", "tags", "review_status"]) {
+        for (const key of ["question", "answer", "language", "tags", "answer_source", "review_status"]) {
             if (String(current[key]) !== String(original[key])) {
                 formData.append(key, current[key]);
                 hasChanges = true;

@@ -93,6 +93,10 @@ def update_question(question_id: str, updates: dict, user: str | None = None, ro
     if existing and user and role != "admin" and user != existing.added_by:
         return None
 
+    # If a non-admin changes the question text or answer, reset review status
+    if role != "admin" and ("question" in updates or "answer" in updates):
+        updates["review_status"] = False
+
     if media_file:
         new_media_path = media_store.upload(media_file)
         if new_media_path:

@@ -233,6 +233,15 @@ def _apply_question_filters(query, filters: dict | None):
             if value:
                 query = query.filter(or_(*[QuestionRecord.tags.contains([tag]) for tag in value]))
             continue
+        if key == "no_incorrect_answers":
+            if value:
+                query = query.filter(
+                    or_(
+                        QuestionRecord.incorrect_answers == None,
+                        QuestionRecord.incorrect_answers == text("'[]'::jsonb"),
+                    )
+                )
+            continue
         column = getattr(QuestionRecord, key, None)
         if column is not None:
             query = query.filter(column == value)

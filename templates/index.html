@@ -68,7 +68,7 @@
         try {
             let seen = JSON.parse(sessionStorage.getItem("seenQuestions") || "[]");
 
-            const activeFilters = {};
+            const activeFilters = { no_incorrect_answers: true };
             if (filterOptions.language) activeFilters.language = filterOptions.language;
             if (filterOptions.question_topic) activeFilters.question_topic = filterOptions.question_topic;
             if (filterOptions.tags && filterOptions.tags.length > 0) activeFilters.tags = filterOptions.tags;

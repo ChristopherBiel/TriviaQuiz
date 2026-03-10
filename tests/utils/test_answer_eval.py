@@ -155,7 +155,7 @@ class TestHybridEvaluator:
         """When SimpleEvaluator says wrong and LLM is available, LLM is called."""
         hybrid = HybridEvaluator()
         mock_llm = MagicMock()
-        mock_llm.evaluate.return_value = EvalResult(
+        mock_llm._evaluate_single.return_value = EvalResult(
             is_correct=True, confidence=0.95, explanation="LLM: partial name match"
         )
         hybrid._llm = mock_llm
@@ -166,7 +166,7 @@ class TestHybridEvaluator:
         )
         assert result.is_correct is True
         assert "LLM" in result.explanation
-        mock_llm.evaluate.assert_called_once()
+        mock_llm._evaluate_single.assert_called_once()
 
     def test_simple_fail_no_llm_returns_simple_result(self):
         """When LLM is not configured, falls back to SimpleEvaluator result."""
@@ -181,7 +181,7 @@ class TestHybridEvaluator:
         """When LLM returns None (error), falls back to SimpleEvaluator result."""
         hybrid = HybridEvaluator()
         mock_llm = MagicMock()
-        mock_llm.evaluate.return_value = None
+        mock_llm._evaluate_single.return_value = None
         hybrid._llm = mock_llm
         hybrid._llm_init_attempted = True
 
