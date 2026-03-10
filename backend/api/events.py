@@ -222,7 +222,13 @@ def evaluate_replay_endpoint(event_id):
     data = request.get_json(silent=True) or {}
     user_answers = data.get("answers", [])
 
-    result = evaluate_replay(event_id, user_answers)
+    try:
+        result = evaluate_replay(event_id, user_answers)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Evaluation failed unexpectedly"}), 500
+
     if result is None:
         return jsonify({"error": "Event not found"}), 404
 

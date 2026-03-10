@@ -14,6 +14,14 @@ venv
 .vscode
 .DS_Store
 
+# Legal config (contains personal/contact details, filled in on server)
+legal_config.json
+
+# Self-hosted assets downloaded at build time (see scripts/download_assets.py)
+static/js/tailwind.cdn.js
+static/fonts/
+static/css/fonts.css
+
 # Ignore the cache
 __pycache__
 backend/__pycache__/*

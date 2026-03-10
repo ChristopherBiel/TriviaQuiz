@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Datenschutzerklärung – Trivia Quiz{% endblock %}
+{% block mobile_title %}Datenschutz{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-10 text-sm text-gray-300 leading-relaxed">
+    <h1 class="text-2xl font-bold mb-2 text-white">Datenschutzerklärung</h1>
+    <p class="text-muted text-xs mb-8">Gemäß Art. 13 DSGVO</p>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">1. Verantwortlicher</h2>
+        <div class="bg-card rounded-xl border border-border p-5 space-y-1">
+            <p class="font-medium text-white">{{ legal.get('impressum_name', '[Name]') }}</p>
+            <p>{{ legal.get('impressum_address', '[Adresse]') }}</p>
+            <p>{{ legal.get('impressum_zip_city', '[PLZ Ort]') }}</p>
+            <p>{{ legal.get('impressum_country', 'Deutschland') }}</p>
+            <p class="pt-2">E-Mail: <a href="mailto:{{ legal.get('datenschutz_contact_email', '') }}" class="text-primary hover:text-primary-hover">{{ legal.get('datenschutz_contact_email', '[E-Mail]') }}</a></p>
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">2. Erhobene Daten und Verarbeitungszwecke</h2>
+        <div class="space-y-4">
+
+            <div class="bg-card rounded-xl border border-border p-5">
+                <h3 class="font-medium text-white mb-2">2.1 Server-Logfiles</h3>
+                <p>Bei jedem Aufruf unserer Website erfasst unser Webserver automatisch folgende Daten:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 text-gray-400">
+                    <li>IP-Adresse des anfragenden Rechners</li>
+                    <li>Datum und Uhrzeit des Zugriffs</li>
+                    <li>Aufgerufene URL</li>
+                    <li>HTTP-Statuscode und übertragene Datenmenge</li>
+                    <li>Browser-Typ und -Version (User-Agent)</li>
+                </ul>
+                <p class="mt-3"><span class="text-gray-400">Zweck:</span> Sicherstellung des Betriebs, Fehlerdiagnose und Abwehr von Angriffen.</p>
+                <p class="mt-1"><span class="text-gray-400">Rechtsgrundlage:</span> Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einem sicheren Betrieb).</p>
+                <p class="mt-1"><span class="text-gray-400">Speicherdauer:</span> {{ legal.get('datenschutz_retention_logs', '7 Tage') }}.</p>
+            </div>
+
+            <div class="bg-card rounded-xl border border-border p-5">
+                <h3 class="font-medium text-white mb-2">2.2 Nutzerkonto (Registrierung und Login)</h3>
+                <p>Zur Nutzung bestimmter Funktionen ist eine Registrierung erforderlich. Dabei erheben wir:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 text-gray-400">
+                    <li>Benutzername</li>
+                    <li>E-Mail-Adresse</li>
+                    <li>Passwort (ausschließlich als gesicherter Hash gespeichert)</li>
+                    <li>IP-Adresse des letzten Logins sowie Zeitpunkt des letzten Logins</li>
+                    <li>Zeitpunkt der Kontoerstellung</li>
+                </ul>
+                <p class="mt-3"><span class="text-gray-400">Zweck:</span> Authentifizierung, Zugriffskontrolle und Bereitstellung personalisierter Funktionen.</p>
+                <p class="mt-1"><span class="text-gray-400">Rechtsgrundlage:</span> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung bzw. vorvertragliche Maßnahmen); für die Login-IP Art. 6 Abs. 1 lit. f DSGVO (Sicherheitsinteresse).</p>
+                <p class="mt-1"><span class="text-gray-400">Speicherdauer:</span> {{ legal.get('datenschutz_retention_account', 'Bis zur Löschung des Kontos') }}.</p>
+            </div>
+
+            <div class="bg-card rounded-xl border border-border p-5">
+                <h3 class="font-medium text-white mb-2">2.3 Quiz-Inhalte und Eventdaten</h3>
+                <p>Registrierte Nutzer können Quizfragen erstellen und an Quiz-Events teilnehmen. Dabei speichern wir:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 text-gray-400">
+                    <li>Von Nutzern erstellte Fragen und zugehörige Mediadateien</li>
+                    <li>Antworten auf Event-Fragen sowie erzielte Punktzahlen</li>
+                    <li>Zuordnung von Antworten zum jeweiligen Nutzerkonto</li>
+                </ul>
+                <p class="mt-3"><span class="text-gray-400">Zweck:</span> Bereitstellung der Quizfunktionalität und Auswertung von Events.</p>
+                <p class="mt-1"><span class="text-gray-400">Rechtsgrundlage:</span> Art. 6 Abs. 1 lit. b DSGVO.</p>
+                <p class="mt-1"><span class="text-gray-400">Speicherdauer:</span> {{ legal.get('datenschutz_retention_account', 'Bis zur Löschung des Kontos') }}.</p>
+            </div>
+
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">3. Cookies und Sitzungsdaten</h2>
+        <div class="bg-card rounded-xl border border-border p-5">
+            <p>Wir verwenden ausschließlich technisch notwendige Cookies. Nach dem Login wird ein verschlüsseltes Sitzungs-Cookie gesetzt, das die Anmeldung für die Dauer der Sitzung aufrechterhält (maximal 24 Stunden). Dieses Cookie enthält keine persönlichen Daten im Klartext und wird nicht für Tracking- oder Werbezwecke verwendet.</p>
+            <p class="mt-3">Da ausschließlich technisch notwendige Cookies zum Einsatz kommen, ist nach dem TTDSG keine gesonderte Einwilligung erforderlich.</p>
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">4. Hosting</h2>
+        <div class="bg-card rounded-xl border border-border p-5">
+            <p>Diese Website wird gehostet bei:</p>
+            <p class="mt-2 font-medium text-white">{{ legal.get('datenschutz_hosting_provider', '[Hosting-Anbieter]') }}</p>
+            <p class="text-gray-400">{{ legal.get('datenschutz_hosting_provider_address', '[Adresse]') }}</p>
+            <p class="mt-3">Alle Zugriffsdaten werden auf Servern innerhalb der Europäischen Union verarbeitet. Mit dem Hosting-Anbieter besteht ein Auftragsverarbeitungsvertrag gemäß Art. 28 DSGVO.</p>
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    {% if legal.get('datenschutz_llm_provider') %}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">5. KI-gestützte Antwortauswertung</h2>
+        <div class="bg-card rounded-xl border border-border p-5">
+            <p>Zur Bewertung von Quiz-Antworten setzen wir einen externen KI-Dienst ein. Dabei werden die eingegebenen Antworten sowie die jeweilige Referenzantwort an den folgenden Anbieter übermittelt:</p>
+            <p class="mt-2 font-medium text-white">{{ legal.datenschutz_llm_provider }}</p>
+            <p class="text-gray-400">{{ legal.get('datenschutz_llm_provider_address', '') }}</p>
+            <p class="mt-3">Es werden ausschließlich die für die Auswertung erforderlichen Antwortdaten übertragen – keine weiteren personenbezogenen Daten wie Name oder E-Mail-Adresse.</p>
+            <p class="mt-2"><span class="text-gray-400">Rechtsgrundlage:</span> Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung – Bereitstellung der Auswertungsfunktion).</p>
+            <p class="mt-2"><span class="text-gray-400">Drittlandtransfer:</span> Der Anbieter ist in den USA ansässig. Die Übermittlung erfolgt auf Grundlage von Standardvertragsklauseln gemäß Art. 46 Abs. 2 lit. c DSGVO.</p>
+        </div>
+    </section>
+    {% endif %}
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">{% if legal.get('datenschutz_llm_provider') %}6.{% else %}5.{% endif %} Ihre Rechte als betroffene Person</h2>
+        <div class="bg-card rounded-xl border border-border p-5 space-y-3">
+            <p>Sie haben gegenüber dem Verantwortlichen folgende Rechte:</p>
+            <ul class="space-y-2 text-gray-300">
+                <li><span class="text-white font-medium">Auskunft</span> (Art. 15 DSGVO): Sie können Auskunft über die zu Ihrer Person gespeicherten Daten verlangen.</li>
+                <li><span class="text-white font-medium">Berichtigung</span> (Art. 16 DSGVO): Sie können die Berichtigung unrichtiger oder unvollständiger Daten verlangen.</li>
+                <li><span class="text-white font-medium">Löschung</span> (Art. 17 DSGVO): Sie können die Löschung Ihrer Daten verlangen, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</li>
+                <li><span class="text-white font-medium">Einschränkung</span> (Art. 18 DSGVO): Sie können die Einschränkung der Verarbeitung verlangen.</li>
+                <li><span class="text-white font-medium">Datenübertragbarkeit</span> (Art. 20 DSGVO): Sie können Ihre Daten in einem gängigen, maschinenlesbaren Format erhalten.</li>
+                <li><span class="text-white font-medium">Widerspruch</span> (Art. 21 DSGVO): Sie können der Verarbeitung Ihrer Daten auf Basis von Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse) widersprechen.</li>
+            </ul>
+            <p class="pt-2">Zur Ausübung Ihrer Rechte wenden Sie sich bitte an: <a href="mailto:{{ legal.get('datenschutz_contact_email', '') }}" class="text-primary hover:text-primary-hover">{{ legal.get('datenschutz_contact_email', '[E-Mail]') }}</a></p>
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">{% if legal.get('datenschutz_llm_provider') %}7.{% else %}6.{% endif %} Beschwerderecht bei der Aufsichtsbehörde</h2>
+        <div class="bg-card rounded-xl border border-border p-5">
+            <p>Unbeschadet anderweitiger Rechtsbehelfe haben Sie das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren. Zuständig ist die Aufsichtsbehörde des Bundeslandes, in dem Sie Ihren gewöhnlichen Aufenthalt oder Arbeitsplatz haben oder in dem die mutmaßliche Verletzung stattgefunden hat.</p>
+            <p class="mt-3 text-gray-400">Eine Übersicht der deutschen Aufsichtsbehörden finden Sie unter: <a href="https://www.bfdi.bund.de" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary-hover">www.bfdi.bund.de</a></p>
+        </div>
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">{% if legal.get('datenschutz_llm_provider') %}8.{% else %}7.{% endif %} Aktualität dieser Datenschutzerklärung</h2>
+        <div class="bg-card rounded-xl border border-border p-5">
+            <p>Diese Datenschutzerklärung ist aktuell gültig. Durch die Weiterentwicklung unserer Website oder aufgrund geänderter gesetzlicher Anforderungen kann es notwendig werden, diese Datenschutzerklärung zu ändern.</p>
+        </div>
+    </section>
+
+</div>
+{% endblock %}

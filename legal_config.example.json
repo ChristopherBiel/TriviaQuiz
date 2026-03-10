@@ -1,0 +1,22 @@
+{
+  "_comment": "Copy this file to legal_config.json on the server and fill in your real details. legal_config.json is gitignored and never committed.",
+
+  "impressum_name": "Max Mustermann",
+  "impressum_address": "Musterstraße 1",
+  "impressum_zip_city": "12345 Musterstadt",
+  "impressum_country": "Deutschland",
+  "impressum_email": "kontakt@example.com",
+  "impressum_phone": "",
+  "impressum_vat_id": "",
+
+  "datenschutz_contact_email": "kontakt@example.com",
+  "datenschutz_hosting_provider": "Hetzner Online GmbH",
+  "datenschutz_hosting_provider_address": "Industriestr. 25, 91710 Gunzenhausen, Deutschland",
+
+  "_comment_llm": "Set datenschutz_llm_provider to empty string if LLM evaluation is disabled (LLM_EVAL_ENABLED=0).",
+  "datenschutz_llm_provider": "Anthropic, PBC",
+  "datenschutz_llm_provider_address": "548 Market St PMB 90375, San Francisco, CA 94104, USA",
+
+  "datenschutz_retention_account": "bis zur Löschung des Nutzerkontos",
+  "datenschutz_retention_logs": "7 Tage"
+}

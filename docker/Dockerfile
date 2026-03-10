@@ -16,6 +16,10 @@ RUN apt-get update && \
 
 COPY . .
 
+# Download self-hosted assets (fonts + Tailwind) for GDPR compliance.
+# These are not committed to git; they are fetched fresh on each image build.
+RUN python scripts/download_assets.py
+
 EXPOSE 5600
 
 RUN useradd -u 5678 -m appuser

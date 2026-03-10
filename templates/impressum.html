@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Impressum – Trivia Quiz{% endblock %}
+{% block mobile_title %}Impressum{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-bold mb-8">Impressum</h1>
+
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">Angaben gemäß § 5 TMG</h2>
+        <div class="bg-card rounded-xl border border-border p-5 space-y-1 text-gray-300">
+            <p class="font-medium text-white">{{ legal.get('impressum_name', '[Name]') }}</p>
+            <p>{{ legal.get('impressum_address', '[Straße und Hausnummer]') }}</p>
+            <p>{{ legal.get('impressum_zip_city', '[PLZ Ort]') }}</p>
+            <p>{{ legal.get('impressum_country', 'Deutschland') }}</p>
+        </div>
+    </section>
+
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">Kontakt</h2>
+        <div class="bg-card rounded-xl border border-border p-5 space-y-2 text-gray-300">
+            {% if legal.get('impressum_phone') %}
+            <p>Telefon: <a href="tel:{{ legal.impressum_phone }}" class="text-primary hover:text-primary-hover">{{ legal.impressum_phone }}</a></p>
+            {% endif %}
+            <p>E-Mail: <a href="mailto:{{ legal.get('impressum_email', '') }}" class="text-primary hover:text-primary-hover">{{ legal.get('impressum_email', '[E-Mail-Adresse]') }}</a></p>
+        </div>
+    </section>
+
+    {% if legal.get('impressum_vat_id') %}
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">Umsatzsteuer-ID</h2>
+        <div class="bg-card rounded-xl border border-border p-5 text-gray-300">
+            <p>Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: {{ legal.impressum_vat_id }}</p>
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">Haftung für Inhalte</h2>
+        <div class="bg-card rounded-xl border border-border p-5 text-gray-300 text-sm leading-relaxed space-y-3">
+            <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+            <p>Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich. Bei Bekanntwerden von entsprechenden Rechtsverletzungen werden wir diese Inhalte umgehend entfernen.</p>
+        </div>
+    </section>
+
+    <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3 text-gray-200">Haftung für Links</h2>
+        <div class="bg-card rounded-xl border border-border p-5 text-gray-300 text-sm leading-relaxed">
+            <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich. Bei Bekanntwerden von Rechtsverletzungen werden wir derartige Links umgehend entfernen.</p>
+        </div>
+    </section>
+</div>
+{% endblock %}

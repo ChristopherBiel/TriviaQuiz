@@ -104,6 +104,16 @@ def check_login():
     else:
         return jsonify({"logged_in": False})    
 
+@routes_bp.route("/impressum")
+def impressum():
+    return render_template("impressum.html")
+
+
+@routes_bp.route("/datenschutz")
+def datenschutz():
+    return render_template("datenschutz.html")
+
+
 # Register all routes when initializing Flask
 def init_routes(app):
     app.register_blueprint(routes_bp)

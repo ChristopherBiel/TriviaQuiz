@@ -6,9 +6,8 @@
     <title>{% block title %}Trivia Quiz{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/tailwind.cdn.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
     <script>
     tailwind.config = {
         theme: {
@@ -95,6 +94,12 @@
         <div class="border-t border-border/50 px-5 py-4 shrink-0 flex items-center justify-between gap-3">
             <div id="login-section"></div>
             <span class="text-xs text-muted/55 select-none shrink-0">v{{ app_version }}</span>
+        </div>
+
+        <!-- Legal links -->
+        <div class="px-5 py-3 shrink-0 flex gap-4">
+            <a href="/impressum" class="text-xs text-muted hover:text-white transition-colors">Impressum</a>
+            <a href="/datenschutz" class="text-xs text-muted hover:text-white transition-colors">Datenschutz</a>
         </div>
     </aside>
 
