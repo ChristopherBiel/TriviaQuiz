@@ -206,7 +206,11 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ review_status: approved })
         });
-        if (response.ok) { loadDatabase(); }
+        if (response.ok) {
+            const idx = allQuestions.findIndex(q => (q.id || q.question_id) === id);
+            if (idx !== -1) allQuestions[idx].review_status = approved;
+            renderPage();
+        }
         else { const err = await response.json().catch(() => ({})); alert(err.error || "Error updating approval."); }
     }
 
