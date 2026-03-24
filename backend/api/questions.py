@@ -212,8 +212,10 @@ def update_existing_question(question_id):
         if raw.get("remove_media"):
             raw["media_path"] = None
         payload, error = _validate_question_payload(raw, partial=True)
-        if error:
+        if error and not media_file:
             return jsonify({"error": error}), 400
+        if payload is None:
+            payload = {}
         if media_file:
             payload["media_file"] = media_file
     else:
