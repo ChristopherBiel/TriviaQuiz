@@ -50,11 +50,16 @@
 
     function showStart() {
         setWide(false);
+        const qCount = replayData.question_count || replayData.questions.length;
+        const totalPts = replayData.total;
+        const pointsNote = totalPts > qCount
+            ? `<p class="text-muted mb-6">${qCount} question${qCount !== 1 ? "s" : ""}, ${totalPts} points</p>`
+            : `<p class="text-muted mb-6">${qCount} question${qCount !== 1 ? "s" : ""}</p>`;
         app.innerHTML = `
             <div class="bg-card border border-border rounded-2xl p-8 text-center">
                 <h1 class="text-2xl font-bold mb-2">${escHtml(replayData.name)}</h1>
                 ${replayData.description ? `<p class="text-sm text-gray-300 mb-4">${escHtml(replayData.description)}</p>` : ""}
-                <p class="text-muted mb-6">${replayData.total} question${replayData.total !== 1 ? "s" : ""}</p>
+                ${pointsNote}
                 <button onclick="showQuestion(0)" class="bg-success hover:bg-success-hover text-gray-900 font-semibold py-3 px-8 rounded-xl transition-colors">
                     Begin
                 </button>
@@ -66,12 +71,14 @@
         currentIdx = idx;
         const q = replayData.questions[idx];
         const isLast = idx === replayData.questions.length - 1;
+        const pts = q.points || 1;
+        const ptsBadge = pts > 1 ? `<span class="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">${pts} pts</span>` : "";
         app.innerHTML = `
             <div class="bg-card border border-border rounded-2xl p-6 sm:p-8">
                 <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs text-muted">Question ${idx + 1} of ${replayData.total}</span>
+                    <span class="text-xs text-muted">Question ${idx + 1} of ${replayData.questions.length}${ptsBadge}</span>
                     <div class="w-full max-w-[200px] ml-4 bg-card-alt rounded-full h-1.5">
-                        <div class="bg-primary h-1.5 rounded-full transition-all" style="width: ${((idx + 1) / replayData.total) * 100}%"></div>
+                        <div class="bg-primary h-1.5 rounded-full transition-all" style="width: ${((idx + 1) / replayData.questions.length) * 100}%"></div>
                     </div>
                 </div>
                 <h2 class="text-lg font-semibold mb-4">${escHtml(q.question)}</h2>
@@ -174,15 +181,55 @@
         showResults(result);
     }
 
+    function getPointsIcon(pointsAwarded, maxPoints) {
+        if (maxPoints <= 1) {
+            return pointsAwarded >= 1
+                ? '<span class="text-success font-bold">&#10003;</span>'
+                : '<span class="text-danger font-bold">&#10007;</span>';
+        }
+        if (pointsAwarded === maxPoints) {
+            return `<span class="text-success font-bold">&#10003; ${pointsAwarded}/${maxPoints}</span>`;
+        }
+        if (pointsAwarded === 0) {
+            return `<span class="text-danger font-bold">&#10007; 0/${maxPoints}</span>`;
+        }
+        return `<span class="text-amber-400 font-bold">${pointsAwarded}/${maxPoints}</span>`;
+    }
+
+    function getRowBgClass(pointsAwarded, maxPoints) {
+        if (pointsAwarded === maxPoints) return "bg-success/5";
+        if (pointsAwarded === 0) return "bg-danger/5";
+        return "bg-amber-400/5";
+    }
+
+    function buildOverrideControl(idx, pointsAwarded, maxPoints) {
+        if (maxPoints <= 1) {
+            // Simple toggle for 1-point questions
+            return pointsAwarded >= 1
+                ? `<button id="override-btn-${idx}" onclick="overrideAnswer(${idx}, 0)" class="text-xs text-danger hover:underline">Mark wrong</button>`
+                : `<button id="override-btn-${idx}" onclick="overrideAnswer(${idx}, 1)" class="text-xs text-success hover:underline">Mark correct</button>`;
+        }
+        // Multi-point: show point selector buttons
+        let buttons = [];
+        for (let p = 0; p <= maxPoints; p++) {
+            const isActive = p === pointsAwarded;
+            const cls = isActive
+                ? "text-xs font-bold text-white bg-primary rounded px-1.5 py-0.5"
+                : "text-xs text-muted hover:text-white hover:bg-card-alt rounded px-1.5 py-0.5";
+            buttons.push(`<button onclick="overrideAnswer(${idx}, ${p})" class="${cls}">${p}</button>`);
+        }
+        return `<span id="override-btn-${idx}" class="inline-flex gap-0.5">${buttons.join("")}</span>`;
+    }
+
     function showResults(result) {
         setWide(true);
         const answers = result.answers || [];
         const rows = answers.map((a, i) => {
-            const bgClass = a.is_correct ? "bg-success/5" : "bg-danger/5";
-            const icon = a.is_correct ? '<span class="text-success font-bold">&#10003;</span>' : '<span class="text-danger font-bold">&#10007;</span>';
-            const overrideBtn = a.is_correct
-                ? `<button id="override-btn-${i}" onclick="overrideAnswer(${i}, false)" class="text-xs text-danger hover:underline">Mark wrong</button>`
-                : `<button id="override-btn-${i}" onclick="overrideAnswer(${i}, true)" class="text-xs text-success hover:underline">Mark correct</button>`;
+            const pts = a.points_awarded ?? (a.is_correct ? (a.max_points || 1) : 0);
+            const maxPts = a.max_points || 1;
+            const bgClass = getRowBgClass(pts, maxPts);
+            const icon = getPointsIcon(pts, maxPts);
+            const overrideCtrl = buildOverrideControl(i, pts, maxPts);
             const infoBtn = a.explanation
                 ? `<button onclick="toggleExplanation(this)" class="text-muted hover:text-white transition-colors" title="${escHtml(a.explanation)}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -202,7 +249,7 @@
                 <td class="px-4 py-3 text-sm text-muted">${escHtml(a.correct_answer)}</td>
                 <td id="answer-icon-${i}" class="px-4 py-3">${icon}</td>
                 <td class="px-4 py-3">${infoBtn}</td>
-                <td class="px-4 py-3">${overrideBtn}</td>
+                <td class="px-4 py-3">${overrideCtrl}</td>
             </tr>${explanationRow}`;
         }).join("");
 
@@ -265,52 +312,48 @@
         }
     }
 
-    function overrideAnswer(idx, isCorrect) {
-        userAnswers[idx].override = isCorrect;
+    function overrideAnswer(idx, pointsToAward) {
+        const a = window._lastResult && window._lastResult.answers[idx];
+        const maxPts = (a && a.max_points) || (replayData.questions[idx]?.points || 1);
+
+        // Store override as integer
+        userAnswers[idx].override = pointsToAward;
 
         // Update stored result
-        if (window._lastResult && window._lastResult.answers[idx]) {
-            window._lastResult.answers[idx].is_correct = isCorrect;
+        if (a) {
+            a.points_awarded = pointsToAward;
+            a.is_correct = (pointsToAward === maxPts);
         }
 
         // Update row background
         const row = document.getElementById(`answer-row-${idx}`);
         if (row) {
-            row.classList.toggle("bg-success/5", isCorrect);
-            row.classList.toggle("bg-danger/5", !isCorrect);
-            // Also update explanation row if present
+            row.classList.remove("bg-success/5", "bg-danger/5", "bg-amber-400/5");
+            row.classList.add(getRowBgClass(pointsToAward, maxPts));
             const next = row.nextElementSibling;
             if (next && next.classList.contains("explanation-row")) {
-                next.classList.toggle("bg-success/5", isCorrect);
-                next.classList.toggle("bg-danger/5", !isCorrect);
+                next.classList.remove("bg-success/5", "bg-danger/5", "bg-amber-400/5");
+                next.classList.add(getRowBgClass(pointsToAward, maxPts));
             }
         }
 
         // Update icon
         const iconCell = document.getElementById(`answer-icon-${idx}`);
         if (iconCell) {
-            iconCell.innerHTML = isCorrect
-                ? '<span class="text-success font-bold">&#10003;</span>'
-                : '<span class="text-danger font-bold">&#10007;</span>';
+            iconCell.innerHTML = getPointsIcon(pointsToAward, maxPts);
         }
 
-        // Flip override button
-        const btn = document.getElementById(`override-btn-${idx}`);
-        if (btn) {
-            if (isCorrect) {
-                btn.textContent = "Mark wrong";
-                btn.className = "text-xs text-danger hover:underline";
-                btn.onclick = () => overrideAnswer(idx, false);
-            } else {
-                btn.textContent = "Mark correct";
-                btn.className = "text-xs text-success hover:underline";
-                btn.onclick = () => overrideAnswer(idx, true);
-            }
+        // Update override control
+        const btnContainer = document.getElementById(`override-btn-${idx}`);
+        if (btnContainer) {
+            btnContainer.outerHTML = buildOverrideControl(idx, pointsToAward, maxPts);
         }
 
         // Recalculate and update score display
         if (window._lastResult) {
-            const newScore = window._lastResult.answers.filter(a => a.is_correct).length;
+            const newScore = window._lastResult.answers.reduce((sum, ans) => {
+                return sum + (ans.points_awarded ?? (ans.is_correct ? (ans.max_points || 1) : 0));
+            }, 0);
             const total = window._lastResult.total;
             window._lastResult.score = newScore;
             const scoreEl = document.getElementById("score-display");
@@ -319,7 +362,7 @@
             if (pctEl) pctEl.textContent = `${Math.round((newScore / Math.max(total, 1)) * 100)}% correct`;
         }
 
-        // Re-show save section (overrides are applied in-memory; saveToLeaderboard already uses userAnswers)
+        // Re-show save section
         const saveSection = document.getElementById("save-section");
         if (saveSection) saveSection.classList.remove("hidden");
     }

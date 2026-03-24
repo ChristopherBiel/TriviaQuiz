@@ -21,6 +21,7 @@
                     <p id="q-lang" class="text-gray-400"></p>
                     <p id="q-added" class="text-gray-400 col-span-2"></p>
                     <p id="q-tags" class="text-gray-400 col-span-2"></p>
+                    <p id="q-points" class="text-gray-400"></p>
                     <p id="q-review" class="text-gray-400"></p>
                     <p id="q-incorrect" class="text-gray-400 col-span-2"></p>
                     <p id="q-stats" class="text-muted col-span-2"></p>
@@ -52,7 +53,10 @@
                 <input id="edit-topic" type="text" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Topic">
                 <input id="edit-language" type="text" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Language">
             </div>
-            <input id="edit-tags" type="text" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Tags (comma-separated)">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input id="edit-tags" type="text" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Tags (comma-separated)">
+                <input id="edit-points" type="number" min="1" max="10" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Points">
+            </div>
             <input id="edit-answer-source" type="text" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Answer source (e.g. Wikipedia link)">
             <div>
                 <label class="block text-sm text-gray-400 mb-1">Media</label>
@@ -114,6 +118,7 @@
         document.getElementById("q-lang").textContent = `Language: ${questionData.language || "-"}`;
         document.getElementById("q-added").textContent = `Added by ${questionData.added_by} on ${questionData.added_at ? new Date(questionData.added_at).toLocaleDateString() : "-"}`;
         document.getElementById("q-tags").textContent = `Tags: ${(questionData.tags || []).join(", ") || "-"}`;
+        document.getElementById("q-points").textContent = `Points: ${questionData.points || 1}`;
         document.getElementById("q-review").textContent = `Reviewed: ${questionData.review_status ? "Yes" : "No"}`;
         document.getElementById("q-incorrect").textContent = `Incorrect answers: ${(questionData.incorrect_answers || []).join(", ") || "-"}`;
         document.getElementById("q-stats").textContent = `Asked ${questionData.times_asked || 0} times | Correct: ${questionData.times_correct || 0} | Incorrect: ${questionData.times_incorrect || 0}`;
@@ -134,6 +139,7 @@
         document.getElementById("edit-topic").value = questionData.question_topic || "";
         document.getElementById("edit-language").value = questionData.language || "";
         document.getElementById("edit-tags").value = (questionData.tags || []).join(", ");
+        document.getElementById("edit-points").value = questionData.points || 1;
         document.getElementById("edit-answer-source").value = questionData.answer_source || "";
         document.getElementById("edit-reviewed").checked = !!questionData.review_status;
     }
@@ -148,6 +154,7 @@
             language: document.getElementById("edit-language").value || "",
             tags: document.getElementById("edit-tags").value || "",
             answer_source: document.getElementById("edit-answer-source").value || "",
+            points: parseInt(document.getElementById("edit-points").value) || 1,
             review_status: document.getElementById("edit-reviewed").checked,
         };
         const original = {
@@ -157,6 +164,7 @@
             language: questionData.language || "",
             tags: (questionData.tags || []).join(", "),
             answer_source: questionData.answer_source || "",
+            points: questionData.points || 1,
             review_status: !!questionData.review_status,
         };
 
@@ -167,7 +175,7 @@
 
         const formData = new FormData();
         let hasChanges = false;
-        for (const key of ["question", "answer", "language", "tags", "answer_source", "review_status"]) {
+        for (const key of ["question", "answer", "language", "tags", "answer_source", "points", "review_status"]) {
             if (String(current[key]) !== String(original[key])) {
                 formData.append(key, current[key]);
                 hasChanges = true;

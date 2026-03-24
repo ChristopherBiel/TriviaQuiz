@@ -26,6 +26,14 @@
                     class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
             </div>
 
+            <!-- Points -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Points</label>
+                <input name="points" type="number" min="1" max="10" value="1"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <p class="text-xs text-muted mt-1.5">How many points this question is worth. Use more than 1 for multi-part answers (e.g. artist + title = 2 points).</p>
+            </div>
+
             <!-- Category + Language -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

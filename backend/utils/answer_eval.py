@@ -14,32 +14,36 @@ class EvalResult:
     is_correct: bool
     confidence: float
     explanation: str | None = None
+    points_awarded: int = 0
+    max_points: int = 1
 
 
 class AnswerEvaluator(ABC):
     @abstractmethod
-    def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+    def evaluate(self, question: str, correct_answer: str, user_answer: str, max_points: int = 1) -> EvalResult:
         raise NotImplementedError
 
-    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
-        """Evaluate multiple (question, correct_answer, user_answer) tuples.
+    def evaluate_batch(self, items: list[tuple[str, str, str, int]]) -> list[EvalResult]:
+        """Evaluate multiple (question, correct_answer, user_answer, max_points) tuples.
         Default implementation calls evaluate() in a loop; subclasses may override for efficiency.
         """
-        return [self.evaluate(q, ca, ua) for q, ca, ua in items]
+        return [self.evaluate(q, ca, ua, mp) for q, ca, ua, mp in items]
 
 
 class SimpleEvaluator(AnswerEvaluator):
     FUZZY_THRESHOLD = 0.85
 
-    def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+    def evaluate(self, question: str, correct_answer: str, user_answer: str, max_points: int = 1) -> EvalResult:
         norm_correct = self._normalize(correct_answer)
         norm_user = self._normalize(user_answer)
 
         if not norm_user:
-            return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided")
+            return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided",
+                              points_awarded=0, max_points=max_points)
 
         if norm_correct == norm_user:
-            return EvalResult(is_correct=True, confidence=1.0, explanation="Exact match")
+            return EvalResult(is_correct=True, confidence=1.0, explanation="Exact match",
+                              points_awarded=max_points, max_points=max_points)
 
         ratio = SequenceMatcher(None, norm_correct, norm_user).ratio()
         if ratio >= self.FUZZY_THRESHOLD:
@@ -47,12 +51,16 @@ class SimpleEvaluator(AnswerEvaluator):
                 is_correct=True,
                 confidence=round(ratio, 3),
                 explanation=f"Fuzzy match ({ratio:.0%} similarity)",
+                points_awarded=max_points,
+                max_points=max_points,
             )
 
         return EvalResult(
             is_correct=False,
             confidence=round(1.0 - ratio, 3),
             explanation=f"No match ({ratio:.0%} similarity)",
+            points_awarded=0,
+            max_points=max_points,
         )
 
     @staticmethod
@@ -93,6 +101,32 @@ _LLM_SYSTEM_PROMPT_BATCH = (
     '[{"correct": true, "explanation": "brief reason"}, ...]'
 )
 
+_LLM_SYSTEM_PROMPT_MULTIPOINT = (
+    "You are a trivia quiz answer evaluator. Given a question, the reference answer, "
+    "the maximum points, and a user's answer, determine how many points the user deserves.\n\n"
+    "This question is worth {max_points} points. Award partial credit when the user got "
+    "part of the answer right. For example, if a question asks for both an artist and a song "
+    "title (2 points), and the user only got the artist right, award 1 point.\n\n"
+    "Be lenient like a fair quizmaster:\n"
+    "- Accept alternative phrasings, synonyms, and minor typos\n"
+    "- Accept common abbreviations and title variations\n"
+    "- However, if the question requires a precise detail, require it\n\n"
+    "Respond with ONLY a raw JSON object. No markdown, no code fences, no extra text:\n"
+    '{{\"points_awarded\": <0 to {max_points}>, \"explanation\": \"brief reason\"}}'
+)
+
+_LLM_SYSTEM_PROMPT_BATCH_MULTIPOINT = (
+    "You are a trivia quiz answer evaluator. Evaluate each answer below.\n"
+    "Each answer has a maximum number of points. Award partial credit when the user got "
+    "part of the answer right.\n\n"
+    "Be lenient like a fair quizmaster:\n"
+    "- Accept alternative phrasings, synonyms, and minor typos\n"
+    "- Accept common abbreviations and title variations\n"
+    "- However, if the question requires a precise detail, require it\n\n"
+    "Respond with ONLY a raw JSON array, one object per answer in the same order. No markdown, no code fences:\n"
+    '[{"points_awarded": <0 to max_points>, "explanation": "brief reason"}, ...]'
+)
+
 
 class LLMEvaluator(AnswerEvaluator):
     """Evaluates answers using an LLM (Claude API) for semantic understanding."""
@@ -103,30 +137,42 @@ class LLMEvaluator(AnswerEvaluator):
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
 
-    def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
-        results = self.evaluate_batch([(question, correct_answer, user_answer)])
+    def evaluate(self, question: str, correct_answer: str, user_answer: str, max_points: int = 1) -> EvalResult:
+        results = self.evaluate_batch([(question, correct_answer, user_answer, max_points)])
         return results[0]
 
-    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
+    def evaluate_batch(self, items: list[tuple[str, str, str, int]]) -> list[EvalResult]:
         if not items:
             return []
 
         if len(items) == 1:
-            q, ca, ua = items[0]
-            result = self._evaluate_single(q, ca, ua)
+            q, ca, ua, mp = items[0]
+            result = self._evaluate_single(q, ca, ua, mp)
             return [result] if result is not None else [None]
 
-        parts = [
-            f"Answer {i}:\nQuestion: {q}\nReference: {ca}\nUser: {ua}"
-            for i, (q, ca, ua) in enumerate(items, 1)
-        ]
+        # Check if any items are multi-point
+        has_multipoint = any(mp > 1 for _, _, _, mp in items)
+
+        if has_multipoint:
+            parts = [
+                f"Answer {i}:\nQuestion: {q}\nReference: {ca}\nMax points: {mp}\nUser: {ua}"
+                for i, (q, ca, ua, mp) in enumerate(items, 1)
+            ]
+            system_prompt = _LLM_SYSTEM_PROMPT_BATCH_MULTIPOINT
+        else:
+            parts = [
+                f"Answer {i}:\nQuestion: {q}\nReference: {ca}\nUser: {ua}"
+                for i, (q, ca, ua, mp) in enumerate(items, 1)
+            ]
+            system_prompt = _LLM_SYSTEM_PROMPT_BATCH
+
         user_msg = "\n\n".join(parts)
 
         try:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=min(80 * len(items), 4096),
-                system=_LLM_SYSTEM_PROMPT_BATCH,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}],
             )
 
@@ -148,14 +194,8 @@ class LLMEvaluator(AnswerEvaluator):
                 return [None] * len(items)
 
             results = []
-            for entry in parsed:
-                is_correct = bool(entry.get("correct", False))
-                explanation = entry.get("explanation", "")
-                results.append(EvalResult(
-                    is_correct=is_correct,
-                    confidence=0.95,
-                    explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
-                ))
+            for entry, (_, _, _, mp) in zip(parsed, items):
+                results.append(self._parse_llm_entry(entry, mp))
             return results
 
         except (json.JSONDecodeError, KeyError, IndexError) as exc:
@@ -165,18 +205,28 @@ class LLMEvaluator(AnswerEvaluator):
             logger.warning("LLM batch evaluator API error: %s", exc, exc_info=True)
             return [None] * len(items)
 
-    def _evaluate_single(self, question: str, correct_answer: str, user_answer: str) -> EvalResult | None:
-        user_msg = (
-            f"Question: {question}\n"
-            f"Reference answer: {correct_answer}\n"
-            f"User's answer: {user_answer}"
-        )
+    def _evaluate_single(self, question: str, correct_answer: str, user_answer: str, max_points: int = 1) -> EvalResult | None:
+        if max_points > 1:
+            system_prompt = _LLM_SYSTEM_PROMPT_MULTIPOINT.format(max_points=max_points)
+            user_msg = (
+                f"Question: {question}\n"
+                f"Reference answer: {correct_answer}\n"
+                f"Max points: {max_points}\n"
+                f"User's answer: {user_answer}"
+            )
+        else:
+            system_prompt = _LLM_SYSTEM_PROMPT
+            user_msg = (
+                f"Question: {question}\n"
+                f"Reference answer: {correct_answer}\n"
+                f"User's answer: {user_answer}"
+            )
 
         try:
             response = self._client.messages.create(
                 model=self._model,
-                max_tokens=100,
-                system=_LLM_SYSTEM_PROMPT,
+                max_tokens=150,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}],
             )
 
@@ -188,20 +238,40 @@ class LLMEvaluator(AnswerEvaluator):
                 text = re.sub(r"^```[a-z]*\n?", "", text)
                 text = re.sub(r"\n?```$", "", text).strip()
             parsed = json.loads(text)
-            is_correct = bool(parsed.get("correct", False))
-            explanation = parsed.get("explanation", "")
-
-            return EvalResult(
-                is_correct=is_correct,
-                confidence=0.95,
-                explanation=f"LLM: {explanation}" if explanation else "LLM evaluation",
-            )
+            return self._parse_llm_entry(parsed, max_points)
         except (json.JSONDecodeError, KeyError, IndexError) as exc:
             logger.warning("LLM evaluator failed to parse response: %s | raw text: %r | prompt: %s", exc, locals().get("text", "<not set>"), user_msg)
             return None
         except Exception as exc:
             logger.warning("LLM evaluator API error: %s | prompt: %s", exc, user_msg, exc_info=True)
             return None
+
+    @staticmethod
+    def _parse_llm_entry(entry: dict, max_points: int) -> EvalResult:
+        """Parse a single LLM JSON response entry into an EvalResult."""
+        explanation = entry.get("explanation", "")
+        explanation_str = f"LLM: {explanation}" if explanation else "LLM evaluation"
+
+        if "points_awarded" in entry:
+            pts = int(entry["points_awarded"])
+            pts = max(0, min(pts, max_points))
+            return EvalResult(
+                is_correct=(pts == max_points),
+                confidence=0.95,
+                explanation=explanation_str,
+                points_awarded=pts,
+                max_points=max_points,
+            )
+
+        # Fallback: binary correct/incorrect (for 1-point questions or old-style responses)
+        is_correct = bool(entry.get("correct", False))
+        return EvalResult(
+            is_correct=is_correct,
+            confidence=0.95,
+            explanation=explanation_str,
+            points_awarded=max_points if is_correct else 0,
+            max_points=max_points,
+        )
 
 
 class HybridEvaluator(AnswerEvaluator):
@@ -233,15 +303,21 @@ class HybridEvaluator(AnswerEvaluator):
             logger.warning("Failed to initialise LLM evaluator: %s", exc)
         return self._llm
 
-    def evaluate(self, question: str, correct_answer: str, user_answer: str) -> EvalResult:
+    def evaluate(self, question: str, correct_answer: str, user_answer: str, max_points: int = 1) -> EvalResult:
         # Empty answer is always wrong — skip LLM entirely
         if not user_answer or not user_answer.strip():
-            return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided")
+            return EvalResult(is_correct=False, confidence=1.0, explanation="No answer provided",
+                              points_awarded=0, max_points=max_points)
 
-        simple_result = self._simple.evaluate(question, correct_answer, user_answer)
+        simple_result = self._simple.evaluate(question, correct_answer, user_answer, max_points)
 
-        # Simple match succeeded — no need to call the LLM
-        if simple_result.is_correct:
+        # Simple match succeeded — no need to call the LLM (for 1-point questions)
+        # For multi-point questions, simple can't do partial scoring, so always try LLM
+        if simple_result.is_correct and max_points == 1:
+            return simple_result
+
+        # For multi-point questions with exact match, still return full points
+        if simple_result.is_correct and max_points > 1:
             return simple_result
 
         # Simple match failed — try LLM if available
@@ -249,7 +325,7 @@ class HybridEvaluator(AnswerEvaluator):
         if llm is None:
             return simple_result
 
-        llm_result = llm._evaluate_single(question, correct_answer, user_answer)
+        llm_result = llm._evaluate_single(question, correct_answer, user_answer, max_points)
         if llm_result is None:
             # LLM call failed; fall back to simple result with note
             simple_result.explanation = (simple_result.explanation or "") + " (LLM fallback: call failed)"
@@ -257,16 +333,18 @@ class HybridEvaluator(AnswerEvaluator):
 
         return llm_result
 
-    def evaluate_batch(self, items: list[tuple[str, str, str]]) -> list[EvalResult]:
+    def evaluate_batch(self, items: list[tuple[str, str, str, int]]) -> list[EvalResult]:
         if not items:
             return []
 
         # Run simple evaluator on all items
-        results: list[EvalResult] = [self._simple.evaluate(q, ca, ua) for q, ca, ua in items]
+        results: list[EvalResult] = [self._simple.evaluate(q, ca, ua, mp) for q, ca, ua, mp in items]
 
-        # Find indices that failed simple matching and have a non-empty answer
+        # Find indices that need LLM evaluation:
+        # - Failed simple matching and have a non-empty answer
+        # - OR multi-point questions that failed (for partial credit)
         llm_needed = [
-            i for i, ((_, _, ua), r) in enumerate(zip(items, results))
+            i for i, ((_, _, ua, mp), r) in enumerate(zip(items, results))
             if not r.is_correct and ua.strip()
         ]
 

@@ -14,6 +14,7 @@ def start_replay(event_id: str) -> dict | None:
     question_store = get_question_store()
     media_store = get_media_store()
     questions = []
+    total_points = 0
     for qid in event.question_ids:
         q = question_store.get_by_id(qid)
         if q:
@@ -22,13 +23,16 @@ def start_replay(event_id: str) -> dict | None:
                 "question_id": q.question_id,
                 "question": q.question,
                 "media_path": media_url,
+                "points": q.points,
             })
+            total_points += q.points
 
     return {
         "event_id": event.event_id,
         "name": event.name,
         "description": event.description,
-        "total": len(questions),
+        "total": total_points,
+        "question_count": len(questions),
         "questions": questions,
     }
 
@@ -57,11 +61,26 @@ def _batch_evaluate(user_answers: list[dict], questions: dict) -> list:
         if override is None and q:
             user_answer = entry.get("user_answer") or entry.get("answer", "")
             eval_indices.append(i)
-            eval_items.append((q.question, q.answer, user_answer))
+            eval_items.append((q.question, q.answer, user_answer, q.points))
 
     batch_results = _evaluator.evaluate_batch(eval_items) if eval_items else []
     result_map = {idx: result for idx, result in zip(eval_indices, batch_results)}
     return result_map
+
+
+def _resolve_override(override, max_points: int) -> int:
+    """Resolve an override value to points awarded.
+    Accepts bool (True=full points, False=0) or int (specific point value)."""
+    if isinstance(override, bool):
+        return max_points if override else 0
+    if isinstance(override, int):
+        return max(0, min(override, max_points))
+    # Try to parse as int, fall back to bool-like
+    try:
+        val = int(override)
+        return max(0, min(val, max_points))
+    except (TypeError, ValueError):
+        return max_points if override else 0
 
 
 def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
@@ -76,6 +95,7 @@ def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
 
     answers_detail = []
     score = 0
+    total_points = 0
 
     for i, entry in enumerate(user_answers):
         qid = entry.get("question_id", "")
@@ -89,34 +109,42 @@ def evaluate_replay(event_id: str, user_answers: list[dict]) -> dict | None:
                 "user_answer": user_answer,
                 "correct_answer": "",
                 "is_correct": False,
+                "points_awarded": 0,
+                "max_points": 1,
             })
+            total_points += 1
             continue
 
+        max_pts = question.points
+        total_points += max_pts
         explanation = None
+
         if override is not None:
-            is_correct = bool(override)
+            points_awarded = _resolve_override(override, max_pts)
+            is_correct = (points_awarded == max_pts)
         else:
             result = result_map[i]
             is_correct = result.is_correct
+            points_awarded = result.points_awarded
             explanation = result.explanation
 
-        if is_correct:
-            score += 1
+        score += points_awarded
 
         detail = {
             "question_id": qid,
             "user_answer": user_answer,
             "correct_answer": question.answer,
             "is_correct": is_correct,
+            "points_awarded": points_awarded,
+            "max_points": max_pts,
         }
         if explanation:
             detail["explanation"] = explanation
         answers_detail.append(detail)
 
-    total = len(event.question_ids)
     return {
         "score": score,
-        "total": total,
+        "total": total_points,
         "answers": answers_detail,
     }
 
@@ -137,6 +165,7 @@ def submit_replay(
 
     answers_detail = []
     score = 0
+    total_points = 0
 
     for i, entry in enumerate(user_answers):
         qid = entry.get("question_id", "")
@@ -150,15 +179,23 @@ def submit_replay(
                 "user_answer": user_answer,
                 "correct_answer": "",
                 "is_correct": False,
+                "points_awarded": 0,
+                "max_points": 1,
             })
+            total_points += 1
             continue
 
+        max_pts = question.points
+        total_points += max_pts
         explanation = None
+
         if override is not None:
-            is_correct = bool(override)
+            points_awarded = _resolve_override(override, max_pts)
+            is_correct = (points_awarded == max_pts)
         else:
             result = result_map[i]
             is_correct = result.is_correct
+            points_awarded = result.points_awarded
             explanation = result.explanation
 
         # Update question stats
@@ -167,26 +204,26 @@ def submit_replay(
             **({"times_correct": question.times_correct + 1} if is_correct else {"times_incorrect": question.times_incorrect + 1}),
         })
 
-        if is_correct:
-            score += 1
+        score += points_awarded
 
         detail = {
             "question_id": qid,
             "user_answer": user_answer,
             "correct_answer": question.answer,
             "is_correct": is_correct,
+            "points_awarded": points_awarded,
+            "max_points": max_pts,
         }
         if explanation:
             detail["explanation"] = explanation
         answers_detail.append(detail)
 
-    total = len(event.question_ids)
     replay = ReplayAttemptModel(
         event_id=event_id,
         user_id=user_id,
         display_name=display_name,
         score=score,
-        total=total,
+        total=total_points,
         answers=answers_detail,
     )
 

@@ -79,6 +79,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
         "tags",
         "review_status",
         "media_path",
+        "points",
     }
     required_fields = {"question", "answer", "added_by"} if not partial else set()
     missing = [field for field in required_fields if not data.get(field)]
@@ -100,6 +101,14 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
             sanitized[key] = normalized_list
         elif key == "review_status":
             sanitized[key] = _parse_bool(value)
+        elif key == "points":
+            try:
+                points_val = int(value)
+            except (TypeError, ValueError):
+                return None, "points must be an integer"
+            if points_val < 1 or points_val > 10:
+                return None, "points must be between 1 and 10"
+            sanitized[key] = points_val
 
     if partial and not sanitized:
         return None, "No valid fields provided for update"

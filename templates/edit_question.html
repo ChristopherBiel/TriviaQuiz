@@ -22,6 +22,7 @@
         <input name="question_topic" type="text" placeholder="Topic (Optional)" class="w-full p-2 mt-2 rounded text-black">
         <input name="question_source" type="text" placeholder="Question Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
         <input name="answer_source" type="text" placeholder="Answer Source (Optional)" class="w-full p-2 mt-2 rounded text-black">
+        <input name="points" type="number" min="1" max="10" value="1" placeholder="Points (default 1)" class="w-full p-2 mt-2 rounded text-black">
         <input name="incorrect_answers" type="text" placeholder="Incorrect Answers (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
         <input name="tags" type="text" placeholder="Tags (Comma-Separated)" class="w-full p-2 mt-2 rounded text-black">
         <select name="language" class="w-full p-2 mt-2 rounded text-black">
@@ -45,6 +46,7 @@
                 question_source: data.question_source || null,
                 answer_source: data.answer_source || null,
                 language: data.language || null,
+                points: parseInt(data.points) || 1,
                 incorrect_answers: data.incorrect_answers ? data.incorrect_answers.split(",").map(s => s.trim()).filter(Boolean) : [],
                 tags: data.tags ? data.tags.split(",").map(s => s.trim()).filter(Boolean) : []
             };
