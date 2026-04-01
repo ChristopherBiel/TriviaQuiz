@@ -306,7 +306,7 @@ def format_examples():
     if error:
         return jsonify({"error": error}), 400
 
-    questions, _ = get_all_questions(filters, limit=limit, offset=0)
+    questions = get_all_questions(filters, limit=limit, offset=0)
     if not questions:
         return jsonify({"error": "No questions match the given filters"}), 404
 
@@ -345,7 +345,7 @@ def generate_questions():
     if error:
         return jsonify({"error": error}), 400
 
-    questions, _ = get_all_questions(filters, limit=10, offset=0)
+    questions = get_all_questions(filters, limit=10, offset=0)
     if len(questions) < 2:
         return jsonify({"error": "Need at least 2 example questions matching the filters"}), 400
 
