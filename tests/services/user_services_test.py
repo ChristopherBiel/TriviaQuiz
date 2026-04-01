@@ -19,6 +19,7 @@ from backend.services.user_service import (
     create_user,
     get_user,
     get_user_by_id,
+    get_user_by_email,
     list_users,
     update_user,
     delete_user,
@@ -26,6 +27,7 @@ from backend.services.user_service import (
     verify_user,
     issue_reset_token,
     reset_password,
+    issue_email_change,
 )
 from backend.models.user import UserModel
 
@@ -47,10 +49,15 @@ def mock_store(monkeypatch):
     store = MagicMock()
     store.get_by_username.return_value = None
     store.get_by_id.return_value = None
+    store.get_by_email.return_value = None
     store.list.return_value = []
     store.add.return_value = True
     store.update.return_value = None
     store.delete.return_value = False
+    store.get_by_verification_token.return_value = None
+    store.get_by_verification_code.return_value = None
+    store.get_by_reset_token.return_value = None
+    store.get_by_reset_code.return_value = None
     monkeypatch.setattr("backend.services.user_service.get_user_store", lambda: store)
     return store
 
@@ -61,6 +68,7 @@ def mock_store(monkeypatch):
 
 def test_create_user_success(mock_store):
     mock_store.get_by_username.return_value = None
+    mock_store.get_by_email.return_value = None
     mock_store.add.return_value = True
     result = create_user({"username": "bob", "email": "bob@example.com", "password": "pw"}, acting_role="admin")
     assert result is not None
@@ -86,6 +94,14 @@ def test_create_user_missing_fields_returns_none(mock_store):
 def test_create_user_duplicate_username_returns_none(mock_store, sample_user):
     mock_store.get_by_username.return_value = sample_user
     result = create_user({"username": "alice", "email": "x@x.com", "password": "pw"}, acting_role="admin")
+    assert result is None
+    mock_store.add.assert_not_called()
+
+
+def test_create_user_duplicate_email_returns_none(mock_store, sample_user):
+    mock_store.get_by_username.return_value = None
+    mock_store.get_by_email.return_value = sample_user
+    result = create_user({"username": "bob", "email": "alice@example.com", "password": "pw"}, acting_role="admin")
     assert result is None
     mock_store.add.assert_not_called()
 
@@ -117,7 +133,7 @@ def test_create_user_default_role_is_user(mock_store):
 
 
 # ---------------------------------------------------------------------------
-# get_user / get_user_by_id
+# get_user / get_user_by_id / get_user_by_email
 # ---------------------------------------------------------------------------
 
 def test_get_user_found(mock_store, sample_user):
@@ -137,6 +153,16 @@ def test_get_user_by_id_found(mock_store, sample_user):
 
 def test_get_user_by_id_not_found(mock_store):
     assert get_user_by_id("missing-id") is None
+
+
+def test_get_user_by_email_found(mock_store, sample_user):
+    mock_store.get_by_email.return_value = sample_user
+    assert get_user_by_email("alice@example.com") is sample_user
+    mock_store.get_by_email.assert_called_once_with("alice@example.com")
+
+
+def test_get_user_by_email_not_found(mock_store):
+    assert get_user_by_email("nobody@example.com") is None
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +220,7 @@ def test_update_user_non_admin_cannot_set_role(mock_store, sample_user):
     mock_store.update.return_value = sample_user
     result = update_user("alice", {"role": "admin"}, acting_role="user", acting_username="alice")
     # role key should NOT be in the payload sent to store
-    assert result is None  # no other allowed fields → empty payload → None
+    assert result is None  # no other allowed fields -> empty payload -> None
 
 
 def test_update_user_admin_can_set_is_verified_and_is_approved(mock_store, sample_user):
@@ -209,7 +235,7 @@ def test_update_user_admin_can_set_is_verified_and_is_approved(mock_store, sampl
 def test_update_user_non_admin_cannot_set_is_verified(mock_store, sample_user):
     mock_store.get_by_username.return_value = sample_user
     result = update_user("alice", {"is_verified": True}, acting_role="user", acting_username="alice")
-    assert result is None  # field stripped → empty payload
+    assert result is None  # field stripped -> empty payload
 
 
 def test_update_user_password_is_hashed(mock_store, sample_user):
@@ -282,6 +308,9 @@ def test_issue_verification_calls_store_update(mock_store, sample_user):
     payload = args[1]
     assert "verification_token" in payload
     assert payload["verification_token"] is not None
+    assert "verification_code" in payload
+    assert len(payload["verification_code"]) == 6
+    assert payload["verification_code"].isdigit()
     assert "verification_expires_at" in payload
     assert payload["verification_expires_at"] > _utcnow()
 
@@ -289,19 +318,53 @@ def test_issue_verification_calls_store_update(mock_store, sample_user):
 def test_verify_user_valid_token(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "verification_token": "good-token",
+        "verification_code": "123456",
         "verification_expires_at": _utcnow() + timedelta(minutes=10),
         "is_verified": False,
     })
     mock_store.get_by_verification_token.return_value = user_with_token
-    mock_store.update.return_value = user_with_token.model_copy(update={"is_verified": True})
+    mock_store.update.return_value = user_with_token.model_copy(update={"is_verified": True, "is_approved": True})
 
     result = verify_user("good-token")
     assert result is not None
     mock_store.get_by_verification_token.assert_called_once_with("good-token")
-    mock_store.update.assert_called_once_with(
-        user_with_token.user_id,
-        {"is_verified": True, "verification_token": None, "verification_expires_at": None},
-    )
+    update_payload = mock_store.update.call_args[0][1]
+    assert update_payload["is_verified"] is True
+    assert update_payload["is_approved"] is True
+    assert update_payload["verification_token"] is None
+    assert update_payload["verification_code"] is None
+
+
+def test_verify_user_valid_code(mock_store, sample_user):
+    user_with_code = sample_user.model_copy(update={
+        "verification_token": "good-token",
+        "verification_code": "123456",
+        "verification_expires_at": _utcnow() + timedelta(minutes=10),
+        "is_verified": False,
+    })
+    mock_store.get_by_verification_token.return_value = None
+    mock_store.get_by_verification_code.return_value = user_with_code
+    mock_store.update.return_value = user_with_code.model_copy(update={"is_verified": True, "is_approved": True})
+
+    result = verify_user("123456")
+    assert result is not None
+    mock_store.get_by_verification_code.assert_called_once_with("123456")
+
+
+def test_verify_user_applies_pending_email(mock_store, sample_user):
+    user_with_pending = sample_user.model_copy(update={
+        "verification_token": "tok",
+        "verification_code": "123456",
+        "verification_expires_at": _utcnow() + timedelta(minutes=10),
+        "pending_email": "new@example.com",
+    })
+    mock_store.get_by_verification_token.return_value = user_with_pending
+    mock_store.update.return_value = user_with_pending
+
+    verify_user("tok")
+    update_payload = mock_store.update.call_args[0][1]
+    assert update_payload["email"] == "new@example.com"
+    assert update_payload["pending_email"] is None
 
 
 def test_verify_user_expired_token_returns_none(mock_store, sample_user):
@@ -316,12 +379,14 @@ def test_verify_user_expired_token_returns_none(mock_store, sample_user):
 
 def test_verify_user_wrong_token_returns_none(mock_store):
     mock_store.get_by_verification_token.return_value = None
+    mock_store.get_by_verification_code.return_value = None
     assert verify_user("wrong-token") is None
     mock_store.update.assert_not_called()
 
 
 def test_verify_user_no_users_returns_none(mock_store):
     mock_store.get_by_verification_token.return_value = None
+    mock_store.get_by_verification_code.return_value = None
     assert verify_user("any-token") is None
 
 
@@ -337,6 +402,9 @@ def test_issue_reset_token_calls_store_update(mock_store, sample_user):
     payload = args[1]
     assert "reset_token" in payload
     assert payload["reset_token"] is not None
+    assert "reset_code" in payload
+    assert len(payload["reset_code"]) == 6
+    assert payload["reset_code"].isdigit()
     assert "reset_expires_at" in payload
     assert payload["reset_expires_at"] > _utcnow()
 
@@ -344,6 +412,7 @@ def test_issue_reset_token_calls_store_update(mock_store, sample_user):
 def test_reset_password_valid_token(mock_store, sample_user):
     user_with_token = sample_user.model_copy(update={
         "reset_token": "reset-tok",
+        "reset_code": "654321",
         "reset_expires_at": _utcnow() + timedelta(minutes=10),
     })
     mock_store.get_by_reset_token.return_value = user_with_token
@@ -356,7 +425,23 @@ def test_reset_password_valid_token(mock_store, sample_user):
     assert "password_hash" in args
     assert args["password_hash"] != "newpassword"
     assert args["reset_token"] is None
+    assert args["reset_code"] is None
     assert args["reset_expires_at"] is None
+
+
+def test_reset_password_valid_code(mock_store, sample_user):
+    user_with_code = sample_user.model_copy(update={
+        "reset_token": "reset-tok",
+        "reset_code": "654321",
+        "reset_expires_at": _utcnow() + timedelta(minutes=10),
+    })
+    mock_store.get_by_reset_token.return_value = None
+    mock_store.get_by_reset_code.return_value = user_with_code
+    mock_store.update.return_value = user_with_code
+
+    result = reset_password("654321", "newpassword")
+    assert result is not None
+    mock_store.get_by_reset_code.assert_called_once_with("654321")
 
 
 def test_reset_password_expired_token_returns_none(mock_store, sample_user):
@@ -371,5 +456,28 @@ def test_reset_password_expired_token_returns_none(mock_store, sample_user):
 
 def test_reset_password_wrong_token_returns_none(mock_store):
     mock_store.get_by_reset_token.return_value = None
+    mock_store.get_by_reset_code.return_value = None
     assert reset_password("wrong-tok", "newpw") is None
+    mock_store.update.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# issue_email_change
+# ---------------------------------------------------------------------------
+
+def test_issue_email_change_success(mock_store, sample_user):
+    mock_store.get_by_email.return_value = None
+    mock_store.update.return_value = sample_user
+    result = issue_email_change(sample_user, "new@example.com")
+    assert result is not None
+    payload = mock_store.update.call_args[0][1]
+    assert payload["pending_email"] == "new@example.com"
+    assert "verification_token" in payload
+    assert "verification_code" in payload
+
+
+def test_issue_email_change_duplicate_email_returns_none(mock_store, sample_user):
+    mock_store.get_by_email.return_value = sample_user  # email already taken
+    result = issue_email_change(sample_user, "alice@example.com")
+    assert result is None
     mock_store.update.assert_not_called()

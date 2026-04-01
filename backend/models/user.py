@@ -16,9 +16,12 @@ class UserModel(BaseModel):
     is_verified: bool = False
     is_approved: bool = False
     verification_token: str | None = None
+    verification_code: str | None = None
     verification_expires_at: datetime | None = None
     reset_token: str | None = None
+    reset_code: str | None = None
     reset_expires_at: datetime | None = None
+    pending_email: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     last_login_at: datetime | None = None

@@ -24,6 +24,11 @@ Implementations: `PostgresUserStore` (`postgres.py`), `DynamoUserStore` (`aws.py
 | `add(user: UserModel)` | `bool` | `False` on conflict |
 | `get_by_username(username)` | `UserModel \| None` | |
 | `get_by_id(user_id)` | `UserModel \| None` | |
+| `get_by_email(email)` | `UserModel \| None` | |
+| `get_by_verification_token(token)` | `UserModel \| None` | Base has O(n) fallback; Postgres overrides with indexed query |
+| `get_by_verification_code(code)` | `UserModel \| None` | Base has O(n) fallback; Postgres overrides with indexed query |
+| `get_by_reset_token(token)` | `UserModel \| None` | Base has O(n) fallback; Postgres overrides with indexed query |
+| `get_by_reset_code(code)` | `UserModel \| None` | Base has O(n) fallback; Postgres overrides with indexed query |
 | `list(filters)` | `list[UserModel]` | |
 | `update(user_id, updates)` | `UserModel \| None` | |
 | `delete(user_id)` | `bool` | |

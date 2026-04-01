@@ -140,6 +140,13 @@ Change the following values — **do not skip any of these**:
 | `POSTGRES_PASSWORD` | A strong password: `openssl rand -hex 16` |
 | `MINIO_SECRET_KEY` | A strong password: `openssl rand -hex 16` |
 | `POSTGRES_AUTO_CREATE` | Leave at `0` — use Alembic migrations |
+| `SMTP_ENABLED` | `1` to send real emails |
+| `SMTP_HOST` | Your SMTP server (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | `587` for STARTTLS, `465` for SSL |
+| `SMTP_USER` | SMTP login username |
+| `SMTP_PASSWORD` | SMTP login password |
+| `SMTP_FROM` | Sender address (e.g. `noreply@yourdomain.com`) |
+| `APP_BASE_URL` | `https://yourdomain.com` (used in email links) |
 
 > **Never commit your production `.env` file to version control.**
 

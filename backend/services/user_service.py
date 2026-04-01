@@ -9,6 +9,11 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _generate_code(length: int = 6) -> str:
+    """Generate a random numeric code of the given length."""
+    return "".join(str(secrets.randbelow(10)) for _ in range(length))
+
+
 def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
     store = get_user_store()
     username = data.get("username")
@@ -23,6 +28,9 @@ def create_user(data: dict, acting_role: str = "admin") -> UserModel | None:
         return None
 
     if store.get_by_username(username):
+        return None
+
+    if store.get_by_email(email.strip()):
         return None
 
     user = UserModel(
@@ -44,6 +52,10 @@ def get_user(username: str) -> UserModel | None:
 
 def get_user_by_id(user_id: str) -> UserModel | None:
     return get_user_store().get_by_id(user_id)
+
+
+def get_user_by_email(email: str) -> UserModel | None:
+    return get_user_store().get_by_email(email)
 
 
 def list_users(filters: dict | None = None) -> list[UserModel]:
@@ -74,10 +86,18 @@ def update_user(username: str, updates: dict, acting_role: str, acting_username:
         payload["username"] = updates["username"].strip()
     if "reset_token" in updates or "reset_expires_at" in updates:
         payload["reset_token"] = updates.get("reset_token")
+        payload["reset_code"] = updates.get("reset_code")
         payload["reset_expires_at"] = updates.get("reset_expires_at")
     if "verification_token" in updates or "verification_expires_at" in updates:
         payload["verification_token"] = updates.get("verification_token")
+        payload["verification_code"] = updates.get("verification_code")
         payload["verification_expires_at"] = updates.get("verification_expires_at")
+    if "pending_email" in updates:
+        payload["pending_email"] = updates.get("pending_email")
+    if "last_login_at" in updates:
+        payload["last_login_at"] = updates["last_login_at"]
+    if "last_login_ip" in updates:
+        payload["last_login_ip"] = updates["last_login_ip"]
 
     if not payload:
         return None
@@ -97,37 +117,95 @@ def delete_user(username: str, acting_role: str) -> bool:
 
 def issue_verification(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
+    code = _generate_code()
     expires = _utcnow() + timedelta(minutes=ttl_minutes)
-    return get_user_store().update(user.user_id, {"verification_token": token, "verification_expires_at": expires})
+    return get_user_store().update(user.user_id, {
+        "verification_token": token,
+        "verification_code": code,
+        "verification_expires_at": expires,
+    })
 
 
-def verify_user(token: str) -> UserModel | None:
+def verify_user(token_or_code: str) -> UserModel | None:
+    """Verify a user by either a URL token or a 6-digit code."""
     store = get_user_store()
-    u = store.get_by_verification_token(token)
-    if u and u.verification_expires_at and u.verification_expires_at > _utcnow():
-        return store.update(
-            u.user_id,
-            {"is_verified": True, "verification_token": None, "verification_expires_at": None},
-        )
-    return None
+
+    # Try as token first, then as code
+    u = store.get_by_verification_token(token_or_code)
+    if not u:
+        u = store.get_by_verification_code(token_or_code)
+    if not u:
+        return None
+
+    if not u.verification_expires_at or u.verification_expires_at <= _utcnow():
+        return None
+
+    updates = {
+        "is_verified": True,
+        "is_approved": True,
+        "verification_token": None,
+        "verification_code": None,
+        "verification_expires_at": None,
+    }
+
+    # If there's a pending email change, apply it on verification
+    if u.pending_email:
+        updates["email"] = u.pending_email
+        updates["pending_email"] = None
+
+    return store.update(u.user_id, updates)
 
 
 def issue_reset_token(user: UserModel, ttl_minutes: int = 15) -> UserModel | None:
     token = secrets.token_urlsafe(16)
+    code = _generate_code()
     expires = _utcnow() + timedelta(minutes=ttl_minutes)
-    return get_user_store().update(user.user_id, {"reset_token": token, "reset_expires_at": expires})
+    return get_user_store().update(user.user_id, {
+        "reset_token": token,
+        "reset_code": code,
+        "reset_expires_at": expires,
+    })
 
 
-def reset_password(token: str, new_password: str) -> UserModel | None:
+def reset_password(token_or_code: str, new_password: str) -> UserModel | None:
+    """Reset password using either a URL token or a 6-digit code."""
     store = get_user_store()
-    u = store.get_by_reset_token(token)
-    if u and u.reset_expires_at and u.reset_expires_at > _utcnow():
-        return store.update(
-            u.user_id,
-            {
-                "password_hash": hash_password(new_password),
-                "reset_token": None,
-                "reset_expires_at": None,
-            },
-        )
-    return None
+
+    u = store.get_by_reset_token(token_or_code)
+    if not u:
+        u = store.get_by_reset_code(token_or_code)
+    if not u:
+        return None
+
+    if not u.reset_expires_at or u.reset_expires_at <= _utcnow():
+        return None
+
+    return store.update(
+        u.user_id,
+        {
+            "password_hash": hash_password(new_password),
+            "reset_token": None,
+            "reset_code": None,
+            "reset_expires_at": None,
+        },
+    )
+
+
+def issue_email_change(user: UserModel, new_email: str, ttl_minutes: int = 15) -> UserModel | None:
+    """Start an email change flow: store pending email and issue verification."""
+    store = get_user_store()
+
+    # Check new email isn't already taken
+    if store.get_by_email(new_email.strip()):
+        return None
+
+    token = secrets.token_urlsafe(16)
+    code = _generate_code()
+    expires = _utcnow() + timedelta(minutes=ttl_minutes)
+
+    return store.update(user.user_id, {
+        "pending_email": new_email.strip(),
+        "verification_token": token,
+        "verification_code": code,
+        "verification_expires_at": expires,
+    })

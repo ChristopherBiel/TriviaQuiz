@@ -67,7 +67,15 @@ class Settings:
     minio_secure: bool
     minio_auto_create_bucket: bool
 
-    signup_referral_code: str
+    smtp_enabled: bool
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str
+    smtp_use_tls: bool
+
+    app_base_url: str
 
     llm_eval_enabled: bool
     llm_eval_api_key: str
@@ -112,7 +120,14 @@ def get_settings() -> Settings:
         minio_region=os.getenv("MINIO_REGION", "us-east-1"),
         minio_secure=_as_bool(os.getenv("MINIO_SECURE"), False),
         minio_auto_create_bucket=_as_bool(os.getenv("MINIO_AUTO_CREATE_BUCKET"), True),
-        signup_referral_code=os.getenv("SIGNUP_REFERRAL_CODE", ""),
+        smtp_enabled=_as_bool(os.getenv("SMTP_ENABLED"), False),
+        smtp_host=os.getenv("SMTP_HOST", ""),
+        smtp_port=_as_int(os.getenv("SMTP_PORT"), 587),
+        smtp_user=os.getenv("SMTP_USER", ""),
+        smtp_password=os.getenv("SMTP_PASSWORD", ""),
+        smtp_from=os.getenv("SMTP_FROM", ""),
+        smtp_use_tls=_as_bool(os.getenv("SMTP_USE_TLS"), True),
+        app_base_url=os.getenv("APP_BASE_URL", "http://localhost:5600"),
         llm_eval_enabled=_as_bool(os.getenv("LLM_EVAL_ENABLED"), False),
         llm_eval_api_key=os.getenv("LLM_EVAL_API_KEY", ""),
         llm_eval_model=os.getenv("LLM_EVAL_MODEL", "claude-haiku-4-5-20251001"),

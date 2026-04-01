@@ -24,6 +24,9 @@ flowchart TD
 | `.env` changes not applied | Restart containers: `docker compose ... up -d` |
 | `docker: permission denied` | Log out and back in after `usermod -aG docker deploy` |
 | Homepage shows "Loading…" forever | Check that questions exist with `review_status = true` in the database |
+| Verification/reset emails not arriving | Check `SMTP_ENABLED=1` and SMTP credentials are correct; check app logs for `Failed to send email` errors; verify firewall allows outbound port 587/465 |
+| "Too many attempts" / 429 on signup or verify | In-memory rate limiter triggered — wait and retry, or restart the app container to reset limits |
+| Verification code expired | Codes expire after 15 minutes; use the resend-verification endpoint to get a fresh code |
 
 ## Quick diagnostics
 

@@ -26,7 +26,16 @@ curl -b cookiejar -H "Content-Type: application/json" \
   http://localhost:5600/questions/
 ```
 
-### User endpoints (admin-only)
+### Public user endpoints
+- `POST /users/signup` — register a new account; body: `username`, `email`, `password`. Sends verification email (link + 6-digit code). Rate-limited by IP.
+- `POST /users/verify` — verify email; body: `{"token": "..."}` or `{"code": "123456"}`. Accepts either the URL token or the 6-digit code. Auto-approves the account. Rate-limited by IP.
+- `POST /users/resend-verification` — resend verification email; body: `{"email": "..."}`. Rate-limited per email.
+- `POST /users/request-reset` — request password reset; body: `{"email": "..."}`. Rate-limited per email. Response does not reveal whether the email exists.
+- `POST /users/reset` — reset password; body: `{"token": "...", "password": "..."}` or `{"code": "...", "password": "..."}`. Rate-limited by IP.
+- `POST /users/me/password` — change password (logged-in); body: `{"current_password": "...", "new_password": "..."}`.
+- `POST /users/me/email` — start email change (logged-in); body: `{"email": "..."}`. Sends verification email to new address. Rate-limited per email.
+
+### Admin user endpoints
 - `GET /users/` — list users.
 - `GET /users/<username>` — fetch user by username.
 - `POST /users/` — create user; body: `username`, `email`, `password`, optional `role`, `is_verified`, `is_approved`.

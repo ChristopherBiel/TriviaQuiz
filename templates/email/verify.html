@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#0f1117;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f1117;padding:40px 0;">
+<tr><td align="center">
+<table width="420" cellpadding="0" cellspacing="0" style="background-color:#181824;border:1px solid #2a2a3c;border-radius:16px;padding:32px;">
+<tr><td style="text-align:center;padding-bottom:24px;">
+    <h1 style="color:#ffffff;font-size:22px;margin:0;">Verify your email</h1>
+</td></tr>
+<tr><td style="color:#a0a0b0;font-size:14px;line-height:1.6;padding-bottom:24px;">
+    Enter this code on the verification page to confirm your email address:
+</td></tr>
+<tr><td style="text-align:center;padding-bottom:24px;">
+    <div style="display:inline-block;background-color:#1f1f2e;border:1px solid #2a2a3c;border-radius:12px;padding:16px 32px;">
+        <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#7c6aef;">{{ code }}</span>
+    </div>
+</td></tr>
+<tr><td style="color:#a0a0b0;font-size:14px;line-height:1.6;padding-bottom:24px;">
+    Or click the button below:
+</td></tr>
+<tr><td style="text-align:center;padding-bottom:24px;">
+    <a href="{{ link }}" style="display:inline-block;background-color:#7c6aef;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 32px;border-radius:12px;">Verify email</a>
+</td></tr>
+<tr><td style="color:#6b6b80;font-size:12px;line-height:1.5;border-top:1px solid #2a2a3c;padding-top:16px;">
+    This code expires in {{ ttl_minutes }} minutes. Do not share it with anyone.<br><br>
+    If you didn't create a TriviaQuiz account, you can safely ignore this email.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -24,6 +24,7 @@ docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
 - `POSTGRES_AUTO_CREATE=1` auto-creates tables on startup but does not generate migration files — use Alembic instead.
 - `MEDIA_PROXY=1` (default) routes media requests through the app at `/media/<key>`.
 - `.env` changes require a container restart to take effect.
+- **Email in dev**: `SMTP_ENABLED=0` (default) prints all outgoing emails to stdout. Check the app logs to find verification codes and reset links. Set `SMTP_ENABLED=1` with valid SMTP credentials to test real email delivery.
 
 ## Common commands
 

@@ -94,10 +94,31 @@ class UserStore(ABC):
                 return u
         return None
 
+    def get_by_verification_code(self, code: str) -> Optional[UserModel]:
+        """Find a user by verification code. Override for O(1) DB-level lookup."""
+        for u in self.list():
+            if u.verification_code == code:
+                return u
+        return None
+
     def get_by_reset_token(self, token: str) -> Optional[UserModel]:
         """Find a user by reset token. Override for O(1) DB-level lookup."""
         for u in self.list():
             if u.reset_token == token:
+                return u
+        return None
+
+    def get_by_reset_code(self, code: str) -> Optional[UserModel]:
+        """Find a user by reset code. Override for O(1) DB-level lookup."""
+        for u in self.list():
+            if u.reset_code == code:
+                return u
+        return None
+
+    def get_by_email(self, email: str) -> Optional[UserModel]:
+        """Find a user by email. Override for O(1) DB-level lookup."""
+        for u in self.list():
+            if u.email == email:
                 return u
         return None
 

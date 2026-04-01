@@ -14,6 +14,7 @@ flowchart LR
     Caddy -->|"reverse_proxy :5600"| App
     App -->|SQLAlchemy| Postgres
     App -->|"boto3 S3 API"| MinIO
+    App -.->|SMTP| Mail["Mail server (external)"]
 ```
 
 ## Trust boundary
@@ -39,7 +40,7 @@ flowchart TB
     App2 --> MinIO2
 ```
 
-Caddy is the only host-bound process (ports 80/443). The app, Postgres, and MinIO are reachable only within the Docker network. Never publish Postgres or MinIO ports to the host.
+Caddy is the only host-bound process (ports 80/443). The app, Postgres, and MinIO are reachable only within the Docker network. Never publish Postgres or MinIO ports to the host. SMTP is an external service; the app connects outbound on port 587 (STARTTLS) or 465 (SSL).
 
 ## Layer boundaries
 
@@ -75,6 +76,12 @@ Routes must not touch storage directly. Services must not build HTTP responses.
 
 - `MEDIA_PROXY=1` (default): the app streams media at `GET /media/<key>`.
 - `MEDIA_PROXY=0`: the store returns presigned MinIO URLs served directly by MinIO.
+
+## Email
+
+Verification and password-reset emails are sent via SMTP (`backend/utils/email_stub.py`). When `SMTP_ENABLED=0` (default), emails are printed to stdout — useful for local development. Both verification and password reset issue a URL token and a 6-digit code (15-minute TTL). Verifying an email auto-approves the user account.
+
+An in-memory rate limiter (`backend/utils/rate_limit.py`) protects email-sending and code-attempt endpoints to prevent abuse.
 
 ## Configuration
 

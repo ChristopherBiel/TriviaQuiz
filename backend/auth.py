@@ -8,14 +8,15 @@ from backend.services.user_service import (
     get_user,
     update_user,
     delete_user,
+    issue_verification,
 )
 from backend.utils.password_utils import hash_password, verify_password
-from backend.utils.email_stub import send_email
 
 auth_bp = Blueprint("auth", __name__)
 
-_SENSITIVE_USER_FIELDS = {"password_hash", "reset_token", "reset_expires_at",
-                          "verification_token", "verification_expires_at"}
+_SENSITIVE_USER_FIELDS = {"password_hash", "reset_token", "reset_code", "reset_expires_at",
+                          "verification_token", "verification_code", "verification_expires_at",
+                          "pending_email"}
     
 @auth_bp.route("/signup", methods=["GET", "POST"])
 def signup():
@@ -40,10 +41,9 @@ def signup():
 
     user = create_user({"username": username, "email": email, "password": password}, acting_role="user")
     if not user:
-        return jsonify({"status": "error", "message": "Signup failed"}), 400
-    if user.verification_token:
-        send_email(user.email, "Verify your account", f"Token: {user.verification_token}")
-    return jsonify({"status": "success", "message": "Signup successful, please verify your email."}), 201
+        return jsonify({"status": "error", "message": "Signup failed. Username or email may already be taken."}), 400
+    issue_verification(user)
+    return jsonify({"status": "success", "message": "Signup successful. Check your email to verify your account."}), 201
 
 
 

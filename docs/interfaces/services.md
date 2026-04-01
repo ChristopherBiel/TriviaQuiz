@@ -20,15 +20,17 @@ Pagination: `page_token` is a base64-encoded `last_key` dict. Internally, Postgr
 
 | Function | Signature | Notes |
 |----------|-----------|-------|
-| `create_user` | `(data, acting_role)` | Hashes password; validates role |
+| `create_user` | `(data, acting_role)` | Hashes password; validates role; rejects duplicate email |
 | `get_user` | `(username) -> UserModel \| None` | |
+| `get_user_by_email` | `(email) -> UserModel \| None` | |
 | `list_users` | `(filters) -> list[UserModel]` | |
 | `update_user` | `(username, updates, acting_role, acting_username)` | Enforces admin vs self-service boundaries |
 | `delete_user` | `(username, acting_role)` | Admin only |
-| `issue_verification` | `(user)` | Issues an email verification token |
-| `verify_user` | `(token)` | Marks user as verified |
-| `issue_reset_token` | `(user)` | Issues a password reset token |
-| `reset_password` | `(token, new_password)` | Validates token, updates password hash |
+| `issue_verification` | `(user, ttl_minutes=15)` | Issues a verification token + 6-digit code |
+| `verify_user` | `(token_or_code)` | Accepts token or code; marks user verified + approved; applies pending email change |
+| `issue_reset_token` | `(user, ttl_minutes=15)` | Issues a reset token + 6-digit code |
+| `reset_password` | `(token_or_code, new_password)` | Accepts token or code; validates expiry, updates password hash |
+| `issue_email_change` | `(user, new_email, ttl_minutes=15)` | Stores pending email; issues verification token + code |
 
 ## Adding a feature
 

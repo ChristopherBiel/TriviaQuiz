@@ -78,15 +78,18 @@ class UserRecord(Base):
 
     user_id = Column(String, primary_key=True)
     username = Column(String, nullable=False, unique=True)
-    email = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False, default="user", server_default=text("'user'"))
     is_verified = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     is_approved = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     verification_token = Column(String)
+    verification_code = Column(String)
     verification_expires_at = Column(DateTime)
     reset_token = Column(String)
+    reset_code = Column(String)
     reset_expires_at = Column(DateTime)
+    pending_email = Column(String)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
     updated_at = Column(DateTime, nullable=False, default=_utcnow)
     last_login_at = Column(DateTime)
@@ -215,9 +218,12 @@ def _user_from_record(record: UserRecord) -> UserModel:
         is_verified=record.is_verified,
         is_approved=record.is_approved,
         verification_token=record.verification_token,
+        verification_code=record.verification_code,
         verification_expires_at=record.verification_expires_at,
         reset_token=record.reset_token,
+        reset_code=record.reset_code,
         reset_expires_at=record.reset_expires_at,
+        pending_email=record.pending_email,
         created_at=record.created_at,
         updated_at=record.updated_at,
         last_login_at=record.last_login_at,
@@ -388,9 +394,12 @@ class PostgresUserStore(UserStore):
             is_verified=user.is_verified,
             is_approved=user.is_approved,
             verification_token=user.verification_token,
+            verification_code=user.verification_code,
             verification_expires_at=user.verification_expires_at,
             reset_token=user.reset_token,
+            reset_code=user.reset_code,
             reset_expires_at=user.reset_expires_at,
+            pending_email=user.pending_email,
             created_at=user.created_at,
             updated_at=user.updated_at,
             last_login_at=user.last_login_at,
@@ -452,9 +461,27 @@ class PostgresUserStore(UserStore):
             record = session.execute(query).scalars().first()
             return _user_from_record(record) if record else None
 
+    def get_by_verification_code(self, code: str) -> UserModel | None:
+        with session_scope() as session:
+            query = select(UserRecord).where(UserRecord.verification_code == code)
+            record = session.execute(query).scalars().first()
+            return _user_from_record(record) if record else None
+
     def get_by_reset_token(self, token: str) -> UserModel | None:
         with session_scope() as session:
             query = select(UserRecord).where(UserRecord.reset_token == token)
+            record = session.execute(query).scalars().first()
+            return _user_from_record(record) if record else None
+
+    def get_by_reset_code(self, code: str) -> UserModel | None:
+        with session_scope() as session:
+            query = select(UserRecord).where(UserRecord.reset_code == code)
+            record = session.execute(query).scalars().first()
+            return _user_from_record(record) if record else None
+
+    def get_by_email(self, email: str) -> UserModel | None:
+        with session_scope() as session:
+            query = select(UserRecord).where(UserRecord.email == email)
             record = session.execute(query).scalars().first()
             return _user_from_record(record) if record else None
 

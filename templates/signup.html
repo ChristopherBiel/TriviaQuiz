@@ -59,10 +59,7 @@
                     class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
                 <input name="confirm_password" id="confirm_password" type="password" placeholder="Confirm password"
                     class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
-                <input name="referral_code" id="referral_code" type="text" placeholder="Referral code"
-                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" required>
                 <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-colors">Sign up</button>
-                <p class="text-xs text-muted text-center">You need a referral code to create an account.</p>
                 <p id="errorMessage" class="text-danger text-sm text-center"></p>
             </form>
             <p class="text-center text-sm text-gray-400 mt-5">Already have an account? <a href="/login" class="text-primary hover:text-primary-hover transition-colors">Sign in</a></p>
@@ -86,7 +83,7 @@
             const response = await fetch("/users/signup", {
                 method: "POST",
                 headers: { "Accept": "application/json", "Content-Type": "application/json" },
-                body: JSON.stringify({ username: data.username, email: data.email, password: data.password, referral_code: data.referral_code })
+                body: JSON.stringify({ username: data.username, email: data.email, password: data.password })
             });
 
             const result = await response.json();
@@ -96,7 +93,7 @@
 
             modalOk.onclick = () => {
                 modal.classList.add("hidden");
-                if (result.status === "success") { window.location.href = "/login"; }
+                if (result.status === "success") { window.location.href = "/verify_email"; }
             };
         });
 

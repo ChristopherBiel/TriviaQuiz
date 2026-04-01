@@ -12,6 +12,19 @@ Defined in `.env` at the repo root (created from `docker/app.env.example`). The 
 | `UPLOAD_FOLDER` | `static/uploads` | internal | Temporary upload staging before MinIO |
 | `ALLOWED_EXTENSIONS` | `png,jpg,jpeg,gif,mp3,mp4` | public | Accepted media extensions |
 
+## Email (SMTP)
+
+| Variable | Default | Sensitivity | Notes |
+|----------|---------|-------------|-------|
+| `SMTP_ENABLED` | `0` | internal | Set to `1` to send real emails. When `0`, emails are printed to stdout. |
+| `SMTP_HOST` | _(empty)_ | internal | SMTP server hostname (e.g. `smtp.gmail.com`) |
+| `SMTP_PORT` | `587` | internal | SMTP server port (587 for STARTTLS, 465 for SSL) |
+| `SMTP_USER` | _(empty)_ | secret | SMTP authentication username |
+| `SMTP_PASSWORD` | _(empty)_ | secret | SMTP authentication password |
+| `SMTP_FROM` | _(empty)_ | internal | Sender email address for outgoing mail |
+| `SMTP_USE_TLS` | `1` | internal | `1` = STARTTLS (port 587); `0` = SSL (port 465) |
+| `APP_BASE_URL` | `http://localhost:5600` | internal | Base URL for links in emails (verification, password reset) |
+
 ## Storage backend selection
 
 | Variable | Default | Sensitivity | Notes |
