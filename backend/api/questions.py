@@ -59,6 +59,8 @@ def _normalize_filters(raw_filters: dict):
         filters["review_status"] = _parse_bool(filters["review_status"])
     if "no_incorrect_answers" in filters:
         filters["no_incorrect_answers"] = _parse_bool(filters["no_incorrect_answers"])
+    if "no_media" in filters:
+        filters["no_media"] = _parse_bool(filters["no_media"])
 
     return filters, None
 
@@ -298,6 +300,9 @@ def format_examples():
     if auth_error:
         return auth_error
 
+    import random
+    from backend.utils.question_generator import QuestionGenerator
+
     body = request.get_json(silent=True) or {}
     raw_filters = body.get("filters", {})
     limit = min(int(body.get("limit", 10)), 50)
@@ -306,12 +311,13 @@ def format_examples():
     if error:
         return jsonify({"error": error}), 400
 
-    questions = get_all_questions(filters, limit=limit, offset=0)
-    if not questions:
+    # Fetch a larger pool and randomly sample for variety
+    pool_size = min(limit * 5, 200)
+    pool = get_all_questions(filters, limit=pool_size, offset=0)
+    if not pool:
         return jsonify({"error": "No questions match the given filters"}), 404
 
-    from backend.utils.question_generator import QuestionGenerator
-
+    questions = random.sample(pool, min(limit, len(pool)))
     examples = [_serialize_question(q) for q in questions]
     text = QuestionGenerator.format_examples_text(examples)
     return jsonify({"text": text, "count": len(examples)}), 200
@@ -345,10 +351,14 @@ def generate_questions():
     if error:
         return jsonify({"error": error}), 400
 
-    questions = get_all_questions(filters, limit=10, offset=0)
-    if len(questions) < 2:
+    import random
+
+    # Fetch a larger pool and randomly sample for variety
+    pool = get_all_questions(filters, limit=50, offset=0)
+    if len(pool) < 2:
         return jsonify({"error": "Need at least 2 example questions matching the filters"}), 400
 
+    questions = random.sample(pool, min(10, len(pool)))
     examples = [_serialize_question(q) for q in questions]
     language = filters.get("language")
     topic = filters.get("question_topic")

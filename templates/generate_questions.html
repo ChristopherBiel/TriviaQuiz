@@ -22,6 +22,10 @@
             </select>
             <input id="filter-tags" type="text" placeholder="Tags (comma-separated)"
                 class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <label class="flex items-center gap-2 text-sm text-gray-300 px-1">
+                <input id="filter-no-media" type="checkbox" checked class="w-4 h-4 rounded border-border bg-card-alt accent-primary">
+                Without media only
+            </label>
             <div>
                 <label class="block text-xs text-muted mb-1">Example questions to use</label>
                 <input id="example-count" type="number" value="5" min="2" max="20"
@@ -89,6 +93,7 @@
         if (topic) filters.question_topic = topic;
         if (language) filters.language = language;
         if (tags) filters.tags = tags;
+        if (document.getElementById('filter-no-media').checked) filters.no_media = true;
         // Default to reviewed questions only for examples
         filters.review_status = true;
         return filters;

@@ -10,20 +10,26 @@ logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
 You are a trivia question generator. Given example trivia questions, generate new \
-questions that match their style, difficulty level, and topic area.
+questions that match their overall topic area and difficulty level.
 
 Rules:
-- Do NOT duplicate or rephrase the example questions. Create entirely new questions.
-- Vary the sub-topics within the same domain.
-- Each question must have exactly one correct answer.
-- Provide 3 plausible incorrect answers for each question.
+- Do NOT duplicate or rephrase the example questions.
+- Each question needs only a correct answer. Do NOT generate incorrect answer options.
 - Keep the same language as the examples unless instructed otherwise.
-- Match the approximate difficulty and point value of the examples.
+- IMPORTANT — Diversity: Do not just create minor variations of the examples \
+(e.g. swapping out one country/name/year for another in the same question pattern). \
+At most half of the generated questions may follow a pattern from the examples. \
+The rest should be genuinely different questions that cover other aspects of the \
+same broad topic area, using different question structures and angles.
+- IMPORTANT — Difficulty: Study the difficulty of the provided examples carefully. \
+The generated questions should match that difficulty level consistently. \
+Avoid trivially easy questions (like "What is the capital of France?") unless \
+the examples are at that level. Aim for the same level of specificity and \
+knowledge required as the examples demonstrate.
 
 Output a JSON array of objects. Each object must have these fields:
 - "question": the question text
 - "answer": the correct answer
-- "incorrect_answers": array of 3 wrong but plausible answers
 - "tags": array of relevant lowercase tags
 - "points": integer 1-10 matching the difficulty
 - "source_note": brief note on the topic area

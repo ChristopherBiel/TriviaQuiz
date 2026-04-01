@@ -250,6 +250,15 @@ def _apply_question_filters(query, filters: dict | None):
                     )
                 )
             continue
+        if key == "no_media":
+            if value:
+                query = query.filter(
+                    or_(
+                        QuestionRecord.media_path == None,
+                        QuestionRecord.media_path == "",
+                    )
+                )
+            continue
         column = getattr(QuestionRecord, key, None)
         if column is not None:
             query = query.filter(column == value)
