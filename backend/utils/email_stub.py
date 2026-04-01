@@ -6,6 +6,7 @@ import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 
 from backend.core.settings import get_settings
 
@@ -28,6 +29,8 @@ def send_email(to: str, subject: str, html_body: str, text_body: str | None = No
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
     msg["To"] = to
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid()
 
     if text_body:
         msg.attach(MIMEText(text_body, "plain"))
