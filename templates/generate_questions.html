@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Questions{% endblock %}
+{% block mobile_title %}GENERATE QUESTIONS{% endblock %}
+
+{% block content %}
+<main class="pt-8 pb-10 px-4 sm:px-6 max-w-5xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Generate Questions</h1>
+
+    <!-- Status banner -->
+    <div id="status-banner" class="hidden mb-4 px-4 py-3 rounded-lg text-sm font-medium"></div>
+
+    <!-- Filter panel -->
+    <div class="bg-card border border-border rounded-xl p-4 mb-6">
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Filters &amp; Settings</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <select id="filter-topic" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <option value="">All Topics</option>
+            </select>
+            <select id="filter-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+                <option value="">All Languages</option>
+            </select>
+            <input id="filter-tags" type="text" placeholder="Tags (comma-separated)"
+                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            <div>
+                <label class="block text-xs text-muted mb-1">Example questions to use</label>
+                <input id="example-count" type="number" value="5" min="2" max="20"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Questions to generate</label>
+                <input id="gen-count" type="number" value="5" min="1" max="20"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            </div>
+            <div>
+                <label class="block text-xs text-muted mb-1">Additional instructions</label>
+                <input id="extra-instructions" type="text" placeholder="e.g. make them harder, focus on 20th century"
+                    class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-4">
+            <button onclick="loadExamples()" class="bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                Load Examples
+            </button>
+            <button id="btn-generate" onclick="generateQuestions()" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                Generate with AI
+            </button>
+        </div>
+    </div>
+
+    <!-- Examples textarea (copy-to-clipboard) -->
+    <div id="examples-section" class="hidden mb-6">
+        <div class="bg-card border border-border rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-semibold text-gray-300"><span id="examples-count">0</span> example questions loaded</p>
+                <button onclick="copyToClipboard()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg border border-border transition-colors">
+                    Copy to Clipboard
+                </button>
+            </div>
+            <textarea id="examples-text" readonly rows="12"
+                class="w-full bg-card-alt border border-border text-gray-200 rounded-lg px-3 py-2.5 font-mono text-xs focus:outline-none resize-y"></textarea>
+        </div>
+    </div>
+
+    <!-- Generated questions -->
+    <div id="generated-section" class="hidden mb-6">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-gray-300">Generated Questions <span id="gen-remaining" class="text-muted font-normal"></span></p>
+            <div class="flex gap-2">
+                <button onclick="addAllToDatabase()" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Add All</button>
+                <button onclick="discardAll()" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg border border-border transition-colors">Discard All</button>
+            </div>
+        </div>
+        <div id="generated-cards" class="space-y-4"></div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let metadata = { languages: [], topics: [], tags: [] };
+    let generatedQuestions = [];
+
+    function buildFilters() {
+        const filters = {};
+        const topic = document.getElementById('filter-topic').value;
+        const language = document.getElementById('filter-language').value;
+        const tags = document.getElementById('filter-tags').value.trim();
+        if (topic) filters.question_topic = topic;
+        if (language) filters.language = language;
+        if (tags) filters.tags = tags;
+        // Default to reviewed questions only for examples
+        filters.review_status = true;
+        return filters;
+    }
+
+    function showBanner(msg, type) {
+        const el = document.getElementById('status-banner');
+        el.textContent = msg;
+        el.className = 'mb-4 px-4 py-3 rounded-lg text-sm font-medium ' +
+            (type === 'error' ? 'bg-danger/20 text-danger border border-danger/30' :
+             type === 'success' ? 'bg-success/20 text-success border border-success/30' :
+             'bg-primary/20 text-primary border border-primary/30');
+        el.classList.remove('hidden');
+        if (type === 'success') setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    function hideBanner() {
+        document.getElementById('status-banner').classList.add('hidden');
+    }
+
+    async function loadMetadata() {
+        try {
+            const res = await fetch('/questions/metadata');
+            metadata = await res.json();
+            const topicSel = document.getElementById('filter-topic');
+            metadata.topics.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t; opt.textContent = t;
+                topicSel.appendChild(opt);
+            });
+            const langSel = document.getElementById('filter-language');
+            metadata.languages.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l; opt.textContent = l.charAt(0).toUpperCase() + l.slice(1);
+                langSel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to load metadata', e);
+        }
+    }
+
+    async function loadExamples() {
+        hideBanner();
+        const filters = buildFilters();
+        const limit = parseInt(document.getElementById('example-count').value) || 5;
+        try {
+            const res = await fetch('/questions/format-examples', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filters, limit })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showBanner(data.error || 'Failed to load examples', 'error');
+                return;
+            }
+            document.getElementById('examples-text').value = data.text;
+            document.getElementById('examples-count').textContent = data.count;
+            document.getElementById('examples-section').classList.remove('hidden');
+        } catch (e) {
+            showBanner('Network error loading examples', 'error');
+        }
+    }
+
+    function copyToClipboard() {
+        const text = document.getElementById('examples-text').value;
+        navigator.clipboard.writeText(text).then(() => {
+            showBanner('Copied to clipboard', 'success');
+        }).catch(() => {
+            // Fallback: select the textarea
+            const ta = document.getElementById('examples-text');
+            ta.select();
+            document.execCommand('copy');
+            showBanner('Copied to clipboard', 'success');
+        });
+    }
+
+    async function generateQuestions() {
+        hideBanner();
+        const btn = document.getElementById('btn-generate');
+        const origText = btn.textContent;
+        btn.textContent = 'Generating...';
+        btn.disabled = true;
+
+        const filters = buildFilters();
+        const count = parseInt(document.getElementById('gen-count').value) || 5;
+        const extra_instructions = document.getElementById('extra-instructions').value.trim();
+
+        try {
+            const res = await fetch('/questions/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filters, count, extra_instructions })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showBanner(data.error || 'Generation failed', 'error');
+                return;
+            }
+
+            generatedQuestions = data.generated.map(q => ({ ...q, added: false }));
+            renderGeneratedCards();
+            document.getElementById('generated-section').classList.remove('hidden');
+            document.getElementById('gen-remaining').textContent =
+                `(${data.remaining_generations} generations remaining this hour)`;
+            showBanner(`Generated ${data.generated.length} questions from ${data.example_count} examples`, 'success');
+        } catch (e) {
+            showBanner('Network error during generation', 'error');
+        } finally {
+            btn.textContent = origText;
+            btn.disabled = false;
+        }
+    }
+
+    function renderGeneratedCards() {
+        const container = document.getElementById('generated-cards');
+        container.innerHTML = '';
+        const topic = document.getElementById('filter-topic').value;
+        const language = document.getElementById('filter-language').value;
+
+        generatedQuestions.forEach((q, idx) => {
+            if (q.added === 'removed') return;
+            const isAdded = q.added === true;
+            const card = document.createElement('div');
+            card.id = `gen-card-${idx}`;
+            card.className = `bg-card border rounded-xl p-4 ${isAdded ? 'border-success/40 opacity-60' : 'border-border'}`;
+            card.innerHTML = `
+                ${isAdded ? '<p class="text-success text-xs font-semibold mb-2">Added to database</p>' : ''}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs text-muted mb-1">Question</label>
+                        <textarea id="gen-q-${idx}" rows="2" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y">${escapeHtml(q.question || '')}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Answer</label>
+                        <input id="gen-a-${idx}" type="text" value="${escapeAttr(q.answer || '')}" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Incorrect Answers (comma-separated)</label>
+                        <input id="gen-inc-${idx}" type="text" value="${escapeAttr((q.incorrect_answers || []).join(', '))}" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Tags (comma-separated)</label>
+                        <input id="gen-tags-${idx}" type="text" value="${escapeAttr((q.tags || []).join(', '))}" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Points</label>
+                        <input id="gen-pts-${idx}" type="number" value="${q.points || 1}" min="1" max="10" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-muted mb-1">Source Note</label>
+                        <input id="gen-src-${idx}" type="text" value="${escapeAttr(q.source_note || 'AI-generated')}" ${isAdded ? 'disabled' : ''}
+                            class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                </div>
+                ${!isAdded ? `
+                <div class="flex gap-2 mt-3 justify-end">
+                    <button onclick="discardCard(${idx})" class="bg-card-alt hover:bg-border text-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg border border-border transition-colors">Discard</button>
+                    <button onclick="addToDatabase(${idx})" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors">Add to Database</button>
+                </div>` : ''}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function readCardData(idx) {
+        const topic = document.getElementById('filter-topic').value;
+        const language = document.getElementById('filter-language').value;
+        return {
+            question: document.getElementById(`gen-q-${idx}`).value,
+            answer: document.getElementById(`gen-a-${idx}`).value,
+            incorrect_answers: document.getElementById(`gen-inc-${idx}`).value.split(',').map(s => s.trim()).filter(Boolean),
+            tags: document.getElementById(`gen-tags-${idx}`).value.split(',').map(s => s.trim()).filter(Boolean),
+            points: parseInt(document.getElementById(`gen-pts-${idx}`).value) || 1,
+            source_note: document.getElementById(`gen-src-${idx}`).value,
+            question_topic: topic || undefined,
+            language: language || undefined,
+        };
+    }
+
+    async function addToDatabase(idx) {
+        const data = readCardData(idx);
+        try {
+            const res = await fetch('/questions/bulk-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ questions: [data] })
+            });
+            const result = await res.json();
+            if (!res.ok || result.failed > 0) {
+                showBanner('Failed to add question', 'error');
+                return;
+            }
+            generatedQuestions[idx].added = true;
+            renderGeneratedCards();
+            showBanner('Question added to database', 'success');
+        } catch (e) {
+            showBanner('Network error adding question', 'error');
+        }
+    }
+
+    async function addAllToDatabase() {
+        const pending = [];
+        generatedQuestions.forEach((q, idx) => {
+            if (q.added !== true && q.added !== 'removed') pending.push(idx);
+        });
+        if (!pending.length) return;
+
+        const questions = pending.map(idx => readCardData(idx));
+        try {
+            const res = await fetch('/questions/bulk-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ questions })
+            });
+            const result = await res.json();
+            if (!res.ok) {
+                showBanner(result.error || 'Failed to add questions', 'error');
+                return;
+            }
+            pending.forEach(idx => { generatedQuestions[idx].added = true; });
+            renderGeneratedCards();
+            showBanner(`Added ${result.created.length} questions (${result.failed} failed)`, result.failed ? 'error' : 'success');
+        } catch (e) {
+            showBanner('Network error adding questions', 'error');
+        }
+    }
+
+    function discardCard(idx) {
+        generatedQuestions[idx].added = 'removed';
+        renderGeneratedCards();
+    }
+
+    function discardAll() {
+        generatedQuestions.forEach(q => { if (q.added !== true) q.added = 'removed'; });
+        renderGeneratedCards();
+        const remaining = generatedQuestions.filter(q => q.added === true).length;
+        if (!remaining) document.getElementById('generated-section').classList.add('hidden');
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadMetadata);
+</script>
+{% endblock %}

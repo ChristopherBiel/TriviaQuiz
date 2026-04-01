@@ -90,3 +90,6 @@ code_attempt_limiter = RateLimiter(max_calls=5, window_seconds=900)
 
 # Signup: 10 per IP per hour
 signup_limiter = RateLimiter(max_calls=10, window_seconds=3600)
+
+# Question generation: 10 per admin per hour
+question_gen_limiter = RateLimiter(max_calls=10, window_seconds=3600)

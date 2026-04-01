@@ -80,6 +80,7 @@ class Settings:
     llm_eval_enabled: bool
     llm_eval_api_key: str
     llm_eval_model: str
+    llm_gen_model: str
 
 
 @lru_cache()
@@ -131,4 +132,5 @@ def get_settings() -> Settings:
         llm_eval_enabled=_as_bool(os.getenv("LLM_EVAL_ENABLED"), False),
         llm_eval_api_key=os.getenv("LLM_EVAL_API_KEY", ""),
         llm_eval_model=os.getenv("LLM_EVAL_MODEL", "claude-haiku-4-5-20251001"),
+        llm_gen_model=os.getenv("LLM_GEN_MODEL", os.getenv("LLM_EVAL_MODEL", "claude-haiku-4-5-20251001")),
     )

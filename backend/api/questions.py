@@ -289,3 +289,113 @@ def random_question():
 def question_metadata():
     metadata = get_question_metadata()
     return jsonify(metadata), 200
+
+
+@questions_bp.route("/format-examples", methods=["POST"])
+def format_examples():
+    """Return filtered questions as copyable text. Admin only."""
+    auth_error = _require_role("admin")
+    if auth_error:
+        return auth_error
+
+    body = request.get_json(silent=True) or {}
+    raw_filters = body.get("filters", {})
+    limit = min(int(body.get("limit", 10)), 50)
+
+    filters, error = _normalize_filters(raw_filters)
+    if error:
+        return jsonify({"error": error}), 400
+
+    questions, _ = get_all_questions(filters, limit=limit, offset=0)
+    if not questions:
+        return jsonify({"error": "No questions match the given filters"}), 404
+
+    from backend.utils.question_generator import QuestionGenerator
+
+    examples = [_serialize_question(q) for q in questions]
+    text = QuestionGenerator.format_examples_text(examples)
+    return jsonify({"text": text, "count": len(examples)}), 200
+
+
+@questions_bp.route("/generate", methods=["POST"])
+def generate_questions():
+    """Generate new questions via AI based on filtered examples. Admin only."""
+    auth_error = _require_role("admin")
+    if auth_error:
+        return auth_error
+
+    from backend.utils.question_generator import get_generator, GenerationError
+    from backend.utils.rate_limit import question_gen_limiter
+
+    username = session.get("username", "")
+    if not question_gen_limiter.is_allowed(username):
+        remaining = question_gen_limiter.remaining(username)
+        return jsonify({"error": "Rate limit exceeded. Try again later.", "remaining": remaining}), 429
+
+    generator = get_generator()
+    if generator is None:
+        return jsonify({"error": "AI generation is not configured. Set LLM_EVAL_ENABLED=1 and provide an API key."}), 503
+
+    body = request.get_json(silent=True) or {}
+    raw_filters = body.get("filters", {})
+    count = min(int(body.get("count", 5)), 20)
+    extra_instructions = body.get("extra_instructions", "")
+
+    filters, error = _normalize_filters(raw_filters)
+    if error:
+        return jsonify({"error": error}), 400
+
+    questions, _ = get_all_questions(filters, limit=10, offset=0)
+    if len(questions) < 2:
+        return jsonify({"error": "Need at least 2 example questions matching the filters"}), 400
+
+    examples = [_serialize_question(q) for q in questions]
+    language = filters.get("language")
+    topic = filters.get("question_topic")
+
+    try:
+        generated = generator.generate(examples, count, language=language, topic=topic, extra_instructions=extra_instructions or None)
+    except GenerationError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    question_gen_limiter.record(username)
+    return jsonify({
+        "generated": generated,
+        "example_count": len(examples),
+        "remaining_generations": question_gen_limiter.remaining(username),
+    }), 200
+
+
+@questions_bp.route("/bulk-create", methods=["POST"])
+def bulk_create_questions():
+    """Create multiple questions at once. Admin only."""
+    auth_error = _require_role("admin")
+    if auth_error:
+        return auth_error
+
+    body = request.get_json(silent=True) or {}
+    items = body.get("questions", [])
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "questions must be a non-empty array"}), 400
+
+    username = session.get("username", "")
+    created = []
+    failed = 0
+
+    for item in items:
+        item["added_by"] = username
+        item.setdefault("review_status", True)
+        item.setdefault("source_note", "AI-generated")
+
+        payload, error = _validate_question_payload(item, partial=False)
+        if error:
+            failed += 1
+            continue
+
+        new_question = create_question(payload)
+        if new_question:
+            created.append(_serialize_question(new_question))
+        else:
+            failed += 1
+
+    return jsonify({"created": created, "failed": failed}), 201

@@ -62,6 +62,15 @@ def manage_events():
         return jsonify({"error": "Forbidden: Admin privileges required"}), 403
     return render_template("manage_events.html")
 
+# Serve the generate questions page (only for admins)
+@routes_bp.route("/generate_questions")
+def generate_questions():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    if not session.get("is_admin"):
+        return jsonify({"error": "Forbidden: Admin privileges required"}), 403
+    return render_template("generate_questions.html")
+
 # Serve the events list page (public)
 @routes_bp.route("/events")
 def events_page():
