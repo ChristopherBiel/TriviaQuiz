@@ -31,10 +31,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from backend.core.settings import get_settings
 from backend.models.event import EventModel
+from backend.models.live import LiveAnswerModel, LiveParticipantModel, LiveSessionModel
 from backend.models.question import QuestionModel
 from backend.models.replay import ReplayAttemptModel
 from backend.models.user import UserModel
-from backend.storage.base import EventStore, QuestionStore, ReplayStore, UserStore
+from backend.storage.base import EventStore, LiveStore, QuestionStore, ReplayStore, UserStore
 
 Base = declarative_base()
 
@@ -108,6 +109,7 @@ class EventRecord(Base):
     max_score = Column(Float)
     description = Column(Text)
     language = Column(String)
+    is_published = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     question_ids = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
@@ -130,6 +132,66 @@ class ReplayRecord(Base):
     total = Column(Integer, nullable=False)
     answers = Column(JSONB, nullable=False)
     completed_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class LiveSessionRecord(Base):
+    __tablename__ = "live_sessions"
+
+    session_id = Column(String, primary_key=True)
+    event_id = Column(String, nullable=False)
+    join_code = Column(String, nullable=False)
+    current_question_index = Column(Integer, nullable=False, default=-1)
+    revealed_indices = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    locked_indices = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
+    show_questions_on_devices = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    status = Column(String, nullable=False, default="lobby")
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        Index("ix_live_sessions_join_code", "join_code"),
+        Index("ix_live_sessions_status", "status"),
+    )
+
+
+class LiveParticipantRecord(Base):
+    __tablename__ = "live_participants"
+
+    participant_id = Column(String, primary_key=True)
+    session_id = Column(String, nullable=False)
+    display_name = Column(String, nullable=False)
+    user_id = Column(String, nullable=True)
+    joined_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        Index("ix_live_participants_session_id", "session_id"),
+    )
+
+
+class LiveAnswerRecord(Base):
+    __tablename__ = "live_answers"
+
+    answer_id = Column(String, primary_key=True)
+    session_id = Column(String, nullable=False)
+    participant_id = Column(String, nullable=False)
+    question_index = Column(Integer, nullable=False)
+    answer_text = Column(Text, nullable=False, default="")
+    is_locked = Column(Boolean, nullable=False, default=False)
+    points_awarded = Column(Float, nullable=True)
+    max_points = Column(Float, nullable=True)
+    is_correct = Column(Boolean, nullable=True)
+    explanation = Column(Text, nullable=True)
+    submitted_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        Index("ix_live_answers_session_question", "session_id", "question_index"),
+        Index(
+            "uq_live_answers_session_participant_question",
+            "session_id", "participant_id", "question_index",
+            unique=True,
+        ),
+    )
 
 
 def _build_url() -> URL | str:
@@ -510,6 +572,7 @@ def _event_from_record(record: EventRecord) -> EventModel:
         max_score=record.max_score,
         description=record.description,
         language=record.language,
+        is_published=record.is_published,
         question_ids=list(record.question_ids or []),
         created_by=record.created_by,
         created_at=record.created_at,
@@ -546,6 +609,7 @@ class PostgresEventStore(EventStore):
             max_score=event.max_score,
             description=event.description,
             language=event.language,
+            is_published=event.is_published,
             question_ids=list(event.question_ids or []),
             created_by=event.created_by,
             created_at=event.created_at,
@@ -694,3 +758,239 @@ class PostgresReplayStore(ReplayStore):
                 return False
             session.delete(record)
             return True
+
+
+# ---------------------------------------------------------------------------
+# Live session helpers
+# ---------------------------------------------------------------------------
+
+def _live_session_from_record(record: LiveSessionRecord) -> LiveSessionModel:
+    return LiveSessionModel(
+        session_id=record.session_id,
+        event_id=record.event_id,
+        join_code=record.join_code,
+        current_question_index=record.current_question_index,
+        revealed_indices=list(record.revealed_indices or []),
+        locked_indices=list(record.locked_indices or []),
+        show_questions_on_devices=record.show_questions_on_devices,
+        status=record.status,
+        created_by=record.created_by,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _live_participant_from_record(record: LiveParticipantRecord) -> LiveParticipantModel:
+    return LiveParticipantModel(
+        participant_id=record.participant_id,
+        session_id=record.session_id,
+        display_name=record.display_name,
+        user_id=record.user_id,
+        joined_at=record.joined_at,
+    )
+
+
+def _live_answer_from_record(record: LiveAnswerRecord) -> LiveAnswerModel:
+    return LiveAnswerModel(
+        answer_id=record.answer_id,
+        session_id=record.session_id,
+        participant_id=record.participant_id,
+        question_index=record.question_index,
+        answer_text=record.answer_text,
+        is_locked=record.is_locked,
+        points_awarded=record.points_awarded,
+        max_points=record.max_points,
+        is_correct=record.is_correct,
+        explanation=record.explanation,
+        submitted_at=record.submitted_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PostgresLiveStore
+# ---------------------------------------------------------------------------
+
+class PostgresLiveStore(LiveStore):
+    def create_session(self, live_session: LiveSessionModel) -> bool:
+        record = LiveSessionRecord(
+            session_id=live_session.session_id,
+            event_id=live_session.event_id,
+            join_code=live_session.join_code,
+            current_question_index=live_session.current_question_index,
+            revealed_indices=list(live_session.revealed_indices or []),
+            locked_indices=list(live_session.locked_indices or []),
+            show_questions_on_devices=live_session.show_questions_on_devices,
+            status=live_session.status,
+            created_by=live_session.created_by,
+            created_at=live_session.created_at,
+            updated_at=live_session.updated_at,
+        )
+        with session_scope() as session:
+            session.add(record)
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                return False
+
+    def get_session(self, session_id: str) -> LiveSessionModel | None:
+        with session_scope() as session:
+            record = session.get(LiveSessionRecord, session_id)
+            return _live_session_from_record(record) if record else None
+
+    def get_session_by_code(self, join_code: str) -> LiveSessionModel | None:
+        with session_scope() as session:
+            query = (
+                select(LiveSessionRecord)
+                .where(
+                    LiveSessionRecord.join_code == join_code,
+                    LiveSessionRecord.status != "finished",
+                )
+            )
+            record = session.execute(query).scalar_one_or_none()
+            return _live_session_from_record(record) if record else None
+
+    def update_session(self, session_id: str, updates: dict) -> LiveSessionModel | None:
+        with session_scope(commit=True) as session:
+            record = session.get(LiveSessionRecord, session_id)
+            if not record:
+                return None
+            for key, value in updates.items():
+                if hasattr(record, key):
+                    setattr(record, key, value)
+            record.updated_at = _utcnow()
+            session.add(record)
+            return _live_session_from_record(record)
+
+    def add_participant(self, participant: LiveParticipantModel) -> bool:
+        record = LiveParticipantRecord(
+            participant_id=participant.participant_id,
+            session_id=participant.session_id,
+            display_name=participant.display_name,
+            user_id=participant.user_id,
+            joined_at=participant.joined_at,
+        )
+        with session_scope() as session:
+            session.add(record)
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                return False
+
+    def get_participants(self, session_id: str) -> list[LiveParticipantModel]:
+        with session_scope() as session:
+            query = (
+                select(LiveParticipantRecord)
+                .where(LiveParticipantRecord.session_id == session_id)
+                .order_by(LiveParticipantRecord.joined_at)
+            )
+            records = session.execute(query).scalars().all()
+            return [_live_participant_from_record(r) for r in records]
+
+    def get_participant(self, participant_id: str) -> LiveParticipantModel | None:
+        with session_scope() as session:
+            record = session.get(LiveParticipantRecord, participant_id)
+            return _live_participant_from_record(record) if record else None
+
+    def save_answer(self, answer: LiveAnswerModel) -> bool:
+        with session_scope(commit=True) as session:
+            # Upsert: check if answer already exists for this participant+question
+            query = select(LiveAnswerRecord).where(
+                LiveAnswerRecord.session_id == answer.session_id,
+                LiveAnswerRecord.participant_id == answer.participant_id,
+                LiveAnswerRecord.question_index == answer.question_index,
+            )
+            existing = session.execute(query).scalar_one_or_none()
+            if existing:
+                existing.answer_text = answer.answer_text
+                existing.submitted_at = answer.submitted_at
+                session.add(existing)
+            else:
+                record = LiveAnswerRecord(
+                    answer_id=answer.answer_id,
+                    session_id=answer.session_id,
+                    participant_id=answer.participant_id,
+                    question_index=answer.question_index,
+                    answer_text=answer.answer_text,
+                    is_locked=answer.is_locked,
+                    points_awarded=answer.points_awarded,
+                    max_points=answer.max_points,
+                    is_correct=answer.is_correct,
+                    explanation=answer.explanation,
+                    submitted_at=answer.submitted_at,
+                )
+                session.add(record)
+            return True
+
+    def get_answer(
+        self, session_id: str, participant_id: str, question_index: int
+    ) -> LiveAnswerModel | None:
+        with session_scope() as session:
+            query = select(LiveAnswerRecord).where(
+                LiveAnswerRecord.session_id == session_id,
+                LiveAnswerRecord.participant_id == participant_id,
+                LiveAnswerRecord.question_index == question_index,
+            )
+            record = session.execute(query).scalar_one_or_none()
+            return _live_answer_from_record(record) if record else None
+
+    def get_answers(
+        self, session_id: str, question_index: int | None = None
+    ) -> list[LiveAnswerModel]:
+        with session_scope() as session:
+            query = select(LiveAnswerRecord).where(
+                LiveAnswerRecord.session_id == session_id
+            )
+            if question_index is not None:
+                query = query.where(LiveAnswerRecord.question_index == question_index)
+            query = query.order_by(LiveAnswerRecord.submitted_at)
+            records = session.execute(query).scalars().all()
+            return [_live_answer_from_record(r) for r in records]
+
+    def get_participant_answers(
+        self, session_id: str, participant_id: str
+    ) -> list[LiveAnswerModel]:
+        with session_scope() as session:
+            query = (
+                select(LiveAnswerRecord)
+                .where(
+                    LiveAnswerRecord.session_id == session_id,
+                    LiveAnswerRecord.participant_id == participant_id,
+                )
+                .order_by(LiveAnswerRecord.question_index)
+            )
+            records = session.execute(query).scalars().all()
+            return [_live_answer_from_record(r) for r in records]
+
+    def update_answers_bulk(
+        self, session_id: str, question_index: int, updates: dict
+    ) -> int:
+        with session_scope(commit=True) as session:
+            query = (
+                select(LiveAnswerRecord)
+                .where(
+                    LiveAnswerRecord.session_id == session_id,
+                    LiveAnswerRecord.question_index == question_index,
+                )
+            )
+            records = session.execute(query).scalars().all()
+            for record in records:
+                for key, value in updates.items():
+                    if hasattr(record, key):
+                        setattr(record, key, value)
+                session.add(record)
+            return len(records)
+
+    def update_answer(self, answer_id: str, updates: dict) -> LiveAnswerModel | None:
+        with session_scope(commit=True) as session:
+            record = session.get(LiveAnswerRecord, answer_id)
+            if not record:
+                return None
+            for key, value in updates.items():
+                if hasattr(record, key):
+                    setattr(record, key, value)
+            session.add(record)
+            return _live_answer_from_record(record)

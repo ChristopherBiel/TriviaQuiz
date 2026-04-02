@@ -100,6 +100,23 @@ def event_add_questions_page(event_id):
         return redirect(url_for("auth.login"))
     return render_template("event_add_questions.html", event_id=event_id)
 
+# Serve the presenter view (login required)
+@routes_bp.route("/events/<event_id>/present")
+def present_event_page(event_id):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth.login"))
+    return render_template("present.html", event_id=event_id)
+
+# Serve the live play join page (public)
+@routes_bp.route("/live")
+def live_join_page():
+    return render_template("live_play.html", session_id=None)
+
+# Serve the live play page for an active session
+@routes_bp.route("/live/<session_id>")
+def live_play_page(session_id):
+    return render_template("live_play.html", session_id=session_id)
+
 # Check the login status
 @routes_bp.route("/login-status", methods=["GET"])
 def check_login():

@@ -1,6 +1,7 @@
-from backend.storage.base import EventStore, MediaStore, QuestionStore, ReplayStore, UserStore
+from backend.storage.base import EventStore, LiveStore, MediaStore, QuestionStore, ReplayStore, UserStore
 from backend.storage.factory import (
     get_event_store,
+    get_live_store,
     get_media_store,
     get_question_store,
     get_replay_store,
@@ -10,11 +11,13 @@ from backend.storage.factory import (
 
 __all__ = [
     "EventStore",
+    "LiveStore",
     "MediaStore",
     "QuestionStore",
     "ReplayStore",
     "UserStore",
     "get_event_store",
+    "get_live_store",
     "get_media_store",
     "get_question_store",
     "get_replay_store",

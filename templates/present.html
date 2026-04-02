@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presenter - Live Quiz</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <script src="{{ url_for('static', filename='js/tailwind.cdn.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117',
+                    card: '#181824',
+                    'card-alt': '#1f1f2e',
+                    border: '#2a2a3c',
+                    primary: '#7c6aef',
+                    'primary-hover': '#8f7ff7',
+                    success: '#34d399',
+                    'success-hover': '#2bb886',
+                    warning: '#fbbf24',
+                    danger: '#f87171',
+                    muted: '#6b6b80',
+                },
+                fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            },
+        },
+    }
+    </script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen flex flex-col">
+    <div id="app" class="flex-1 flex flex-col">
+        <!-- Loading -->
+        <div id="loading" class="flex-1 flex items-center justify-center">
+            <p class="text-muted text-xl">Loading...</p>
+        </div>
+    </div>
+
+<script>
+const EVENT_ID = "{{ event_id }}";
+let sessionId = null;
+let state = null;
+let pollTimer = null;
+
+function esc(str) {
+    return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---------------------------------------------------------------------------
+// Init: create or resume session
+// ---------------------------------------------------------------------------
+async function init() {
+    const resp = await fetch("/api/live/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_id: EVENT_ID }),
+    });
+    if (!resp.ok) {
+        document.getElementById("app").innerHTML = '<div class="flex-1 flex items-center justify-center"><p class="text-danger text-xl">Failed to create session</p></div>';
+        return;
+    }
+    const data = await resp.json();
+    sessionId = data.session_id;
+    startPolling();
+}
+
+function startPolling() {
+    poll();
+    pollTimer = setInterval(poll, 2000);
+}
+
+async function poll() {
+    if (!sessionId) return;
+    try {
+        const resp = await fetch(`/api/live/${sessionId}/state`);
+        if (!resp.ok) return;
+        state = await resp.json();
+        render();
+    } catch (e) { /* silent */ }
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+function render() {
+    if (!state) return;
+    const app = document.getElementById("app");
+
+    if (state.status === "lobby") {
+        renderLobby(app);
+    } else if (state.status === "active") {
+        renderQuestion(app);
+    } else if (state.status === "finished") {
+        renderFinished(app);
+    }
+}
+
+function renderLobby(app) {
+    const participants = state.participants || [];
+    const showQ = state.show_questions_on_devices;
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center px-8">
+            <h1 class="text-4xl font-bold mb-2">${esc(state.event_name)}</h1>
+            <p class="text-muted text-lg mb-10">Live Quiz</p>
+
+            <div class="bg-card border border-border rounded-2xl px-12 py-8 text-center mb-8">
+                <p class="text-muted text-sm uppercase tracking-wider mb-2">Join Code</p>
+                <p class="text-6xl font-bold tracking-widest text-primary">${esc(state.join_code)}</p>
+                <p class="text-muted text-sm mt-3">Go to <span class="text-white font-medium">/live</span> and enter this code</p>
+            </div>
+
+            <div class="mb-8 text-center">
+                <p class="text-muted text-sm mb-3">${participants.length} player${participants.length !== 1 ? 's' : ''} joined</p>
+                <div class="flex flex-wrap gap-2 justify-center max-w-lg">
+                    ${participants.map(p => `<span class="bg-card-alt border border-border text-sm px-3 py-1.5 rounded-lg">${esc(p.display_name)}</span>`).join("")}
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 mb-6">
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input type="checkbox" ${showQ ? 'checked' : ''} onchange="toggleShowQuestions(this.checked)"
+                        class="w-4 h-4 rounded border-border bg-card-alt text-primary focus:ring-primary/50">
+                    Show questions on player devices
+                </label>
+            </div>
+
+            <button onclick="doAdvance()" class="bg-success hover:bg-success-hover text-gray-900 text-lg font-bold px-10 py-4 rounded-xl transition-colors"
+                ${participants.length === 0 ? 'disabled title="Wait for players"' : ''}>
+                Start Quiz
+            </button>
+        </div>
+    `;
+}
+
+function renderQuestion(app) {
+    const q = state.current_question;
+    const idx = state.current_question_index;
+    const total = state.total_questions;
+    const isLocked = state.locked_indices.includes(idx);
+    const isRevealed = state.revealed_indices.includes(idx);
+    const answeredCount = (state.answer_counts || {})[String(idx)] || 0;
+    const totalPlayers = (state.participants || []).length;
+    const revealedAnswer = isRevealed && state.revealed_answers[String(idx)]
+        ? state.revealed_answers[String(idx)].correct_answer : null;
+    const isLastQuestion = idx >= total - 1;
+
+    // Build answers panel for presenter
+    const answers = state.current_answers || [];
+    let answersHtml = '';
+    if (answers.length > 0) {
+        answersHtml = answers.map(a => {
+            let statusBadge = '';
+            if (a.is_correct === true) statusBadge = '<span class="text-success font-semibold">&#10003;</span>';
+            else if (a.is_correct === false) statusBadge = '<span class="text-danger font-semibold">&#10007;</span>';
+            return `<div class="flex items-center justify-between py-2 px-3 bg-card-alt rounded-lg">
+                <span class="text-sm text-gray-300">${esc(a.display_name)}</span>
+                <span class="text-sm ${a.answer_text ? 'text-white' : 'text-muted italic'}">${a.answer_text ? esc(a.answer_text) : 'no answer'} ${statusBadge}</span>
+            </div>`;
+        }).join("");
+    }
+
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col">
+            <!-- Header bar -->
+            <div class="flex items-center justify-between px-8 py-4 border-b border-border">
+                <div class="flex items-center gap-4">
+                    <span class="text-muted text-sm">${esc(state.event_name)}</span>
+                    <span class="bg-card-alt border border-border text-xs px-2 py-1 rounded">${esc(state.join_code)}</span>
+                </div>
+                <div class="flex items-center gap-4 text-sm text-muted">
+                    <span>${answeredCount}/${totalPlayers} answered</span>
+                    <span>Question ${idx + 1} / ${total}</span>
+                </div>
+            </div>
+
+            <!-- Main question area -->
+            <div class="flex-1 flex items-center justify-center px-8 py-12">
+                <div class="text-center max-w-4xl">
+                    <p class="text-muted text-lg mb-4">Question ${idx + 1}</p>
+                    <h2 class="text-4xl lg:text-5xl font-bold leading-tight mb-6">${q ? esc(q.question) : ''}</h2>
+                    ${q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-80 mx-auto rounded-xl mb-6" alt="Question media">` : ''}
+                    ${q && q.points > 1 ? `<p class="text-muted text-lg">${q.points} points</p>` : ''}
+                    ${revealedAnswer ? `<div class="mt-8 bg-success/10 border border-success/30 rounded-xl px-8 py-5">
+                        <p class="text-success text-sm uppercase tracking-wider mb-1">Correct Answer</p>
+                        <p class="text-3xl font-bold text-success">${esc(revealedAnswer)}</p>
+                    </div>` : ''}
+                </div>
+            </div>
+
+            <!-- Answers panel (collapsible) -->
+            ${answers.length > 0 ? `
+            <div class="px-8 pb-4">
+                <details class="bg-card border border-border rounded-xl">
+                    <summary class="px-4 py-3 text-sm text-muted cursor-pointer hover:text-white transition-colors">
+                        Player Answers (${answers.length})
+                    </summary>
+                    <div class="px-4 pb-4 space-y-1 max-h-48 overflow-y-auto">
+                        ${answersHtml}
+                    </div>
+                </details>
+            </div>` : ''}
+
+            <!-- Control bar -->
+            <div class="flex items-center justify-center gap-4 px-8 py-6 border-t border-border bg-card">
+                ${!isLocked ? `<button onclick="doLock()" class="bg-warning/10 text-warning hover:bg-warning/20 text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Lock Answers</button>` : ''}
+                ${isLocked && !isRevealed ? `<button onclick="doReveal()" class="bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Reveal Answer</button>` : ''}
+                ${!isLastQuestion ? `<button onclick="doAdvance()" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Next Question</button>` : ''}
+                ${isLastQuestion && isRevealed ? `<button onclick="doFinish()" class="bg-danger text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Finish Quiz</button>` : ''}
+                ${isLastQuestion && !isRevealed && !isLocked ? `<button onclick="doLock()" class="bg-warning/10 text-warning hover:bg-warning/20 text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Lock Answers</button>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function renderFinished(app) {
+    const leaderboard = state.leaderboard || [];
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center px-8">
+            <h1 class="text-4xl font-bold mb-2">Quiz Complete!</h1>
+            <p class="text-muted text-lg mb-10">${esc(state.event_name)}</p>
+
+            <div class="bg-card border border-border rounded-2xl w-full max-w-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border">
+                    <h2 class="text-lg font-semibold">Final Leaderboard</h2>
+                </div>
+                <div class="divide-y divide-border/50">
+                    ${leaderboard.length === 0 ? '<p class="px-6 py-8 text-muted text-center">No scores</p>' :
+                    leaderboard.map((entry, i) => {
+                        const medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : '';
+                        return `<div class="flex items-center justify-between px-6 py-3 ${i < 3 ? 'bg-card-alt/50' : ''}">
+                            <div class="flex items-center gap-3">
+                                <span class="text-muted text-sm w-6">${medal || (i + 1)}</span>
+                                <span class="font-medium ${i === 0 ? 'text-lg' : ''}">${esc(entry.display_name)}</span>
+                            </div>
+                            <span class="font-bold ${i === 0 ? 'text-lg text-success' : 'text-gray-300'}">${entry.score}</span>
+                        </div>`;
+                    }).join("")}
+                </div>
+            </div>
+
+            <a href="/events/${EVENT_ID}" class="mt-8 text-primary hover:text-primary-hover text-sm transition-colors">Back to Event</a>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+async function doAdvance() {
+    await fetch(`/api/live/${sessionId}/advance`, { method: "POST" });
+    poll();
+}
+
+async function doLock() {
+    await fetch(`/api/live/${sessionId}/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_index: state.current_question_index }),
+    });
+    poll();
+}
+
+async function doReveal() {
+    await fetch(`/api/live/${sessionId}/reveal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_index: state.current_question_index }),
+    });
+    poll();
+}
+
+async function doFinish() {
+    await fetch(`/api/live/${sessionId}/finish`, { method: "POST" });
+    poll();
+}
+
+async function toggleShowQuestions(checked) {
+    await fetch(`/api/live/${sessionId}/settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ show_questions_on_devices: checked }),
+    });
+    poll();
+}
+
+// ---------------------------------------------------------------------------
+// Fullscreen toggle with F key
+// ---------------------------------------------------------------------------
+document.addEventListener("keydown", (e) => {
+    if (e.key === "f" || e.key === "F") {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+            document.exitFullscreen();
+        }
+    }
+});
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

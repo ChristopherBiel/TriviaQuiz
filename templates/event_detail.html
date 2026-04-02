@@ -14,11 +14,17 @@
         <a id="replay-btn" href="/events/{{ event_id }}/replay" class="bg-success hover:bg-success-hover text-gray-900 text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors inline-block">
             Start Replay
         </a>
+        <a id="present-btn" href="/events/{{ event_id }}/present" class="hidden bg-primary hover:bg-primary-hover text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors inline-block">
+            Present Live
+        </a>
         <a id="add-questions-btn" href="/events/{{ event_id }}/add-questions" class="hidden bg-primary hover:bg-primary-hover text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors inline-block">
             Add Questions
         </a>
         <button id="edit-btn" onclick="showEditForm()" class="hidden bg-warning/10 text-warning hover:bg-warning/20 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
             Edit
+        </button>
+        <button id="publish-btn" onclick="togglePublish()" class="hidden bg-primary/10 text-primary hover:bg-primary/20 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+            Publish
         </button>
         <button id="delete-btn" onclick="deleteEvent()" class="hidden bg-danger/10 text-danger hover:bg-danger/20 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
             Delete
@@ -96,9 +102,11 @@
         renderHeader();
         document.getElementById("action-buttons").classList.remove("hidden");
         if (isOwnerOrAdmin) {
+            document.getElementById("present-btn").classList.remove("hidden");
             document.getElementById("add-questions-btn").classList.remove("hidden");
             document.getElementById("edit-btn").classList.remove("hidden");
             document.getElementById("delete-btn").classList.remove("hidden");
+            updatePublishButton();
         }
 
         loadQuestions();
@@ -114,12 +122,45 @@
         if (e.team_score != null) meta.push(`Team score: ${e.team_score}`);
         if (e.max_score != null) meta.push(`Max: ${e.max_score}`);
 
+        const draftBadge = !e.is_published && isOwnerOrAdmin
+            ? '<span class="ml-2 inline-block bg-warning/20 text-warning text-xs font-medium px-2 py-0.5 rounded">Draft</span>'
+            : '';
+
         document.getElementById("event-header").innerHTML = `
-            <h1 class="text-2xl font-bold mb-1">${escHtml(e.name)}</h1>
+            <h1 class="text-2xl font-bold mb-1">${escHtml(e.name)}${draftBadge}</h1>
             ${meta.length ? `<p class="text-sm text-muted mb-2">${meta.join(" &middot; ")}</p>` : ""}
             ${e.description ? `<p class="text-sm text-gray-300">${escHtml(e.description)}</p>` : ""}
             <p class="text-xs text-muted mt-2">Created by ${escHtml(e.created_by)}</p>
         `;
+    }
+
+    function updatePublishButton() {
+        const btn = document.getElementById("publish-btn");
+        btn.classList.remove("hidden");
+        if (eventData.is_published) {
+            btn.textContent = "Unpublish";
+            btn.className = "bg-warning/10 text-warning hover:bg-warning/20 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors";
+        } else {
+            btn.textContent = "Publish";
+            btn.className = "bg-primary/10 text-primary hover:bg-primary/20 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors";
+        }
+    }
+
+    async function togglePublish() {
+        const newState = !eventData.is_published;
+        const resp = await fetch(`/api/events/${EVENT_ID}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_published: newState }),
+        });
+        if (resp.ok) {
+            eventData = await resp.json();
+            renderHeader();
+            updatePublishButton();
+        } else {
+            const err = await resp.json().catch(() => ({}));
+            alert(err.error || "Failed to update event");
+        }
     }
 
     async function loadQuestions() {

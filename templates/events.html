@@ -98,7 +98,7 @@
             const dateStr = e.date ? new Date(e.date).toLocaleDateString() : "";
             return `<a href="/events/${e.event_id}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors flex flex-col">
                 <div class="flex-1">
-                    <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}</h3>
+                    <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}${!e.is_published ? ' <span class="inline-block bg-warning/20 text-warning text-xs font-medium px-1.5 py-0.5 rounded">Draft</span>' : ''}</h3>
                     ${dateStr ? `<p class="text-xs text-muted mb-1">${escHtml(dateStr)}</p>` : ""}
                     ${e.location ? `<p class="text-xs text-muted mb-2">${escHtml(e.location)}</p>` : ""}
                 </div>

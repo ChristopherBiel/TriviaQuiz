@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, IO
 
 from backend.models.event import EventModel
+from backend.models.live import LiveAnswerModel, LiveParticipantModel, LiveSessionModel
 from backend.models.question import QuestionModel
 from backend.models.replay import ReplayAttemptModel
 from backend.models.user import UserModel
@@ -181,6 +182,68 @@ class ReplayStore(ABC):
 
     @abstractmethod
     def delete(self, replay_id: str) -> bool:
+        raise NotImplementedError
+
+
+class LiveStore(ABC):
+    @abstractmethod
+    def create_session(self, session: LiveSessionModel) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_session(self, session_id: str) -> Optional[LiveSessionModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_session_by_code(self, join_code: str) -> Optional[LiveSessionModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_session(self, session_id: str, updates: dict) -> Optional[LiveSessionModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def add_participant(self, participant: LiveParticipantModel) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_participants(self, session_id: str) -> list[LiveParticipantModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_participant(self, participant_id: str) -> Optional[LiveParticipantModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_answer(self, answer: LiveAnswerModel) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_answer(
+        self, session_id: str, participant_id: str, question_index: int
+    ) -> Optional[LiveAnswerModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_answers(
+        self, session_id: str, question_index: Optional[int] = None
+    ) -> list[LiveAnswerModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_participant_answers(
+        self, session_id: str, participant_id: str
+    ) -> list[LiveAnswerModel]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_answers_bulk(
+        self, session_id: str, question_index: int, updates: dict
+    ) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_answer(self, answer_id: str, updates: dict) -> Optional[LiveAnswerModel]:
         raise NotImplementedError
 
 

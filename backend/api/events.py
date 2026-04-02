@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request, session
 
 from backend.services.event_service import (
     add_question_to_event,
+    can_see_event,
     create_event,
     delete_event,
     get_event,
@@ -61,7 +62,12 @@ def list_events_endpoint():
     if request.args.get("created_by"):
         filters["created_by"] = request.args["created_by"]
 
-    events, total = list_events(filters=filters or None, limit=limit, offset=offset)
+    username = session.get("username") if session.get("logged_in") else None
+    role = session.get("role", "user")
+    events, total = list_events(
+        filters=filters or None, limit=limit, offset=offset,
+        username=username, role=role,
+    )
     return jsonify({
         "items": [e.model_dump(mode="json") for e in events],
         "pagination": {"limit": limit, "offset": offset, "count": len(events), "total": total},
@@ -72,6 +78,11 @@ def list_events_endpoint():
 def get_event_endpoint(event_id):
     event = get_event(event_id)
     if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    username = session.get("username") if session.get("logged_in") else None
+    role = session.get("role", "user")
+    if not can_see_event(event, username, role):
         return jsonify({"error": "Event not found"}), 404
 
     leaderboard = get_leaderboard(event_id, limit=5)
@@ -135,6 +146,13 @@ def get_event_questions_endpoint(event_id):
     if not event:
         return jsonify({"error": "Event not found"}), 404
 
+    logged_in = session.get("logged_in", False)
+    username = session.get("username") if logged_in else None
+    role_val = session.get("role", "user")
+    if not can_see_event(event, username, role_val):
+        return jsonify({"error": "Event not found"}), 404
+
+    # (re-use already-fetched values below)
     logged_in = session.get("logged_in", False)
     user_id = session.get("user_id")
     username = session.get("username")
@@ -210,6 +228,15 @@ def reorder_questions_endpoint(event_id):
 
 @events_bp.route("/<event_id>/replay", methods=["POST"])
 def start_replay_endpoint(event_id):
+    event = get_event(event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    username = session.get("username") if session.get("logged_in") else None
+    role = session.get("role", "user")
+    if not can_see_event(event, username, role):
+        return jsonify({"error": "Event not found"}), 404
+
     data = start_replay(event_id)
     if not data:
         return jsonify({"error": "Event not found"}), 404
@@ -219,6 +246,13 @@ def start_replay_endpoint(event_id):
 @events_bp.route("/<event_id>/replay/evaluate", methods=["POST"])
 def evaluate_replay_endpoint(event_id):
     """Evaluate answers without saving — anyone can call this."""
+    event = get_event(event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+    username = session.get("username") if session.get("logged_in") else None
+    if not can_see_event(event, username, session.get("role", "user")):
+        return jsonify({"error": "Event not found"}), 404
+
     data = request.get_json(silent=True) or {}
     user_answers = data.get("answers", [])
 
@@ -295,6 +329,13 @@ def delete_replay_endpoint(event_id, replay_id):
 
 @events_bp.route("/<event_id>/leaderboard", methods=["GET"])
 def leaderboard_endpoint(event_id):
+    event = get_event(event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+    username = session.get("username") if session.get("logged_in") else None
+    if not can_see_event(event, username, session.get("role", "user")):
+        return jsonify({"error": "Event not found"}), 404
+
     try:
         limit = int(request.args.get("limit", 10))
     except ValueError:

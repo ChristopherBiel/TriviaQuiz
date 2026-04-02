@@ -13,12 +13,55 @@ def get_event(event_id: str) -> EventModel | None:
     return get_event_store().get_by_id(event_id)
 
 
+def can_see_event(event: EventModel, username: str | None, role: str) -> bool:
+    """Return True if the user is allowed to see this event."""
+    if event.is_published:
+        return True
+    if role == "admin":
+        return True
+    if username and event.created_by == username:
+        return True
+    return False
+
+
 def list_events(
     filters: dict | None = None,
     limit: int = 50,
     offset: int = 0,
+    username: str | None = None,
+    role: str = "user",
 ) -> tuple[list[EventModel], int]:
-    return get_event_store().list(filters=filters, limit=limit, offset=offset)
+    if role == "admin":
+        return get_event_store().list(filters=filters, limit=limit, offset=offset)
+
+    # For non-admins, fetch with is_published filter first
+    pub_filters = dict(filters or {})
+    pub_filters["is_published"] = True
+    published, pub_total = get_event_store().list(
+        filters=pub_filters, limit=limit, offset=offset,
+    )
+
+    # Also fetch the user's own unpublished events
+    if username:
+        own_filters = dict(filters or {})
+        own_filters["created_by"] = username
+        own_filters["is_published"] = False
+        own_events, own_total = get_event_store().list(
+            filters=own_filters, limit=limit, offset=0,
+        )
+    else:
+        own_events, own_total = [], 0
+
+    # Merge: own unpublished + published (deduplicated)
+    seen_ids = {e.event_id for e in own_events}
+    merged = list(own_events)
+    for e in published:
+        if e.event_id not in seen_ids:
+            merged.append(e)
+    # Sort by created_at descending
+    merged.sort(key=lambda e: e.created_at, reverse=True)
+    total = pub_total + own_total
+    return merged[:limit], total
 
 
 def update_event(

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Quiz</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <script src="{{ url_for('static', filename='js/tailwind.cdn.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    surface: '#0f1117',
+                    card: '#181824',
+                    'card-alt': '#1f1f2e',
+                    border: '#2a2a3c',
+                    primary: '#7c6aef',
+                    'primary-hover': '#8f7ff7',
+                    success: '#34d399',
+                    'success-hover': '#2bb886',
+                    warning: '#fbbf24',
+                    danger: '#f87171',
+                    muted: '#6b6b80',
+                },
+                fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+            },
+        },
+    }
+    </script>
+    <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+</head>
+<body class="bg-surface text-gray-100 min-h-screen flex flex-col">
+    <div id="app" class="flex-1 flex flex-col"></div>
+
+<script>
+let sessionId = {{ session_id | tojson }};
+let participantId = null;
+let state = null;
+let pollTimer = null;
+let currentAnswer = "";
+
+function esc(str) {
+    return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function init() {
+    if (sessionId && participantId) {
+        startPolling();
+    } else {
+        renderJoin();
+    }
+}
+
+function startPolling() {
+    poll();
+    pollTimer = setInterval(poll, 2000);
+}
+
+async function poll() {
+    if (!sessionId) return;
+    try {
+        const resp = await fetch(`/api/live/${sessionId}/state`);
+        if (!resp.ok) return;
+        state = await resp.json();
+        render();
+    } catch (e) { /* silent */ }
+}
+
+// ---------------------------------------------------------------------------
+// Join
+// ---------------------------------------------------------------------------
+function renderJoin() {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+        <div class="flex-1 flex items-center justify-center px-4">
+            <div class="w-full max-w-sm">
+                <h1 class="text-2xl font-bold text-center mb-8">Join Live Quiz</h1>
+                <form onsubmit="doJoin(event)" class="space-y-4">
+                    <input id="join-code" type="text" placeholder="Enter join code" required maxlength="10"
+                        class="w-full bg-card border border-border text-white text-center text-2xl font-bold tracking-widest rounded-xl px-4 py-4 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 uppercase"
+                        autofocus>
+                    <input id="display-name" type="text" placeholder="Your name" required maxlength="30"
+                        class="w-full bg-card border border-border text-white rounded-xl px-4 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <button type="submit" class="w-full bg-primary hover:bg-primary-hover text-white font-bold py-3 rounded-xl transition-colors text-lg">
+                        Join
+                    </button>
+                    <p id="join-error" class="text-danger text-sm text-center hidden"></p>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+async function doJoin(e) {
+    e.preventDefault();
+    const code = document.getElementById("join-code").value.trim();
+    const name = document.getElementById("display-name").value.trim();
+    const errorEl = document.getElementById("join-error");
+
+    const resp = await fetch("/api/live/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ join_code: code, display_name: name }),
+    });
+
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        errorEl.textContent = err.error || "Could not join. Check the code.";
+        errorEl.classList.remove("hidden");
+        return;
+    }
+
+    const data = await resp.json();
+    participantId = data.participant_id;
+    sessionId = data.session_id;
+    startPolling();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+function render() {
+    if (!state) return;
+    const app = document.getElementById("app");
+
+    if (state.status === "lobby") {
+        renderLobby(app);
+    } else if (state.status === "active") {
+        renderActive(app);
+    } else if (state.status === "finished") {
+        renderFinished(app);
+    }
+}
+
+function renderLobby(app) {
+    const participants = state.participants || [];
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center px-4">
+            <div class="bg-card border border-border rounded-2xl px-8 py-6 text-center mb-6">
+                <p class="text-muted text-sm mb-1">Joined</p>
+                <p class="text-3xl font-bold text-primary">${esc(state.event_name)}</p>
+            </div>
+            <p class="text-muted pulse">Waiting for host to start...</p>
+            <div class="mt-6 flex flex-wrap gap-2 justify-center max-w-sm">
+                ${participants.map(p => `<span class="bg-card-alt border border-border text-sm px-3 py-1.5 rounded-lg">${esc(p.display_name)}</span>`).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function renderActive(app) {
+    const idx = state.current_question_index;
+    const total = state.total_questions;
+    const q = state.current_question;
+    const myAnswers = state.my_answers || {};
+    const isLocked = q && q.is_locked;
+    const isRevealed = q && q.is_revealed;
+    const myAnswer = myAnswers[String(idx)];
+    const revealedData = state.revealed_answers[String(idx)];
+
+    // Preserve typed answer
+    if (myAnswer && myAnswer.answer_text) {
+        currentAnswer = myAnswer.answer_text;
+    }
+
+    // Build past questions summary
+    let pastHtml = '';
+    for (let i = 0; i < idx; i++) {
+        const a = myAnswers[String(i)];
+        const r = state.revealed_answers[String(i)];
+        if (a) {
+            let statusIcon = '';
+            if (a.is_correct === true) statusIcon = '<span class="text-success">&#10003;</span>';
+            else if (a.is_correct === false) statusIcon = '<span class="text-danger">&#10007;</span>';
+            else statusIcon = '<span class="text-muted">-</span>';
+            pastHtml += `<div class="flex items-center justify-between py-2 px-3 bg-card-alt rounded-lg text-sm">
+                <span class="text-muted">Q${i + 1}: ${esc(a.answer_text || '(blank)')}</span>
+                <span>${statusIcon} ${a.points_awarded != null ? a.points_awarded + '/' + a.max_points : ''}</span>
+            </div>`;
+        }
+    }
+
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+                <span class="text-sm text-muted">${esc(state.event_name)}</span>
+                <span class="text-sm text-muted">Q ${idx + 1} / ${total}</span>
+            </div>
+
+            <!-- Question area -->
+            <div class="flex-1 flex flex-col items-center justify-center px-4 py-6">
+                ${q && q.question ? `<h2 class="text-xl font-bold text-center mb-4 max-w-lg">${esc(q.question)}</h2>` :
+                  `<p class="text-2xl font-bold text-center mb-4 text-muted">Question ${idx + 1}</p>`}
+                ${q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-48 rounded-xl mb-4" alt="Question media">` : ''}
+
+                ${isRevealed && revealedData ? `
+                    <div class="w-full max-w-sm mb-4">
+                        <div class="bg-success/10 border border-success/30 rounded-xl px-4 py-3 text-center">
+                            <p class="text-success text-xs uppercase tracking-wider mb-1">Correct Answer</p>
+                            <p class="text-lg font-bold text-success">${esc(revealedData.correct_answer)}</p>
+                        </div>
+                        ${myAnswer ? `<div class="mt-3 text-center">
+                            <p class="text-sm text-muted">Your answer: <span class="text-white">${esc(myAnswer.answer_text || '(blank)')}</span></p>
+                            ${myAnswer.is_correct === true ? '<p class="text-success font-semibold mt-1">Correct!</p>' :
+                              myAnswer.is_correct === false ? '<p class="text-danger font-semibold mt-1">Incorrect</p>' : ''}
+                            ${myAnswer.points_awarded != null ? `<p class="text-sm text-muted">${myAnswer.points_awarded} / ${myAnswer.max_points} points</p>` : ''}
+                        </div>` : ''}
+                    </div>
+                ` : `
+                    <div class="w-full max-w-sm">
+                        <input id="answer-input" type="text" placeholder="Your answer..." maxlength="200"
+                            value="${esc(currentAnswer)}"
+                            ${isLocked ? 'disabled' : ''}
+                            oninput="currentAnswer = this.value"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); doSubmitAnswer();}"
+                            class="w-full bg-card border border-border text-white rounded-xl px-4 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-center text-lg ${isLocked ? 'opacity-50' : ''}">
+                        ${!isLocked ? `<button onclick="doSubmitAnswer()" class="w-full mt-3 bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-colors">
+                            ${myAnswer ? 'Update Answer' : 'Submit Answer'}
+                        </button>` : `<p class="text-muted text-sm text-center mt-3">Answers locked — waiting for host...</p>`}
+                    </div>
+                `}
+            </div>
+
+            <!-- Leaderboard + past answers -->
+            <div class="px-4 pb-4 space-y-3">
+                ${pastHtml ? `<details class="bg-card border border-border rounded-xl">
+                    <summary class="px-4 py-2 text-sm text-muted cursor-pointer">Past Answers</summary>
+                    <div class="px-4 pb-3 space-y-1">${pastHtml}</div>
+                </details>` : ''}
+                <details class="bg-card border border-border rounded-xl">
+                    <summary class="px-4 py-2 text-sm text-muted cursor-pointer">Leaderboard</summary>
+                    <div class="px-4 pb-3 space-y-1">
+                        ${(state.leaderboard || []).map((entry, i) => `
+                            <div class="flex items-center justify-between py-1.5 text-sm">
+                                <span class="${entry.participant_id === participantId ? 'text-primary font-semibold' : 'text-gray-300'}">${i + 1}. ${esc(entry.display_name)}</span>
+                                <span class="font-semibold">${entry.score}</span>
+                            </div>
+                        `).join("")}
+                    </div>
+                </details>
+            </div>
+        </div>
+    `;
+
+    // Focus answer input if not locked
+    if (!isLocked && !isRevealed) {
+        const input = document.getElementById("answer-input");
+        if (input && document.activeElement !== input) {
+            // Don't steal focus if user is typing
+        }
+    }
+}
+
+function renderFinished(app) {
+    const leaderboard = state.leaderboard || [];
+    const myAnswers = state.my_answers || {};
+
+    app.innerHTML = `
+        <div class="flex-1 flex flex-col items-center justify-center px-4 py-8">
+            <h1 class="text-3xl font-bold mb-2">Quiz Complete!</h1>
+            <p class="text-muted mb-8">${esc(state.event_name)}</p>
+
+            <div class="bg-card border border-border rounded-2xl w-full max-w-sm overflow-hidden mb-6">
+                <div class="px-4 py-3 border-b border-border">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-muted">Leaderboard</h2>
+                </div>
+                <div class="divide-y divide-border/50">
+                    ${leaderboard.map((entry, i) => {
+                        const isMe = entry.participant_id === participantId;
+                        const medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : '';
+                        return `<div class="flex items-center justify-between px-4 py-2.5 ${isMe ? 'bg-primary/10' : ''}">
+                            <span class="${isMe ? 'text-primary font-semibold' : 'text-gray-300'}">${medal || (i + 1) + '.'} ${esc(entry.display_name)}</span>
+                            <span class="font-bold">${entry.score}</span>
+                        </div>`;
+                    }).join("")}
+                </div>
+            </div>
+
+            <a href="/live" class="text-primary hover:text-primary-hover text-sm transition-colors">Join another quiz</a>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+async function doSubmitAnswer() {
+    if (!sessionId || !participantId || !state) return;
+    const input = document.getElementById("answer-input");
+    const text = input ? input.value.trim() : currentAnswer;
+
+    await fetch(`/api/live/${sessionId}/answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            question_index: state.current_question_index,
+            answer_text: text,
+        }),
+    });
+    currentAnswer = text;
+    poll();
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>

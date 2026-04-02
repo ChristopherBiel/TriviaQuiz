@@ -39,6 +39,7 @@
                         <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('best_score')">Best Score <span id="sort-best_score"></span></th>
                         <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('created_by')">Created By <span id="sort-created_by"></span></th>
                         <th class="px-4 py-3 font-medium cursor-pointer hover:text-gray-300 transition-colors" onclick="sortBy('created_at')">Created <span id="sort-created_at"></span></th>
+                        <th class="px-4 py-3 font-medium">Published</th>
                         <th class="px-4 py-3 font-medium">Actions</th>
                     </tr>
                 </thead>
@@ -136,7 +137,7 @@
         const slice = allEvents.slice(start, start + pageSize);
 
         if (slice.length === 0) {
-            eventList.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-muted">No events found.</td></tr>`;
+            eventList.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-muted">No events found.</td></tr>`;
             return;
         }
 
@@ -157,6 +158,9 @@
                 <td class="px-4 py-3">${escHtml(ev.created_by)}</td>
                 <td class="px-4 py-3 text-muted">${createdStr}</td>
                 <td class="px-4 py-3">
+                    <button onclick='togglePublish("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md transition-colors ${ev.is_published ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-muted/10 text-muted hover:bg-muted/20'}">${ev.is_published ? 'Yes' : 'No'}</button>
+                </td>
+                <td class="px-4 py-3">
                     <div class="flex gap-1.5">
                         <button onclick='startEdit("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors">Edit</button>
                         <button onclick='deleteEvent("${id}")' class="text-xs font-medium px-2.5 py-1.5 rounded-md bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>
@@ -172,7 +176,7 @@
         const totalPages = Math.max(1, Math.ceil(allEvents.length / pageSize));
         const eventList = document.getElementById("event-list");
         const pager = document.createElement("tr");
-        pager.innerHTML = `<td colspan="9" class="px-4 py-3">
+        pager.innerHTML = `<td colspan="10" class="px-4 py-3">
             <div class="flex items-center justify-center gap-3 text-sm">
                 <button ${currentPage===1?"disabled":""} class="px-3 py-1.5 rounded-lg bg-card-alt border border-border text-gray-300 hover:bg-border disabled:opacity-30 transition-colors" onclick="gotoPage(${Math.max(1,currentPage-1)})">Prev</button>
                 <span class="text-muted">Page ${currentPage} / ${totalPages}</span>
@@ -250,6 +254,18 @@
         if (response.ok) { hideEdit(); loadEvents(); }
         else { const err = await response.json().catch(() => ({})); alert(err.error || "Error updating event."); }
     });
+
+    async function togglePublish(id) {
+        const ev = eventCache[id];
+        if (!ev) return;
+        const resp = await fetch(`/api/events/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_published: !ev.is_published }),
+        });
+        if (resp.ok) { loadEvents(); }
+        else { const err = await resp.json().catch(() => ({})); alert(err.error || "Error toggling publish."); }
+    }
 
     function clearFilters() {
         document.getElementById("filter-name").value = "";

@@ -26,6 +26,10 @@ class EventModel(BaseModel):
     max_score: Optional[float] = Field(None, description="Maximum possible score")
     description: Optional[str] = Field(None, description="Description of the event")
     language: Optional[str] = Field(None, description="Default language for questions in this event")
+    is_published: bool = Field(
+        default=False,
+        description="Whether the event is visible to all users",
+    )
     question_ids: list[str] = Field(
         default_factory=list,
         description="Ordered list of question UUIDs belonging to this event",
