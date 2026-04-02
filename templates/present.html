@@ -47,6 +47,7 @@
 const EVENT_ID = "{{ event_id }}";
 let sessionId = null;
 let state = null;
+let prevStateJSON = null;
 let pollTimer = null;
 
 function esc(str) {
@@ -81,7 +82,11 @@ async function poll() {
     try {
         const resp = await fetch(`/api/live/${sessionId}/state`);
         if (!resp.ok) return;
-        state = await resp.json();
+        const newState = await resp.json();
+        const newJSON = JSON.stringify(newState);
+        if (newJSON === prevStateJSON) return; // nothing changed, skip render
+        prevStateJSON = newJSON;
+        state = newState;
         render();
     } catch (e) { /* silent */ }
 }
@@ -93,6 +98,10 @@ function render() {
     if (!state) return;
     const app = document.getElementById("app");
 
+    // Save open state of <details> elements before re-render
+    const detailStates = {};
+    app.querySelectorAll("details").forEach((d, i) => { detailStates[i] = d.open; });
+
     if (state.status === "lobby") {
         renderLobby(app);
     } else if (state.status === "active") {
@@ -100,6 +109,11 @@ function render() {
     } else if (state.status === "finished") {
         renderFinished(app);
     }
+
+    // Restore open state of <details> elements after re-render
+    app.querySelectorAll("details").forEach((d, i) => {
+        if (detailStates[i]) d.open = true;
+    });
 }
 
 function renderLobby(app) {

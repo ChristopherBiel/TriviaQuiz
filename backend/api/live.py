@@ -157,6 +157,17 @@ def finish_endpoint(session_id):
 # Participant endpoints
 # ---------------------------------------------------------------------------
 
+@live_bp.route("/me", methods=["GET"])
+def me_endpoint():
+    """Return the current participant identity from the Flask session cookie.
+    Allows the client to resume after a page refresh without rejoining."""
+    pid = session.get("live_participant_id")
+    sid = session.get("live_session_id")
+    if not pid or not sid:
+        return jsonify({"active": False}), 200
+    return jsonify({"active": True, "participant_id": pid, "session_id": sid}), 200
+
+
 @live_bp.route("/join", methods=["POST"])
 def join_endpoint():
     data = request.get_json(silent=True) or {}
