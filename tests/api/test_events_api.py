@@ -151,6 +151,9 @@ def test_remove_question_success(client, monkeypatch):
 # --- Replay ---
 
 def test_start_replay(client, monkeypatch):
+    event = _sample_event()
+    monkeypatch.setattr("backend.api.events.get_event", MagicMock(return_value=event))
+    monkeypatch.setattr("backend.api.events.can_see_event", MagicMock(return_value=True))
     monkeypatch.setattr("backend.api.events.start_replay", MagicMock(return_value={
         "event_id": "e1", "name": "Quiz", "total": 2, "questions": [],
     }))
@@ -159,6 +162,7 @@ def test_start_replay(client, monkeypatch):
 
 
 def test_start_replay_not_found(client, monkeypatch):
+    monkeypatch.setattr("backend.api.events.get_event", MagicMock(return_value=None))
     monkeypatch.setattr("backend.api.events.start_replay", MagicMock(return_value=None))
     resp = client.post("/api/events/bad-id/replay")
     assert resp.status_code == 404
@@ -184,6 +188,9 @@ def test_submit_replay(client, monkeypatch):
 
 
 def test_evaluate_replay(client, monkeypatch):
+    event = _sample_event()
+    monkeypatch.setattr("backend.api.events.get_event", MagicMock(return_value=event))
+    monkeypatch.setattr("backend.api.events.can_see_event", MagicMock(return_value=True))
     monkeypatch.setattr("backend.api.events.evaluate_replay", MagicMock(return_value={
         "score": 2, "total": 3, "answers": [],
     }))
@@ -197,6 +204,9 @@ def test_evaluate_replay(client, monkeypatch):
 # --- Leaderboard ---
 
 def test_leaderboard(client, monkeypatch):
+    event = _sample_event()
+    monkeypatch.setattr("backend.api.events.get_event", MagicMock(return_value=event))
+    monkeypatch.setattr("backend.api.events.can_see_event", MagicMock(return_value=True))
     monkeypatch.setattr("backend.api.events.get_leaderboard", MagicMock(return_value=[
         {"display_name": "Alice", "score": 8, "total": 10},
     ]))
