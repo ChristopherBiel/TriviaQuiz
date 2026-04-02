@@ -28,7 +28,7 @@ def _login_session(client, username="tester", role="user"):
 
 
 def _sample_event(**overrides):
-    defaults = {"name": "Quiz Night", "created_by": "tester"}
+    defaults = {"name": "Quiz Night", "created_by": "tester", "is_published": True}
     defaults.update(overrides)
     return EventModel(**defaults)
 

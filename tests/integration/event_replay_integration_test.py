@@ -469,6 +469,9 @@ class TestAnonymousReplay:
         event_id = resp.get_json()["event_id"]
         client.post(f"/api/events/{event_id}/questions", json={"question_ids": qids[:1]})
 
+        # Publish the event so it's visible to anonymous users
+        client.put(f"/api/events/{event_id}", json={"is_published": True})
+
         # Logout
         with client.session_transaction() as sess:
             sess.clear()
