@@ -36,6 +36,7 @@ class QuestionModel(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Tags/categories for filtering")
     review_status: bool = Field(default=False, description="Whether the question is approved for display")
     media_path: Optional[str] = Field(None, description="Optional media file URL")
+    media_text: Optional[str] = Field(None, description="Optional text content shown as media (e.g. a quote or passage)")
     points: int = Field(default=1, description="Maximum points for this question (1 for standard, higher for multi-part answers)", ge=1)
 
     model_config = ConfigDict(populate_by_name=True)

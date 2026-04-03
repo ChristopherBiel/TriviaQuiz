@@ -199,7 +199,7 @@ function renderQuestion(app) {
                 <div class="text-center max-w-4xl">
                     <p class="text-muted text-lg mb-4">Question ${idx + 1}</p>
                     <h2 class="text-4xl lg:text-5xl font-bold leading-tight mb-6">${q ? esc(q.question) : ''}</h2>
-                    ${q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-80 mx-auto rounded-xl mb-6" alt="Question media">` : ''}
+                    ${q && q.media_text ? `<blockquote class="mx-auto max-w-2xl text-center px-8 py-6 italic text-2xl text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-6">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-80 mx-auto rounded-xl mb-6" alt="Question media">` : ''}
                     ${q && q.points > 1 ? `<p class="text-muted text-lg">${q.points} points</p>` : ''}
                     ${revealedAnswer ? `<div class="mt-8 bg-success/10 border border-success/30 rounded-xl px-8 py-5">
                         <p class="text-success text-sm uppercase tracking-wider mb-1">Correct Answer</p>

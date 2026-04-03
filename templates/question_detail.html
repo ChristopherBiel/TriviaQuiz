@@ -59,11 +59,19 @@
             </div>
             <input id="edit-answer-source" type="text" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="Answer source (e.g. Wikipedia link)">
             <div>
-                <label class="block text-sm text-gray-400 mb-1">Media</label>
+                <label class="block text-sm text-gray-400 mb-1">Text Media (quote or passage)</label>
+                <textarea id="edit-media-text" rows="3" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm resize-none" placeholder="Enter a quote or passage to display instead of an image..."></textarea>
+                <label class="flex items-center gap-2 mt-1 text-sm text-gray-400">
+                    <input id="remove-media-text" type="checkbox" class="w-4 h-4 rounded accent-primary">
+                    Remove text media
+                </label>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">File Media</label>
                 <input id="edit-media" type="file" class="w-full bg-card-alt border border-border text-white rounded-lg px-3 py-2 text-sm file:mr-3 file:bg-card file:border-0 file:text-gray-300 file:rounded file:px-2 file:py-1 file:text-xs">
                 <label class="flex items-center gap-2 mt-2 text-sm text-gray-400">
                     <input id="remove-media" type="checkbox" class="w-4 h-4 rounded accent-primary">
-                    Remove existing media
+                    Remove file media
                 </label>
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-300">
@@ -125,7 +133,7 @@
         document.getElementById("q-asource").textContent = `Answer source: ${questionData.answer_source || "-"}`;
         const history = questionData.update_history || [];
         document.getElementById("q-history").textContent = history.length ? `Edits: ${history.length}` : "Edits: none";
-        renderMedia(questionData.media_path);
+        renderMedia(questionData.media_path, questionData.media_text);
         updateApproveButton();
         document.getElementById("edit-btn").classList.remove("hidden");
         document.getElementById("delete-btn").classList.remove("hidden");
@@ -141,6 +149,7 @@
         document.getElementById("edit-tags").value = (questionData.tags || []).join(", ");
         document.getElementById("edit-points").value = questionData.points || 1;
         document.getElementById("edit-answer-source").value = questionData.answer_source || "";
+        document.getElementById("edit-media-text").value = questionData.media_text || "";
         document.getElementById("edit-reviewed").checked = !!questionData.review_status;
     }
 
@@ -181,6 +190,9 @@
                 hasChanges = true;
             }
         }
+        const mediaText = document.getElementById("edit-media-text").value;
+        if (mediaText !== (questionData.media_text || "")) { formData.append("media_text", mediaText); hasChanges = true; }
+        if (document.getElementById("remove-media-text").checked) { formData.append("remove_media_text", "1"); hasChanges = true; }
         const fileInput = document.getElementById("edit-media");
         if (fileInput.files.length > 0) { formData.append("media", fileInput.files[0]); hasChanges = true; }
         if (document.getElementById("remove-media").checked) { formData.append("remove_media", "1"); hasChanges = true; }
@@ -210,10 +222,14 @@
         if (resp.ok) loadQuestion(); else alert("Approval failed");
     }
 
-    function renderMedia(url) {
+    function renderMedia(url, text) {
         const container = document.getElementById("media-container");
         if (!container) return;
         container.innerHTML = "";
+        if (text) {
+            container.innerHTML = `<blockquote class="w-full text-center px-4 py-6 italic text-lg text-white leading-relaxed">\u201c${escHtml(text)}\u201d</blockquote>`;
+            return;
+        }
         if (!url) { container.innerHTML = `<p class="text-sm text-muted">No media attached</p>`; return; }
         const clean = url.split("?")[0].toLowerCase();
         if (clean.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
@@ -227,6 +243,10 @@
         } else {
             container.innerHTML = `<a class="text-primary hover:text-primary-hover underline" href="${url}" target="_blank">View media</a>`;
         }
+    }
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
     }
 
     function updateApproveButton() {

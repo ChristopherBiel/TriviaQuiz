@@ -106,8 +106,12 @@
             let mediaContainer = document.getElementById("media");
             mediaContainer.innerHTML = "";
 
+            const escHtml = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+            const mediaText = data.media_text;
             const mediaPath = data.media_path;
-            if (mediaPath) {
+            if (mediaText) {
+                mediaContainer.innerHTML = `<blockquote class="w-full text-center px-6 py-6 italic text-lg text-white leading-relaxed">\u201c${escHtml(mediaText)}\u201d</blockquote>`;
+            } else if (mediaPath) {
                 const cleanUrl = mediaPath.split("?")[0];
                 const fileType = cleanUrl.split(".").pop().toLowerCase();
                 if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileType)) {

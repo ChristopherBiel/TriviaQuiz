@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 <h2 class="text-lg font-semibold mb-4">${escHtml(q.question)}</h2>
-                ${q.media_path ? (() => {
+                ${q.media_text ? `<blockquote class="w-full text-center px-4 py-5 italic text-base text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-4">\u201c${escHtml(q.media_text)}\u201d</blockquote>` : q.media_path ? (() => {
                     const clean = escHtml(q.media_path).split("?")[0];
                     const ext = clean.split(".").pop().toLowerCase();
                     if (["mp3", "wav", "ogg"].includes(ext))

@@ -65,6 +65,7 @@ class QuestionRecord(Base):
     tags = Column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     review_status = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     media_path = Column(String)
+    media_text = Column(Text)
     points = Column(Integer, nullable=False, default=1, server_default=text("1"))
 
     __table_args__ = (
@@ -266,6 +267,7 @@ def _question_from_record(record: QuestionRecord) -> QuestionModel:
         tags=list(record.tags or []),
         review_status=record.review_status,
         media_path=record.media_path,
+        media_text=record.media_text,
         points=record.points,
     )
 
@@ -361,6 +363,7 @@ class PostgresQuestionStore(QuestionStore):
             tags=list(question.tags or []),
             review_status=question.review_status,
             media_path=question.media_path,
+            media_text=question.media_text,
             points=question.points,
         )
         with session_scope() as session:

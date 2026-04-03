@@ -81,6 +81,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
         "tags",
         "review_status",
         "media_path",
+        "media_text",
         "points",
     }
     required_fields = {"question", "answer", "added_by"} if not partial else set()
@@ -92,7 +93,7 @@ def _validate_question_payload(data: dict | None, partial: bool = False):
     for key, value in data.items():
         if key not in allowed_fields:
             continue
-        if key in {"question", "answer", "added_by", "question_topic", "event_id", "source_note", "answer_source", "language", "media_path"}:
+        if key in {"question", "answer", "added_by", "question_topic", "event_id", "source_note", "answer_source", "language", "media_path", "media_text"}:
             if value is not None and not isinstance(value, str):
                 return None, f"{key} must be a string"
             sanitized[key] = value.strip() if isinstance(value, str) else value
@@ -222,6 +223,8 @@ def update_existing_question(question_id):
         raw = request.form.to_dict()
         if raw.get("remove_media"):
             raw["media_path"] = None
+        if raw.get("remove_media_text"):
+            raw["media_text"] = None
         payload, error = _validate_question_payload(raw, partial=True)
         if error and not media_file:
             return jsonify({"error": error}), 400

@@ -23,6 +23,7 @@ def start_replay(event_id: str) -> dict | None:
                 "question_id": q.question_id,
                 "question": q.question,
                 "media_path": media_url,
+                "media_text": q.media_text,
                 "points": q.points,
             })
             total_points += q.points

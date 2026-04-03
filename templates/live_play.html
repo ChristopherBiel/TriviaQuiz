@@ -227,7 +227,7 @@ function renderActive(app) {
             <div class="flex-1 flex flex-col items-center justify-center px-4 py-6">
                 ${q && q.question ? `<h2 class="text-xl font-bold text-center mb-4 max-w-lg">${esc(q.question)}</h2>` :
                   `<p class="text-2xl font-bold text-center mb-4 text-muted">Question ${idx + 1}</p>`}
-                ${q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-48 rounded-xl mb-4" alt="Question media">` : ''}
+                ${q && q.media_text ? `<blockquote class="w-full max-w-lg text-center px-4 py-5 italic text-base text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-4">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? `<img src="${esc(q.media_path)}" class="max-h-48 rounded-xl mb-4" alt="Question media">` : ''}
 
                 ${isRevealed && revealedData ? `
                     <div class="w-full max-w-sm mb-4">

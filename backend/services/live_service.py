@@ -312,6 +312,7 @@ def get_session_state(
                 "question_index": current_idx,
                 "question": q.question if (session.show_questions_on_devices or is_presenter) else None,
                 "media_path": media_url if (session.show_questions_on_devices or is_presenter) else None,
+                "media_text": q.media_text if (session.show_questions_on_devices or is_presenter) else None,
                 "points": q.points,
                 "is_locked": current_idx in session.locked_indices,
                 "is_revealed": current_idx in session.revealed_indices,
