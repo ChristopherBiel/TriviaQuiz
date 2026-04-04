@@ -9,6 +9,7 @@ from backend.services.live_service import (
     get_session_state,
     join_session,
     lock_question,
+    override_answer_points,
     reveal_question,
     submit_answer,
     update_session_settings,
@@ -131,6 +132,36 @@ def reveal_endpoint(session_id):
     if not result:
         return jsonify({"error": "Failed to reveal question"}), 400
     return jsonify(result), 200
+
+
+@live_bp.route("/<session_id>/answer/<answer_id>/points", methods=["PATCH"])
+def override_points_endpoint(session_id, answer_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
+
+    live_session = get_live_session(session_id)
+    if not live_session:
+        return jsonify({"error": "Session not found"}), 404
+
+    presenter_error = _require_presenter(live_session)
+    if presenter_error:
+        return presenter_error
+
+    data = request.get_json(silent=True) or {}
+    points = data.get("points")
+    if points is None:
+        return jsonify({"error": "points is required"}), 400
+
+    try:
+        points = float(points)
+    except (TypeError, ValueError):
+        return jsonify({"error": "points must be a number"}), 400
+
+    result = override_answer_points(session_id, answer_id, points, session["username"])
+    if not result:
+        return jsonify({"error": "Answer not found or not permitted"}), 404
+    return jsonify(result.model_dump(mode="json")), 200
 
 
 @live_bp.route("/<session_id>/finish", methods=["POST"])

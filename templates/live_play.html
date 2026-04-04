@@ -41,6 +41,7 @@ let state = null;
 let prevStateJSON = null;
 let pollTimer = null;
 let currentAnswer = "";
+let lastQuestionIndex = -1;
 
 function esc(str) {
     return String(str ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -185,6 +186,12 @@ function renderActive(app) {
     const isRevealed = q && q.is_revealed;
     const myAnswer = myAnswers[String(idx)];
     const revealedData = state.revealed_answers[String(idx)];
+
+    // Clear answer field when transitioning to a new question
+    if (idx !== lastQuestionIndex) {
+        currentAnswer = "";
+        lastQuestionIndex = idx;
+    }
 
     // Preserve typed answer from server only if user hasn't typed locally
     if (myAnswer && myAnswer.answer_text && !currentAnswer) {

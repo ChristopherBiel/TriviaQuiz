@@ -173,9 +173,26 @@ function renderQuestion(app) {
             let statusBadge = '';
             if (a.is_correct === true) statusBadge = '<span class="text-success font-semibold">&#10003;</span>';
             else if (a.is_correct === false) statusBadge = '<span class="text-danger font-semibold">&#10007;</span>';
-            return `<div class="flex items-center justify-between py-2 px-3 bg-card-alt rounded-lg">
-                <span class="text-sm text-gray-300">${esc(a.display_name)}</span>
-                <span class="text-sm ${a.answer_text ? 'text-white' : 'text-muted italic'}">${a.answer_text ? esc(a.answer_text) : 'no answer'} ${statusBadge}</span>
+
+            let pointsHtml = '';
+            if (a.points_awarded != null) {
+                const pts = a.points_awarded;
+                const max = a.max_points ?? 1;
+                pointsHtml = `<span class="flex items-center gap-1 text-xs">
+                    <button onclick="doOverridePoints('${a.answer_id}', ${Math.max(0, pts - 1)})"
+                        class="w-6 h-6 flex items-center justify-center rounded bg-card border border-border hover:bg-danger/20 hover:text-danger transition-colors">&minus;</button>
+                    <span class="font-semibold min-w-[3ch] text-center">${pts}/${max}</span>
+                    <button onclick="doOverridePoints('${a.answer_id}', ${Math.min(max, pts + 1)})"
+                        class="w-6 h-6 flex items-center justify-center rounded bg-card border border-border hover:bg-success/20 hover:text-success transition-colors">&plus;</button>
+                </span>`;
+            }
+
+            return `<div class="flex items-center justify-between gap-2 py-2 px-3 bg-card-alt rounded-lg">
+                <span class="text-sm text-gray-300 truncate">${esc(a.display_name)}</span>
+                <span class="flex items-center gap-2 text-sm shrink-0">
+                    <span class="${a.answer_text ? 'text-white' : 'text-muted italic'}">${a.answer_text ? esc(a.answer_text) : 'no answer'}</span>
+                    ${statusBadge}${pointsHtml}
+                </span>
             </div>`;
         }).join("");
     }
@@ -286,6 +303,15 @@ async function doReveal() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question_index: state.current_question_index }),
+    });
+    poll();
+}
+
+async function doOverridePoints(answerId, points) {
+    await fetch(`/api/live/${sessionId}/answer/${answerId}/points`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points }),
     });
     poll();
 }

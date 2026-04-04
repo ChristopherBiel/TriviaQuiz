@@ -216,6 +216,29 @@ def get_participants(session_id: str) -> list[LiveParticipantModel]:
 # Answer management
 # ---------------------------------------------------------------------------
 
+def override_answer_points(
+    session_id: str, answer_id: str, points: float, username: str
+) -> LiveAnswerModel | None:
+    live_store = get_live_store()
+    session = live_store.get_session(session_id)
+    if not session or session.created_by != username:
+        return None
+
+    # Read the answer to validate ownership and get max_points
+    answer = live_store.update_answer(answer_id, {})
+    if not answer or answer.session_id != session_id:
+        return None
+
+    max_pts = answer.max_points if answer.max_points is not None else 1
+    clamped = max(0.0, min(float(points), float(max_pts)))
+    is_correct = clamped > 0
+
+    return live_store.update_answer(answer_id, {
+        "points_awarded": clamped,
+        "is_correct": is_correct,
+    })
+
+
 def submit_answer(
     session_id: str,
     participant_id: str,
@@ -311,8 +334,8 @@ def get_session_state(
             current_question = {
                 "question_index": current_idx,
                 "question": q.question if (session.show_questions_on_devices or is_presenter) else None,
-                "media_path": media_url if (session.show_questions_on_devices or is_presenter) else None,
-                "media_text": q.media_text if (session.show_questions_on_devices or is_presenter) else None,
+                "media_path": media_url,
+                "media_text": q.media_text,
                 "points": q.points,
                 "is_locked": current_idx in session.locked_indices,
                 "is_revealed": current_idx in session.revealed_indices,
@@ -379,11 +402,13 @@ def get_session_state(
             participant_map = {p.participant_id: p.display_name for p in participants}
             state["current_answers"] = [
                 {
+                    "answer_id": a.answer_id,
                     "participant_id": a.participant_id,
                     "display_name": participant_map.get(a.participant_id, "?"),
                     "answer_text": a.answer_text,
                     "is_locked": a.is_locked,
                     "points_awarded": a.points_awarded,
+                    "max_points": a.max_points,
                     "is_correct": a.is_correct,
                 }
                 for a in q_answers
