@@ -63,9 +63,19 @@
             });
             const res = await resp.json().catch(() => ({}));
             if (resp.ok) {
-                msg.textContent = "Verified! You can now sign in.";
-                msg.className = "text-sm text-center text-success";
-                document.getElementById("verifyForm").querySelector("button").disabled = true;
+                document.getElementById("verifyForm").innerHTML = `
+                    <div class="flex flex-col items-center gap-4 py-2">
+                        <div class="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                        <div class="text-center space-y-1">
+                            <p class="text-lg font-semibold text-white">Email verified!</p>
+                            <p class="text-sm text-muted">Your account is ready. Sign in to get started.</p>
+                        </div>
+                        <a href="/login" class="w-full mt-2 block text-center bg-primary hover:bg-primary-hover text-white font-semibold py-3 rounded-xl transition-colors">Go to Login</a>
+                    </div>`;
             } else {
                 msg.textContent = res.error || "Verification failed.";
                 msg.className = "text-sm text-center text-danger";
