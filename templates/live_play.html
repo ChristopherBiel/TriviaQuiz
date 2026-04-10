@@ -234,7 +234,7 @@ function renderActive(app) {
             <div class="flex-1 flex flex-col items-center justify-center px-4 py-6">
                 ${q && q.question ? `<h2 class="text-xl font-bold text-center mb-4 max-w-lg">${esc(q.question)}</h2>` :
                   `<p class="text-2xl font-bold text-center mb-4 text-muted">Question ${idx + 1}</p>`}
-                ${q && q.media_text ? `<blockquote class="w-full max-w-lg text-center px-4 py-5 italic text-base text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-4">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? (q.media_path.match(/\.(mp3|wav|ogg)$/i) ? `<div class="w-full max-w-lg bg-card-alt rounded-xl p-3 mb-4"><audio controls class="w-full" style="color-scheme:dark"><source src="${esc(q.media_path)}" type="audio/${q.media_path.endsWith('.wav') ? 'wav' : q.media_path.endsWith('.ogg') ? 'ogg' : 'mpeg'}"></audio></div>` : q.media_path.match(/\.(mp4|webm)$/i) ? `<video controls class="max-h-48 rounded-xl mb-4"><source src="${esc(q.media_path)}" type="video/${q.media_path.endsWith('.webm') ? 'webm' : 'mp4'}"></video>` : `<img src="${esc(q.media_path)}" class="max-h-48 rounded-xl mb-4" alt="Question media">`) : ''}
+                ${q && q.media_text ? `<blockquote class="w-full max-w-lg text-center px-4 py-5 italic text-base text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-4">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? (q.media_path.match(/\.(mp3|wav|ogg)$/i) ? `<div class="w-full max-w-lg bg-card-alt rounded-xl p-3 mb-4"><audio controls class="w-full" style="color-scheme:dark"><source src="${esc(q.media_path)}" type="audio/${q.media_path.endsWith('.wav') ? 'wav' : q.media_path.endsWith('.ogg') ? 'ogg' : 'mpeg'}"></audio></div>` : q.media_path.match(/\.(mp4|webm)$/i) ? `<div class="flex justify-center mb-4"><div class="relative inline-block"><video controls class="max-w-full max-h-48 object-contain rounded-xl"><source src="${esc(q.media_path)}" type="video/${q.media_path.endsWith('.webm') ? 'webm' : 'mp4'}"></video><button onclick="openLightbox('${esc(q.media_path)}', 'video')" class="absolute top-1 right-1 bg-black/60 hover:bg-black/90 text-white rounded-full p-1.5 transition-colors" title="Expand"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg></button></div></div>` : `<div class="flex justify-center mb-4"><img src="${esc(q.media_path)}" class="max-w-full max-h-48 object-contain rounded-xl cursor-zoom-in" onclick="openLightbox('${esc(q.media_path)}', 'image')" title="Click to enlarge" alt="Question media"></div>`) : ''}
 
                 ${isRevealed && revealedData ? `
                     <div class="w-full max-w-sm mb-4">
@@ -346,7 +346,35 @@ async function doSubmitAnswer() {
     poll();
 }
 
+function openLightbox(src, type) {
+    const content = document.getElementById("lightbox-content");
+    if (type === "image") {
+        content.innerHTML = `<img src="${src}" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
+    } else {
+        const ext = src.split("?")[0].split(".").pop().toLowerCase();
+        content.innerHTML = `<video controls autoplay class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"><source src="${src}" type="video/${ext}"></video>`;
+    }
+    document.getElementById("lightbox").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+    document.getElementById("lightbox-content").innerHTML = "";
+    document.getElementById("lightbox").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
+
 document.addEventListener("DOMContentLoaded", init);
 </script>
+
+<!-- Lightbox -->
+<div id="lightbox" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out hidden" onclick="closeLightbox()">
+    <button class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10 cursor-pointer" onclick="closeLightbox()">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <div id="lightbox-content" class="flex items-center justify-center cursor-default" onclick="event.stopPropagation()"></div>
+</div>
 </body>
 </html>

@@ -216,7 +216,7 @@ function renderQuestion(app) {
                 <div class="text-center max-w-4xl">
                     <p class="text-muted text-lg mb-4">Question ${idx + 1}</p>
                     <h2 class="text-4xl lg:text-5xl font-bold leading-tight mb-6">${q ? esc(q.question) : ''}</h2>
-                    ${q && q.media_text ? `<blockquote class="mx-auto max-w-2xl text-center px-8 py-6 italic text-2xl text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-6">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? (q.media_path.match(/\.(mp3|wav|ogg)$/i) ? `<div class="mx-auto max-w-2xl bg-card-alt rounded-xl p-4 mb-6"><audio controls class="w-full" style="color-scheme:dark"><source src="${esc(q.media_path)}" type="audio/${q.media_path.endsWith('.wav') ? 'wav' : q.media_path.endsWith('.ogg') ? 'ogg' : 'mpeg'}"></audio></div>` : q.media_path.match(/\.(mp4|webm)$/i) ? `<video controls class="max-h-80 mx-auto rounded-xl mb-6"><source src="${esc(q.media_path)}" type="video/${q.media_path.endsWith('.webm') ? 'webm' : 'mp4'}"></video>` : `<img src="${esc(q.media_path)}" class="max-h-80 mx-auto rounded-xl mb-6" alt="Question media">`) : ''}
+                    ${q && q.media_text ? `<blockquote class="mx-auto max-w-2xl text-center px-8 py-6 italic text-2xl text-white leading-relaxed bg-card-alt border border-border rounded-xl mb-6">\u201c${esc(q.media_text)}\u201d</blockquote>` : q && q.media_path ? (q.media_path.match(/\.(mp3|wav|ogg)$/i) ? `<div class="mx-auto max-w-2xl bg-card-alt rounded-xl p-4 mb-6"><audio controls class="w-full" style="color-scheme:dark"><source src="${esc(q.media_path)}" type="audio/${q.media_path.endsWith('.wav') ? 'wav' : q.media_path.endsWith('.ogg') ? 'ogg' : 'mpeg'}"></audio></div>` : q.media_path.match(/\.(mp4|webm)$/i) ? `<div class="flex justify-center mb-6"><div class="relative inline-block"><video controls class="max-w-full max-h-80 object-contain rounded-xl"><source src="${esc(q.media_path)}" type="video/${q.media_path.endsWith('.webm') ? 'webm' : 'mp4'}"></video><button onclick="openLightbox('${esc(q.media_path)}', 'video')" class="absolute top-1 right-1 bg-black/60 hover:bg-black/90 text-white rounded-full p-1.5 transition-colors" title="Expand"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg></button></div></div>` : `<div class="flex justify-center mb-6"><img src="${esc(q.media_path)}" class="max-w-full max-h-80 object-contain rounded-xl cursor-zoom-in" onclick="openLightbox('${esc(q.media_path)}', 'image')" title="Click to enlarge" alt="Question media"></div>`) : ''}
                     ${q && q.points > 1 ? `<p class="text-muted text-lg">${q.points} points</p>` : ''}
                     ${revealedAnswer ? `<div class="mt-8 bg-success/10 border border-success/30 rounded-xl px-8 py-5">
                         <p class="text-success text-sm uppercase tracking-wider mb-1">Correct Answer</p>
@@ -331,9 +331,31 @@ async function toggleShowQuestions(checked) {
 }
 
 // ---------------------------------------------------------------------------
-// Fullscreen toggle with F key
+// Lightbox
+// ---------------------------------------------------------------------------
+function openLightbox(src, type) {
+    const content = document.getElementById("lightbox-content");
+    if (type === "image") {
+        content.innerHTML = `<img src="${src}" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl">`;
+    } else {
+        const ext = src.split("?")[0].split(".").pop().toLowerCase();
+        content.innerHTML = `<video controls autoplay class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"><source src="${src}" type="video/${ext}"></video>`;
+    }
+    document.getElementById("lightbox").classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+    document.getElementById("lightbox-content").innerHTML = "";
+    document.getElementById("lightbox").classList.add("hidden");
+    document.body.style.overflow = "";
+}
+
+// ---------------------------------------------------------------------------
+// Keyboard shortcuts
 // ---------------------------------------------------------------------------
 document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
     if (e.key === "f" || e.key === "F") {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(() => {});
@@ -345,5 +367,13 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("DOMContentLoaded", init);
 </script>
+
+<!-- Lightbox -->
+<div id="lightbox" class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center cursor-zoom-out hidden" onclick="closeLightbox()">
+    <button class="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10 cursor-pointer" onclick="closeLightbox()">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+    <div id="lightbox-content" class="flex items-center justify-center cursor-default" onclick="event.stopPropagation()"></div>
+</div>
 </body>
 </html>
