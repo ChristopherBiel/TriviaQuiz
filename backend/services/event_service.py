@@ -2,8 +2,22 @@ from backend.models.event import EventModel
 from backend.storage import get_event_store, get_question_store, get_media_store
 
 
+def compute_max_score(question_ids: list[str]) -> float:
+    """Sum the points of all questions in the list."""
+    if not question_ids:
+        return 0.0
+    question_store = get_question_store()
+    total = 0.0
+    for qid in question_ids:
+        q = question_store.get_by_id(qid)
+        if q:
+            total += q.points
+    return total
+
+
 def create_event(data: dict, username: str) -> EventModel | None:
     data["created_by"] = username
+    data.pop("max_score", None)
     event = EventModel(**data)
     success = get_event_store().add(event)
     return event if success else None
@@ -75,6 +89,7 @@ def update_event(
         return None
     if event.created_by != username and role != "admin":
         return None
+    updates.pop("max_score", None)
     return get_event_store().update(event_id, updates)
 
 
@@ -117,7 +132,8 @@ def add_question_to_event(event_id: str, question_id: str) -> bool:
 
     if question_id not in event.question_ids:
         new_ids = list(event.question_ids) + [question_id]
-        event_store.update(event_id, {"question_ids": new_ids})
+        max_score = compute_max_score(new_ids)
+        event_store.update(event_id, {"question_ids": new_ids, "max_score": max_score})
 
     question_store.update(question_id, {"event_id": event_id})
     return True
@@ -133,7 +149,8 @@ def remove_question_from_event(event_id: str, question_id: str) -> bool:
 
     if question_id in event.question_ids:
         new_ids = [qid for qid in event.question_ids if qid != question_id]
-        event_store.update(event_id, {"question_ids": new_ids})
+        max_score = compute_max_score(new_ids)
+        event_store.update(event_id, {"question_ids": new_ids, "max_score": max_score})
 
     question = question_store.get_by_id(question_id)
     if question and question.event_id == event_id:

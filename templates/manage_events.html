@@ -56,7 +56,6 @@
             <input id="edit-date" type="date" placeholder="Date" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-location" type="text" placeholder="Location" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-team-score" type="number" step="any" placeholder="Team score" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-            <input id="edit-max-score" type="number" step="any" placeholder="Max score" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <select id="edit-language" class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
                 <option value="">Language (optional)</option>
                 <option value="English">English</option>
@@ -222,7 +221,6 @@
         document.getElementById("edit-date").value = ev.date || "";
         document.getElementById("edit-location").value = ev.location || "";
         document.getElementById("edit-team-score").value = ev.team_score ?? "";
-        document.getElementById("edit-max-score").value = ev.max_score ?? "";
         document.getElementById("edit-description").value = ev.description || "";
         document.getElementById("edit-language").value = ev.language || "";
         document.getElementById("edit-panel").classList.remove("hidden");
@@ -242,7 +240,6 @@
             date: document.getElementById("edit-date").value || null,
             location: document.getElementById("edit-location").value || null,
             team_score: document.getElementById("edit-team-score").value ? parseFloat(document.getElementById("edit-team-score").value) : null,
-            max_score: document.getElementById("edit-max-score").value ? parseFloat(document.getElementById("edit-max-score").value) : null,
             description: document.getElementById("edit-description").value || null,
             language: document.getElementById("edit-language").value || null,
         };

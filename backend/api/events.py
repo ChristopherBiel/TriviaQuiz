@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request, session
 from backend.services.event_service import (
     add_question_to_event,
     can_see_event,
+    compute_max_score,
     create_event,
     delete_event,
     get_event,
@@ -87,6 +88,7 @@ def get_event_endpoint(event_id):
 
     leaderboard = get_leaderboard(event_id, limit=5)
     data = event.model_dump(mode="json")
+    data["max_score"] = compute_max_score(event.question_ids)
     data["leaderboard"] = leaderboard
     return jsonify(data), 200
 

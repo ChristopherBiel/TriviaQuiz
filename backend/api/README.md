@@ -48,7 +48,7 @@ curl -b cookiejar -H "Content-Type: application/json" \
 ### Event endpoints (base `/events`)
 - `GET /events/` — list events with pagination. Optional filter: `created_by`.
 - `GET /events/<id>` — event detail including a leaderboard preview.
-- `POST /events/` — create an event. Required: `name`. Optional: `date`, `location`, `team_score`, `max_score`, `description`. Auth required.
+- `POST /events/` — create an event. Required: `name`. Optional: `date`, `location`, `team_score`, `description`. Auth required. `max_score` is auto-calculated from question points.
 - `PUT /events/<id>` — update event fields. Auth required; creator or admin only.
 - `DELETE /events/<id>` — delete event. Auth required; creator or admin only. Add `?delete_questions=true` to also delete linked questions.
 - `GET /events/<id>/questions` — ordered list of questions in the event.

@@ -43,8 +43,6 @@
                 class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <input id="edit-team-score" type="number" step="0.5" placeholder="Team score"
                 class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
-            <input id="edit-max-score" type="number" step="0.5" placeholder="Max possible score"
-                class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm">
             <textarea id="edit-description" placeholder="Description" rows="2"
                 class="bg-card-alt border border-border text-white rounded-lg px-3 py-2.5 placeholder-muted focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm md:col-span-2"></textarea>
             <div class="md:col-span-2 flex gap-2 justify-end">
@@ -262,7 +260,6 @@
         document.getElementById("edit-date").value = e.date || "";
         document.getElementById("edit-location").value = e.location || "";
         document.getElementById("edit-team-score").value = e.team_score ?? "";
-        document.getElementById("edit-max-score").value = e.max_score ?? "";
         document.getElementById("edit-description").value = e.description || "";
         document.getElementById("edit-form").classList.remove("hidden");
     }
@@ -275,12 +272,10 @@
         const date = document.getElementById("edit-date").value;
         const location = document.getElementById("edit-location").value;
         const teamScore = document.getElementById("edit-team-score").value;
-        const maxScore = document.getElementById("edit-max-score").value;
         const description = document.getElementById("edit-description").value;
         if (date) body.date = date; else body.date = null;
         if (location) body.location = location; else body.location = null;
         if (teamScore) body.team_score = parseFloat(teamScore); else body.team_score = null;
-        if (maxScore) body.max_score = parseFloat(maxScore); else body.max_score = null;
         if (description) body.description = description; else body.description = null;
 
         const resp = await fetch(`/api/events/${EVENT_ID}`, {
