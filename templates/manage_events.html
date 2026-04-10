@@ -141,7 +141,7 @@
         }
 
         slice.forEach(ev => {
-            const id = ev.event_id || ev.id;
+            const id = ev.slug || ev.event_id || ev.id;
             eventCache[id] = ev;
             const qCount = (ev.question_ids || []).length;
             const dateStr = ev.date || "-";

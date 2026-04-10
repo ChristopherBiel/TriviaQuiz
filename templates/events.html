@@ -94,7 +94,8 @@
         grid.innerHTML = events.map(e => {
             const qCount = (e.question_ids || []).length;
             const dateStr = e.date ? new Date(e.date).toLocaleDateString() : "";
-            return `<a href="/events/${e.event_id}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors flex flex-col">
+            const eid = e.slug || e.event_id;
+            return `<a href="/events/${eid}" class="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors flex flex-col">
                 <div class="flex-1">
                     <h3 class="font-semibold text-white mb-1">${escHtml(e.name)}${!e.is_published ? ' <span class="inline-block bg-warning/20 text-warning text-xs font-medium px-1.5 py-0.5 rounded">Draft</span>' : ''}</h3>
                     ${dateStr ? `<p class="text-xs text-muted mb-1">${escHtml(dateStr)}</p>` : ""}
@@ -106,7 +107,7 @@
                         ${e.team_score != null ? `<span>Team: ${e.team_score}</span>` : ""}
                         ${e.best_score != null ? `<span>Best: ${e.best_score}</span>` : ""}
                     </div>
-                    ${qCount > 0 ? `<button onclick="event.preventDefault(); window.location.href='/events/${e.event_id}/replay'" class="bg-primary hover:bg-primary-hover text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Replay</button>` : ""}
+                    ${qCount > 0 ? `<button onclick="event.preventDefault(); window.location.href='/events/${eid}/replay'" class="bg-primary hover:bg-primary-hover text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">Replay</button>` : ""}
                 </div>
             </a>`;
         }).join("");

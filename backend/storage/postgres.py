@@ -102,6 +102,7 @@ class EventRecord(Base):
     __tablename__ = "events"
 
     event_id = Column(String, primary_key=True)
+    slug = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
     date = Column(sa_Date)
     location = Column(String)
@@ -119,6 +120,7 @@ class EventRecord(Base):
     __table_args__ = (
         Index("ix_events_name", "name"),
         Index("ix_events_created_by", "created_by"),
+        Index("ix_events_slug", "slug", unique=True),
     )
 
 
@@ -567,6 +569,7 @@ class PostgresUserStore(UserStore):
 def _event_from_record(record: EventRecord) -> EventModel:
     return EventModel(
         event_id=record.event_id,
+        slug=record.slug or "",
         name=record.name,
         date=record.date,
         location=record.location,
@@ -604,6 +607,7 @@ class PostgresEventStore(EventStore):
     def add(self, event: EventModel) -> bool:
         record = EventRecord(
             event_id=event.event_id,
+            slug=event.slug,
             name=event.name,
             date=event.date,
             location=event.location,
@@ -630,6 +634,13 @@ class PostgresEventStore(EventStore):
     def get_by_id(self, event_id: str) -> EventModel | None:
         with session_scope() as session:
             record = session.get(EventRecord, event_id)
+            return _event_from_record(record) if record else None
+
+    def get_by_slug(self, slug: str) -> EventModel | None:
+        with session_scope() as session:
+            record = session.execute(
+                select(EventRecord).filter(EventRecord.slug == slug)
+            ).scalar_one_or_none()
             return _event_from_record(record) if record else None
 
     def list(

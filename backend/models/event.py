@@ -5,7 +5,15 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 import re
+import secrets
+import string
 import uuid
+
+_SLUG_ALPHABET = string.ascii_letters + string.digits
+
+
+def _generate_slug(length: int = 8) -> str:
+    return "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(length))
 
 
 def _utcnow() -> datetime:
@@ -17,6 +25,10 @@ class EventModel(BaseModel):
         default_factory=lambda: str(uuid.uuid4()),
         description="Unique identifier for the event",
         alias="id",
+    )
+    slug: str = Field(
+        default_factory=_generate_slug,
+        description="Short shareable identifier for the event URL",
     )
     name: str = Field(..., description="Name of the event")
     date: Optional[_dt.date] = Field(None, description="When the event took place")

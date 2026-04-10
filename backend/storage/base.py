@@ -134,6 +134,10 @@ class EventStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_by_slug(self, slug: str) -> Optional[EventModel]:
+        raise NotImplementedError
+
+    @abstractmethod
     def list(
         self,
         filters: dict | None = None,

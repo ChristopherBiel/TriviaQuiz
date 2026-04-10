@@ -1,7 +1,14 @@
 from flask import Blueprint, jsonify, render_template, request, redirect, url_for, session
 from backend.auth import auth_bp, get_all_users  # Import authentication blueprint
+from backend.services.event_service import get_event
 
 routes_bp = Blueprint("routes", __name__)
+
+
+def _resolve_event_id(event_id_or_slug: str) -> str | None:
+    """Resolve a slug or UUID to the canonical event_id. Returns None if not found."""
+    event = get_event(event_id_or_slug)
+    return event.event_id if event else None
 
 # Serve the main trivia page
 @routes_bp.route("/")
@@ -79,33 +86,58 @@ def events_page():
 # Serve the event detail page (public)
 @routes_bp.route("/events/<event_id>")
 def event_detail_page(event_id):
-    return render_template("event_detail.html", event_id=event_id)
+    event = get_event(event_id)
+    if not event:
+        return "Event not found", 404
+    if event_id != event.slug and event.slug:
+        return redirect(url_for("routes.event_detail_page", event_id=event.slug), code=301)
+    return render_template("event_detail.html", event_id=event.event_id)
 
 # Serve the replay page (public)
 @routes_bp.route("/events/<event_id>/replay")
 def replay_event_page(event_id):
-    return render_template("replay_event.html", event_id=event_id)
+    event = get_event(event_id)
+    if not event:
+        return "Event not found", 404
+    if event_id != event.slug and event.slug:
+        return redirect(url_for("routes.replay_event_page", event_id=event.slug), code=301)
+    return render_template("replay_event.html", event_id=event.event_id)
 
 # Serve the replay detail page (login required — access checked by API)
 @routes_bp.route("/events/<event_id>/replay/<replay_id>")
 def replay_detail_page(event_id, replay_id):
     if not session.get("logged_in"):
         return redirect(url_for("auth.login"))
-    return render_template("replay_detail.html", event_id=event_id, replay_id=replay_id)
+    event = get_event(event_id)
+    if not event:
+        return "Event not found", 404
+    if event_id != event.slug and event.slug:
+        return redirect(url_for("routes.replay_detail_page", event_id=event.slug, replay_id=replay_id), code=301)
+    return render_template("replay_detail.html", event_id=event.event_id, replay_id=replay_id)
 
 # Serve the add questions to event page (login required)
 @routes_bp.route("/events/<event_id>/add-questions")
 def event_add_questions_page(event_id):
     if not session.get("logged_in"):
         return redirect(url_for("auth.login"))
-    return render_template("event_add_questions.html", event_id=event_id)
+    event = get_event(event_id)
+    if not event:
+        return "Event not found", 404
+    if event_id != event.slug and event.slug:
+        return redirect(url_for("routes.event_add_questions_page", event_id=event.slug), code=301)
+    return render_template("event_add_questions.html", event_id=event.event_id)
 
 # Serve the presenter view (login required)
 @routes_bp.route("/events/<event_id>/present")
 def present_event_page(event_id):
     if not session.get("logged_in"):
         return redirect(url_for("auth.login"))
-    return render_template("present.html", event_id=event_id)
+    event = get_event(event_id)
+    if not event:
+        return "Event not found", 404
+    if event_id != event.slug and event.slug:
+        return redirect(url_for("routes.present_event_page", event_id=event.slug), code=301)
+    return render_template("present.html", event_id=event.event_id)
 
 # Serve the live play join page (public)
 @routes_bp.route("/live")

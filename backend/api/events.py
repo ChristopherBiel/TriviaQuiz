@@ -86,7 +86,7 @@ def get_event_endpoint(event_id):
     if not can_see_event(event, username, role):
         return jsonify({"error": "Event not found"}), 404
 
-    leaderboard = get_leaderboard(event_id, limit=5)
+    leaderboard = get_leaderboard(event.event_id, limit=5)
     data = event.model_dump(mode="json")
     data["max_score"] = compute_max_score(event.question_ids)
     data["leaderboard"] = leaderboard

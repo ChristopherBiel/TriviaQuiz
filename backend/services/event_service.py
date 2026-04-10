@@ -23,8 +23,12 @@ def create_event(data: dict, username: str) -> EventModel | None:
     return event if success else None
 
 
-def get_event(event_id: str) -> EventModel | None:
-    return get_event_store().get_by_id(event_id)
+def get_event(event_id_or_slug: str) -> EventModel | None:
+    store = get_event_store()
+    event = store.get_by_id(event_id_or_slug)
+    if event:
+        return event
+    return store.get_by_slug(event_id_or_slug)
 
 
 def can_see_event(event: EventModel, username: str | None, role: str) -> bool:

@@ -30,6 +30,12 @@ class MemoryEventStore:
     def get_by_id(self, event_id: str):
         return self._data.get(event_id)
 
+    def get_by_slug(self, slug: str):
+        for event in self._data.values():
+            if event.slug == slug:
+                return event
+        return None
+
     def list(self, filters=None, limit=50, offset=0):
         items = list(self._data.values())
         return items[offset:offset + limit], len(items)
