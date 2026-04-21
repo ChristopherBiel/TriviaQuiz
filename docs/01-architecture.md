@@ -5,13 +5,13 @@
 ```mermaid
 flowchart LR
     Browser[Browser]
-    Caddy["Caddy reverse proxy + TLS"]
+    Proxy["Reverse proxy (e.g. Caddy) + TLS"]
     App["Flask + Gunicorn (app :5600)"]
     Postgres[(Postgres)]
     MinIO[("MinIO S3-compatible")]
 
-    Browser -->|"HTTP/HTTPS :80/:443"| Caddy
-    Caddy -->|"reverse_proxy :5600"| App
+    Browser -->|"HTTPS"| Proxy
+    Proxy -->|"reverse_proxy :5600"| App
     App -->|SQLAlchemy| Postgres
     App -->|"boto3 S3 API"| MinIO
     App -.->|SMTP| Mail["Mail server (external)"]
@@ -26,7 +26,7 @@ flowchart TB
     end
 
     subgraph VPS[Single VPS]
-        Caddy2["Caddy :80/:443"]
+        Proxy2["Reverse proxy :80/:443"]
         subgraph Docker["Docker network (private)"]
             App2["App :5600"]
             Postgres2[("Postgres :5432")]
@@ -34,13 +34,13 @@ flowchart TB
         end
     end
 
-    Browser2 --> Caddy2
-    Caddy2 --> App2
+    Browser2 --> Proxy2
+    Proxy2 --> App2
     App2 --> Postgres2
     App2 --> MinIO2
 ```
 
-Caddy is the only host-bound process (ports 80/443). The app, Postgres, and MinIO are reachable only within the Docker network. Never publish Postgres or MinIO ports to the host. SMTP is an external service; the app connects outbound on port 587 (STARTTLS) or 465 (SSL).
+The reverse proxy is the only host-bound process (ports 80/443). The app, Postgres, and MinIO are reachable only within the Docker network. Never publish Postgres or MinIO ports to the host. SMTP is an external service; the app connects outbound on port 587 (STARTTLS) or 465 (SSL). The reverse proxy is not included in docker-compose and must be configured separately.
 
 ## Layer boundaries
 
@@ -56,7 +56,7 @@ Routes must not touch storage directly. Services must not build HTTP responses.
 
 ## Storage adapter pattern
 
-`backend/storage/base.py` defines abstract `QuestionStore`, `UserStore`, and `MediaStore`. Concrete implementations:
+`backend/storage/base.py` defines abstract `QuestionStore`, `UserStore`, `MediaStore`, `EventStore`, `ReplayStore`, and `LiveStore`. Concrete implementations:
 
 - `backend/storage/postgres.py` — current Postgres + MinIO path
 - `backend/storage/minio.py` — MinIO media store
@@ -70,7 +70,7 @@ Routes must not touch storage directly. Services must not build HTTP responses.
 |------|---------|--------|
 | Questions, users | Postgres | `postgres_data` |
 | Media objects | MinIO | `minio_data` |
-| TLS certs | Caddy | `caddy_data`, `caddy_config` |
+| Events, replays, live sessions | Postgres | `postgres_data` |
 
 ## Media delivery
 

@@ -4,7 +4,7 @@ Session-backed JSON endpoints served by Flask blueprints. Use the `/login` route
 ### Conventions
 - JSON responses with `{error: string}` on failure. Content negotiation: `GET /questions/<id>` will render `templates/question_detail.html` when HTML is preferred.
 - Auth: POST/PUT/DELETE routes require a logged-in session; admin-only where noted.
-- Pagination: `limit` (>=1) and `offset` (>=0) plus an opaque `page_token`/`next_page_token` derived from DynamoDB `LastEvaluatedKey`.
+- Pagination: `limit` (>=1) and `offset` (>=0) plus an opaque `page_token`/`next_page_token`.
 - Filters: `tags` (list or comma-separated), `language`, `question_topic`, `review_status` (`true/false`). Filtering happens before pagination.
 - Media: upload as multipart form-data with `media` file; allowed extensions `jpg,jpeg,png,gif,mp4,mp3`. Set `remove_media=true` or `media_path=null` to delete media.
 
@@ -12,7 +12,7 @@ Session-backed JSON endpoints served by Flask blueprints. Use the `/login` route
 - `GET /questions/` — list questions with filters + pagination. Response: `{"items":[...],"pagination":{"limit":n,"offset":n,"count":n,"total":n,"next_page_token":str|null}}`.
 - `GET /questions/<question_id>` — fetch a question; 404 if missing; renders HTML when `Accept` prefers text/html.
 - `GET /questions/metadata` — fetch distinct `languages`, `topics`, and `tags` for reviewed questions.
-- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `event_id`, `source_note`, `answer_source`, `language`, `tags`, `review_status`, `media_path`. Auth required. If `question_topic` is omitted, it defaults to `General`. If `event_id` is provided, the question is automatically added to that event.
+- `POST /questions/` — create a question. Required: `question`, `answer`, `added_by`. Optional: `incorrect_answers`, `question_topic`, `event_id`, `source_note`, `answer_source`, `language`, `tags`, `review_status`, `media_path`, `media_text`, `points`. Auth required. If `question_topic` is omitted, it defaults to `General`. If `event_id` is provided, the question is automatically added to that event.
 - `PUT /questions/<question_id>` — partial update. Auth required; only owner or admin can update. Accepts JSON or multipart with `media`. `question_topic` cannot be updated after creation.
 - `DELETE /questions/<question_id>` — delete a question (and associated S3 media). Creator or admin only. Returns 409 if question is linked to an event; add `?confirm=true` to force deletion.
 - `POST /questions/random` — returns one unseen question matching filters; body: `{"seen":[...],"filters":{...}}`; 404 when none available.
@@ -58,3 +58,24 @@ curl -b cookiejar -H "Content-Type: application/json" \
 - `POST /events/<id>/replay` — start a replay (returns questions without answers).
 - `POST /events/<id>/replay/submit` — submit answers and get scores; body: `{"answers": [{question_id, answer, override?}], "display_name"?}`. Logged-in users get persistent scores.
 - `GET /events/<id>/leaderboard` — full leaderboard for the event.
+
+### Live session endpoints (base `/api/live`)
+
+Presenter-controlled live trivia sessions. Participants join via a short join code.
+
+**Presenter endpoints** (auth required; only session creator or admin):
+- `POST /api/live/` — create a live session; body: `{"event_id": "...", "show_questions_on_devices": false}`. Returns session with join code.
+- `PUT /api/live/<session_id>/settings` — update session settings.
+- `POST /api/live/<session_id>/advance` — advance to the next question.
+- `POST /api/live/<session_id>/lock` — lock the current question (stop accepting answers); optional body: `{"question_index": N}`.
+- `POST /api/live/<session_id>/reveal` — reveal the answer for the current question; optional body: `{"question_index": N}`.
+- `PATCH /api/live/<session_id>/answer/<answer_id>/points` — override a participant answer's points; body: `{"points": N}`.
+- `POST /api/live/<session_id>/finish` — finish the session.
+
+**Participant endpoints:**
+- `GET /api/live/me` — check if current session cookie has an active participant identity.
+- `POST /api/live/join` — join a session; body: `{"join_code": "...", "display_name": "..."}`. No auth required.
+- `POST /api/live/<session_id>/answer` — submit an answer; body: `{"question_index": N, "answer_text": "..."}`. Requires participant session.
+
+**Shared endpoints:**
+- `GET /api/live/<session_id>/state` — get session state. Returns presenter or participant view based on session identity.

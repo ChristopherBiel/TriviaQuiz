@@ -58,19 +58,21 @@ Defined in `.env` at the repo root (created from `docker/app.env.example`). The 
 | Variable | Default | Sensitivity | Notes |
 |----------|---------|-------------|-------|
 | `MINIO_ENDPOINT` | `http://minio:9000` | internal | |
-| `MINIO_ACCESS_KEY` | `trivia` | secret | Also used as `MINIO_ROOT_USER` inside the container |
-| `MINIO_SECRET_KEY` | `trivia-secret` | secret | Also used as `MINIO_ROOT_PASSWORD` inside the container |
+| `MINIO_ACCESS_KEY` | `minioadmin` (code) / `trivia` (Compose) | secret | Also used as `MINIO_ROOT_USER` inside the container |
+| `MINIO_SECRET_KEY` | `minioadmin` (code) / `trivia-secret` (Compose) | secret | Also used as `MINIO_ROOT_PASSWORD` inside the container |
 | `MINIO_BUCKET` | `trivia-media` | internal | |
 | `MINIO_REGION` | `us-east-1` | internal | Used for S3 request signing |
 | `MINIO_SECURE` | `0` | internal | Set to `1` to use HTTPS for the MinIO connection |
 | `MINIO_AUTO_CREATE_BUCKET` | `1` | internal | Creates bucket on startup if missing |
 
-## Caddy
+## LLM evaluation
 
 | Variable | Default | Sensitivity | Notes |
 |----------|---------|-------------|-------|
-| `CADDY_DOMAIN` | `localhost` | public | Public domain for HTTPS routing |
-| `CADDY_EMAIL` | _(empty)_ | public | Email for ACME certificate registration |
+| `LLM_EVAL_ENABLED` | `0` | internal | Set to `1` to enable LLM-assisted answer evaluation in event replay |
+| `LLM_EVAL_API_KEY` | _(empty)_ | secret | API key for the LLM provider (Anthropic) |
+| `LLM_EVAL_MODEL` | `claude-haiku-4-5-20251001` | internal | Model used for answer evaluation |
+| `LLM_GEN_MODEL` | value of `LLM_EVAL_MODEL` | internal | Model used for content generation |
 
 ## Legacy AWS adapters
 

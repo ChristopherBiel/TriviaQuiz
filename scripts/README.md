@@ -4,8 +4,8 @@
 Create or promote an admin user with verified/approved flags set to `True`. Useful for seeding a fresh environment or recovering access when no admin exists.
 
 Prereqs:
-- AWS credentials with write access to the users table (`USERS_TABLE` env, default `TriviaUsersDev`)
-- Standard app env vars (`AWS_REGION`, `SECRET_KEY` optional for this script)
+- Postgres connection env vars (`POSTGRES_*` or `POSTGRES_DSN`)
+- App dependencies installed (`pip install -r requirements.txt`)
 
 Usage:
 ```bash

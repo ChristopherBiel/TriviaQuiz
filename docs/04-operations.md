@@ -3,10 +3,10 @@
 ## Health check
 
 ```bash
-curl http://localhost/health   # expects {"status":"ok"}
+curl http://localhost:5600/health   # expects {"status":"ok"}
 ```
 
-Docker uses the same endpoint to mark the container healthy. A 502 from Caddy means the app container is down or unhealthy.
+Docker uses the same endpoint to mark the container healthy.
 
 ## Logs
 
@@ -14,7 +14,6 @@ Docker uses the same endpoint to mark the container healthy. A 502 from Caddy me
 docker compose -f docker/docker-compose.yml --env-file .env logs -f app       # Flask/Gunicorn
 docker compose -f docker/docker-compose.yml --env-file .env logs -f postgres  # DB errors
 docker compose -f docker/docker-compose.yml --env-file .env logs -f minio     # Object storage
-docker compose -f docker/docker-compose.yml --env-file .env logs -f caddy     # TLS/proxy
 ```
 
 ## Runtime inspection

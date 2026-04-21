@@ -1,24 +1,25 @@
 ## Backend overview
-Flask application built via `backend.main.create_app`, split into blueprints for HTML pages (`backend.routes`, `backend.auth`) and JSON APIs (`backend.api.*`). Business logic lives in services, with DynamoDB/S3 adapters in `backend/db` and Pydantic models in `backend/models`.
+Flask application built via `backend.main.create_app`, split into blueprints for HTML pages (`backend.routes`, `backend.auth`) and JSON APIs (`backend.api.*`). Business logic lives in services, with storage adapters in `backend/storage` and Pydantic models in `backend/models`.
 
 ### Modules at a glance
 - `routes.py` – HTML page routes, login status, and admin user actions.
 - `auth.py` – signup/login/logout plus approval and verification gate checks (session-based).
-- `api/` – JSON APIs for questions, users, and question detail pages (see `backend/api/README.md`).
+- `api/` – JSON APIs for questions, users, events, live sessions, and media (see `backend/api/README.md`).
 - `services/` – orchestrates validation, ownership checks, media lifecycle, and permission rules.
-- `db/` – DynamoDB adapters for questions/users and S3 helpers for media (config via env vars).
-- `models/` – Pydantic models (e.g., `QuestionModel`, `UserModel`) with sanitization and defaults.
+- `storage/` – abstract storage interfaces (`base.py`) and implementations (`postgres.py`, `minio.py`, `aws.py` legacy).
+- `db/` – legacy wrapper functions that delegate to the service/storage layer.
+- `models/` – Pydantic models (e.g., `QuestionModel`, `UserModel`, `EventModel`, `LiveSessionModel`) with sanitization and defaults.
 - `utils/` – password hashing and a simple email stub.
-- `core/config.py` – Flask settings (secret key, upload folder, allowed extensions).
-- `api/events.py` and `db/eventdb.py` – event replay stubs (roadmap; not wired yet).
+- `core/settings.py` – Pydantic Settings configuration, reads `.env` via python-dotenv.
+- `core/config.py` – Flask settings derived from `core/settings.py`.
 
 ### Environment
-Exports are read by multiple layers:
+All configuration via environment variables. See `docs/08-environment-variables.md` for the full reference. Key variables:
 - `SECRET_KEY` – required for Flask sessions.
-- `AWS_REGION` – AWS region (default `eu-central-1`).
-- `DYNAMODB_TABLE` – questions table name.
-- `USERS_TABLE` – users table name.
-- `AWS_S3_BUCKET` – bucket for media uploads.
+- `STORE_BACKEND` – storage backend (`postgres` or `aws`, default: `postgres`).
+- `POSTGRES_*` – database connection settings.
+- `MINIO_*` – object storage settings.
+- `MEDIA_PROXY` – `1` to proxy media through Flask, `0` for presigned URLs.
 
 ### Running just the backend
 From repo root:
@@ -47,7 +48,7 @@ Legacy question routes on `backend.routes` have been removed.
 
 ### Media handling
 - Upload via `media` form field; allowed extensions: `jpg,jpeg,png,gif,mp3,mp4`.
-- New uploads go to `AWS_S3_BUCKET`; updates clean up previous objects when replaced or removed.
+- New uploads go to MinIO (or S3 when using the legacy AWS adapter); updates clean up previous objects when replaced or removed.
 
 ### Testing
-Run `pytest` (unit + integration under `tests/api`, `tests/services`). Provide AWS env vars and disposable DynamoDB/S3 resources when running anything that touches the adapters.
+Run `pytest` (unit + integration under `tests/api`, `tests/services`). CI runs against a real PostgreSQL 16 instance.

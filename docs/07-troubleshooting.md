@@ -15,9 +15,8 @@ flowchart TD
 
 | Symptom | Fix |
 |---------|-----|
-| Caddy returns 502 | Check app logs; ensure migrations ran; confirm Postgres and MinIO containers are healthy |
-| Browser cannot reach site | Verify ports 80/443 are open; confirm `CADDY_DOMAIN` resolves to the VPS IP |
-| Caddy certificate warning on first visit | Wait up to 5 minutes for Let's Encrypt to issue the certificate, then refresh |
+| Reverse proxy returns 502 | Check app logs; ensure migrations ran; confirm Postgres and MinIO containers are healthy |
+| Browser cannot reach site | Verify reverse proxy is running and forwarding to port 5600; check firewall ports 80/443 |
 | `relation "questions" does not exist` | Run `alembic upgrade head` |
 | Media files fail to load | Verify `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`; if `MEDIA_PROXY=1`, check `/media/<key>` returns 200 |
 | Login returns "Email verification required" or "Admin approval required" | Run `scripts/ensure_admin.py` to create or promote an admin |
@@ -35,7 +34,7 @@ flowchart TD
 docker compose -f docker/docker-compose.yml --env-file .env ps
 
 # Health endpoint
-curl http://localhost/health
+curl http://localhost:5600/health
 
 # Stream app logs
 docker compose -f docker/docker-compose.yml --env-file .env logs -f app

@@ -10,7 +10,7 @@ docker compose -f docker/docker-compose.yml --env-file .env up -d
 docker compose -f docker/docker-compose.yml --env-file .env run --rm app alembic upgrade head
 ```
 
-Visit `http://localhost` (Caddy) or check `http://localhost/health` for `{"status":"ok"}`.
+The app is available at `http://localhost:5600`. Check `http://localhost:5600/health` for `{"status":"ok"}`.
 
 Optionally create an admin user:
 ```bash
@@ -20,7 +20,7 @@ docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
 
 ## Notes
 
-- The app listens on port 5600 inside Docker; access it through Caddy at `http://localhost`.
+- The app listens on port 5600 inside Docker. For local development without a reverse proxy, publish port 5600 or access it directly.
 - `POSTGRES_AUTO_CREATE=1` auto-creates tables on startup but does not generate migration files — use Alembic instead.
 - `MEDIA_PROXY=1` (default) routes media requests through the app at `/media/<key>`.
 - `.env` changes require a container restart to take effect.

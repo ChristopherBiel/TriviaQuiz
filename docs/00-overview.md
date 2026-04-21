@@ -8,7 +8,7 @@
 | `wsgi.py` | Gunicorn entry point (Docker) |
 | `backend/` | Application logic: routes, services, storage adapters, models |
 | `templates/` | Jinja2 HTML templates |
-| `docker/` | Dockerfile, docker-compose.yml, Caddyfile |
+| `docker/` | Dockerfile, docker-compose.yml, app.env.example |
 | `alembic/` | Database migration scripts |
 | `scripts/` | Operational helpers (e.g. `ensure_admin.py`) |
 | `tests/` | pytest test suite |

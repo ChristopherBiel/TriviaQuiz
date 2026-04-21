@@ -8,7 +8,7 @@ This guide walks through setting up a fresh VPS to run TriviaQuiz. It assumes ba
 
 | What | How you access it |
 |---|---|
-| TriviaQuiz app | `https://yourdomain.com` |
+| TriviaQuiz app | `http://your-vps-ip:5600` (direct) or `https://yourdomain.com` (with reverse proxy) |
 
 ---
 
@@ -100,8 +100,8 @@ docker run hello-world
 
 ```bash
 sudo ufw allow OpenSSH      # do this FIRST or you will lock yourself out
-sudo ufw allow 80/tcp       # HTTP — needed for TLS certificate issuance
-sudo ufw allow 443/tcp      # HTTPS — main app
+sudo ufw allow 80/tcp       # HTTP — needed if using a reverse proxy with TLS
+sudo ufw allow 443/tcp      # HTTPS — needed if using a reverse proxy with TLS
 sudo ufw enable
 ```
 
@@ -135,8 +135,6 @@ Change the following values — **do not skip any of these**:
 | Variable | What to set |
 |---|---|
 | `SECRET_KEY` | A long random string: `openssl rand -hex 32` |
-| `CADDY_DOMAIN` | Your domain name, e.g. `trivia.yourdomain.com` |
-| `CADDY_EMAIL` | Your email address (used by Let's Encrypt) |
 | `POSTGRES_PASSWORD` | A strong password: `openssl rand -hex 16` |
 | `MINIO_SECRET_KEY` | A strong password: `openssl rand -hex 16` |
 | `POSTGRES_AUTO_CREATE` | Leave at `0` — use Alembic migrations |
@@ -196,14 +194,12 @@ docker compose -f docker/docker-compose.yml --env-file .env run --rm app \
 
 ## Step 10 — Verify the app is working
 
-Visit `https://yourdomain.com`. Caddy automatically obtains a TLS certificate from Let's Encrypt.
-
-If you see a certificate warning, wait a minute and refresh.
+The app is now running on port 5600. To serve it publicly with HTTPS, configure a reverse proxy (e.g. Caddy, nginx) on the host to forward ports 80/443 to the app container on port 5600.
 
 Check the health endpoint:
 
 ```bash
-curl https://yourdomain.com/health
+curl http://localhost:5600/health
 ```
 
 Expected response: `{"status": "ok"}`
@@ -263,14 +259,13 @@ See `docs/05-backups-and-restore.md` for instructions on backing up and restorin
 | Port | Service | Accessible from |
 |---|---|---|
 | 22 | SSH | Internet |
-| 80 | Caddy (redirects to HTTPS) | Internet |
-| 443 | Caddy → TriviaQuiz app | Internet |
+| 80/443 | Reverse proxy (configured separately) | Internet |
 | 5432 | Postgres | Docker internal network only |
 | 9000 | MinIO API | Docker internal network only |
 | 9001 | MinIO admin console | Docker internal network only |
 | 5600 | Gunicorn/Flask | Docker internal network only |
 
-Ports marked "Docker internal network only" are never exposed to the host or internet.
+Ports marked "Docker internal network only" are never exposed to the host or internet. The reverse proxy is not included in docker-compose and must be set up on the host.
 
 ---
 
